@@ -1,0 +1,9 @@
+/.idea/
+/bin/
+/.local/
+*.test
+*.exe
+/coverage.out
+.env
+.env.*
+!.env.example

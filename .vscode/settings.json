@@ -1,0 +1,12 @@
+{
+  "[go]": {
+    "editor.defaultFormatter": "golang.go",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {"source.organizeImports": "explicit"}
+  },
+  "go.useLanguageServer": true,
+  "go.lintTool": "staticcheck",
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true
+}
