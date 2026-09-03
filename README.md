@@ -25,12 +25,13 @@ coordination, not load generation or statistical decisions.
 - Validated lifecycle entry and explicit routing for every active Run state.
 - Retry-safe registration of verified raw artifacts before analysis.
 - Restart-safe orchestration of normalization through an injected executor.
+- Duplicate-safe Kubernetes normalization Job creation and phase mapping.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
 administrative `cmd/migrate` command applies database migrations. Reconciliation
-stages are not wired into a process. A trusted resource resolver, raw-artifact
-collector, normalization executor and reporting stage are still missing, so no
+stages are not wired into a process. Trusted resource/template resolvers,
+artifact collectors and the reporting stage are still missing, so no
 worker executes Jobs from accepted requests. Tests use synthetic contract
 fixtures, not approved deployable resources.
 
@@ -171,9 +172,12 @@ objects, registers every immutable reference idempotently, and advances to
 ANALYZING only after all writes succeed. `AnalysisReconciler` rediscovers that
 evidence, invokes an idempotent normalization boundary, registers the normalized
 result, and advances to REPORTING. Existing normalized evidence is recovered
-without duplicate execution. `Router` advances CREATED, selects every implemented
-stage, and quietly defers reporting until its component exists. A real approved
-resource resolver, raw-artifact collector, normalization executor,
+without duplicate execution. `KubernetesAnalysisExecutor` resolves an approved
+template, creates or adopts the Run's deterministic `-analysis` Job, maps its
+identity-checked phase, and delegates successful output to a separate byte
+attestor. `Router` advances CREATED, selects every implemented stage, and
+quietly defers reporting until its component exists. Real approved
+resource/template resolvers, raw and normalized artifact collectors,
 unbound-cancellation recovery, and production composition are still missing.
 The `reconcile` policy defines that connection's state decisions independently
 of I/O: pending Jobs wait, running Jobs enter RUNNING, terminal Jobs enter

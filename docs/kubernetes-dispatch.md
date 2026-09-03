@@ -107,3 +107,20 @@ separate reconciliation package. Unit tests use injected narrow Job and Pod
 clients and cover initial creation, matching adoption, ambiguous responses,
 concurrent reconciliation, status observation, UID-safe cancellation, dependent
 Pod checks, conflicts, validation and error safety.
+
+## Normalization Jobs
+
+Analysis uses a separate deterministic `<run-id>-analysis` Job because the test
+execution already owns the Run ID as its Job name. `AnalysisDispatcher` applies
+the same restricted Job policy, immutable specification fingerprint and strict
+create-or-adopt comparison, with an additional `perfeng.io/stage=analysis`
+identity on the Job and Pod template. A matching retry is observed; a changed or
+foreign Job is never replaced.
+
+`reconcile.KubernetesAnalysisExecutor` maps pending and running Jobs to quiet
+analysis retries and a failed Job to a definitive normalization failure. It
+delegates a successful Job to a separate normalized-artifact collector, which
+must retrieve and verify the output bytes before returning an immutable
+reference. Kubernetes success alone does not attest output existence, checksum,
+format or provenance. Template resolution, storage access and worker composition
+remain external boundaries.
