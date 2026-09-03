@@ -234,7 +234,7 @@ func TestEnsureJobAcceptsAPIServerDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := dispatcher.ObserveJob(context.Background(), created); err != nil {
+	if _, err := dispatcher.ObserveJob(context.Background(), created.Execution()); err != nil {
 		t.Fatal(err)
 	}
 	adopted, err := dispatcher.EnsureJob(context.Background(), testRunID, jobTemplate())

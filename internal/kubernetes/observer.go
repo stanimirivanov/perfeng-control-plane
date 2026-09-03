@@ -11,7 +11,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
@@ -47,20 +46,20 @@ type Observation struct {
 // interpreted as this Run's workload.
 func (dispatcher *Dispatcher) ObserveJob(
 	ctx context.Context,
-	dispatch Dispatch,
+	execution Execution,
 ) (Observation, error) {
-	if !dispatcher.validDispatch(dispatch) {
+	if !dispatcher.validExecution(execution) {
 		return Observation{}, run.ErrValidation
 	}
 
-	job, err := dispatcher.jobs.Get(ctx, dispatch.JobName, metav1.GetOptions{})
+	job, err := dispatcher.jobs.Get(ctx, execution.JobName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		return Observation{Phase: JobAbsent}, nil
 	}
 	if err != nil {
 		return Observation{}, classifyAPIError("get", err)
 	}
-	if err := matchingDispatch(job, dispatch); err != nil {
+	if err := matchingExecution(job, execution); err != nil {
 		return Observation{}, err
 	}
 
@@ -71,25 +70,25 @@ func (dispatcher *Dispatcher) ObserveJob(
 // Success means deletion was accepted or the Job was already absent; callers
 // must separately confirm Pod termination and prevent stale creates before
 // treating cancellation as complete. This method does not mutate Run state.
-func (dispatcher *Dispatcher) RequestJobStop(ctx context.Context, dispatch Dispatch) error {
-	if !dispatcher.validDispatch(dispatch) {
+func (dispatcher *Dispatcher) RequestJobStop(ctx context.Context, execution Execution) error {
+	if !dispatcher.validExecution(execution) {
 		return run.ErrValidation
 	}
 
-	job, err := dispatcher.jobs.Get(ctx, dispatch.JobName, metav1.GetOptions{})
+	job, err := dispatcher.jobs.Get(ctx, execution.JobName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
 	if err != nil {
 		return classifyAPIError("get", err)
 	}
-	if err := matchingDispatch(job, dispatch); err != nil {
+	if err := matchingExecution(job, execution); err != nil {
 		return err
 	}
 
 	policy := metav1.DeletePropagationForeground
-	err = dispatcher.jobs.Delete(ctx, dispatch.JobName, metav1.DeleteOptions{
-		Preconditions:     &metav1.Preconditions{UID: &dispatch.UID},
+	err = dispatcher.jobs.Delete(ctx, execution.JobName, metav1.DeleteOptions{
+		Preconditions:     &metav1.Preconditions{UID: &execution.UID},
 		PropagationPolicy: &policy,
 	})
 	if apierrors.IsNotFound(err) {
@@ -105,22 +104,18 @@ func (dispatcher *Dispatcher) RequestJobStop(ctx context.Context, dispatch Dispa
 	return nil
 }
 
-func (dispatcher *Dispatcher) validDispatch(dispatch Dispatch) bool {
-	return contract.ValidID(dispatch.RunID) &&
-		dispatch.JobName == dispatch.RunID &&
-		dispatch.Namespace == dispatcher.namespace &&
-		dispatch.UID != "" &&
-		fingerprintPattern.MatchString(dispatch.SpecSHA256)
+func (dispatcher *Dispatcher) validExecution(execution Execution) bool {
+	return execution.Valid() && execution.Namespace == dispatcher.namespace
 }
 
-func matchingDispatch(job *batchv1.Job, dispatch Dispatch) error {
+func matchingExecution(job *batchv1.Job, execution Execution) error {
 	if job == nil ||
-		job.Name != dispatch.JobName ||
-		job.Namespace != dispatch.Namespace ||
-		job.UID != dispatch.UID ||
-		job.Labels[runLabel] != dispatch.RunID ||
+		job.Name != execution.JobName ||
+		job.Namespace != execution.Namespace ||
+		job.UID != execution.UID ||
+		job.Labels[runLabel] != execution.RunID ||
 		job.Labels[managedByLabel] != managedByValue ||
-		job.Annotations[specAnnotation] != dispatch.SpecSHA256 {
+		job.Annotations[specAnnotation] != execution.SpecSHA256 {
 		return ErrJobConflict
 	}
 
@@ -128,7 +123,7 @@ func matchingDispatch(job *batchv1.Job, dispatch Dispatch) error {
 	if err != nil {
 		return errors.New("could not verify Kubernetes Job specification")
 	}
-	if fingerprint != dispatch.SpecSHA256 {
+	if fingerprint != execution.SpecSHA256 {
 		return ErrJobConflict
 	}
 

@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stanimirivanov/perfeng-control-plane/internal/kubernetes"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
@@ -227,6 +228,10 @@ func TestClaimsSurviveProcessRestart(t *testing.T) {
 	r, dsn := claimsDB(t)
 	accepted(t, r, "restart", "request-key-restart")
 	old := oneClaim(t, r, "restart-worker")
+	execution := executionFor(old.Run.ID)
+	if err := r.BindExecution(testContext, old.Lease, execution); err != nil {
+		t.Fatal(err)
+	}
 	checkChild := func(mode string) {
 		t.Helper()
 		ctx, cancel := context.WithTimeout(testContext, 20*time.Second)
@@ -258,20 +263,38 @@ func TestClaimsRestartChild(t *testing.T) {
 		t.Skip("only launched by restart parent")
 	}
 	r := openTest(t, dsn)
+	oldLease := run.Lease{
+		RunID:     os.Getenv("PERFENG_CLAIM_CHILD_ID"),
+		Principal: "restart",
+		WorkerID:  "restart-worker",
+		Token:     os.Getenv("PERFENG_CLAIM_CHILD_TOKEN"),
+	}
 	claims := claimBatch(t, r, "restart-worker", 10)
 	if os.Getenv("PERFENG_CLAIM_CHILD_MODE") == "active" {
 		if len(claims) != 0 {
 			t.Fatal("process restart stole a live lease")
 		}
+		stored, found, err := r.GetExecution(testContext, oldLease)
+		if err != nil || !found || stored != executionFor(oldLease.RunID) {
+			t.Fatal("execution identity was not recovered after restart", err)
+		}
+
 		return
+	}
+	if _, _, err := r.GetExecution(testContext, oldLease); !errors.Is(err, run.ErrLeaseLost) {
+		t.Fatal("expired process retained execution access", err)
 	}
 	if len(claims) != 1 || claims[0].Run.ID != os.Getenv("PERFENG_CLAIM_CHILD_ID") ||
 		claims[0].Lease.Token == os.Getenv("PERFENG_CLAIM_CHILD_TOKEN") {
 		t.Fatal("expired work not safely recovered")
 	}
+	stored, found, err := r.GetExecution(testContext, claims[0].Lease)
+	if err != nil || !found || stored != executionFor(claims[0].Run.ID) {
+		t.Fatal("new owner did not recover execution identity", err)
+	}
 }
 
-func TestLeaseMigrationUpgrade(t *testing.T) {
+func TestReconciliationMigrationUpgrade(t *testing.T) {
 	r := openTest(t, testDatabase(t))
 	// Recreate the already-shipped v1 database, including a run and evidence.
 	if _, err := r.db.Exec(`CREATE SCHEMA perfeng_control;
@@ -305,6 +328,10 @@ func TestLeaseMigrationUpgrade(t *testing.T) {
 	claim := oneClaim(t, r, "upgrade-worker")
 	if !reflect.DeepEqual(claim.Run, a.Run) {
 		t.Fatal("upgrade changed run snapshot")
+	}
+	if execution, found, err := r.GetExecution(testContext, claim.Lease); err != nil ||
+		found || execution != (kubernetes.Execution{}) {
+		t.Fatal("upgrade fabricated an execution identity", execution, found, err)
 	}
 	if replay := accepted(t, r, "upgrade", "request-key-upgrade"); replay != a {
 		t.Fatal("upgrade changed acceptance binding")

@@ -82,11 +82,23 @@ the privileged interface from exposing whether another principal or worker owns
 the Run. AdvanceClaim verifies ownership before revision/transition validation.
 
 **A database lease does not fence Kubernetes requests.** A paused/partitioned
-worker can have an in-flight external request after ownership expires. The future
-dispatcher still needs persisted execution identity, deterministic Job names,
-ownership/spec checks, duplicate-safe create/adoption, and cancellation handling
-for ambiguous in-flight creation. These claims alone do not prove exactly-once
-Job execution or that an ABORTED run has stopped executing.
+worker can have an in-flight external request after ownership expires. Persisted
+execution identity, deterministic names, ownership/specification checks and
+duplicate-safe create/adoption make recovery possible, but they do not prevent
+every ambiguous in-flight creation. These mechanisms do not prove exactly-once
+Job execution or that an `ABORTED` Run has stopped executing.
+
+The execution store closes the restart-recovery part of that gap. After
+`EnsureJob` creates or adopts a Job, the worker binds `Dispatch.Execution()`
+before relying on later observation. A restarted owner reads that immutable
+identity using its new lease and observes the exact UID. If cancellation raced
+an in-flight create, the old owner may still bind the returned identity while
+its lease remains valid so a cancellation worker can recover and stop it.
+
+The binding does not fence the Kubernetes request itself and does not authorize
+reusing a deleted Job name. A conflict means the Run is already associated with
+another UID or specification and must not be overwritten. The future worker loop
+must handle that condition and ambiguous external/commit outcomes explicitly.
 
 Likewise, the future collector must verify durable evidence before leaving
 COLLECTING. This change adds no registry resolver, measurement window, artifact
@@ -94,10 +106,11 @@ collection, retry policy for load tests, or analysis result.
 
 ## Storage, migrations and tests
 
-Migration `0002_reconciliation_leases.sql` adds a separate table; migration
-0001 is unchanged. Add SELECT/INSERT/UPDATE on this table to the trusted worker
-role after applying migrations. No new credentials, PUBLIC grants, or destructive
-cleanup are applied automatically. See [PostgreSQL operations](postgresql.md).
+Migration `0002_reconciliation_leases.sql` adds the lease table and migration
+`0003_kubernetes_executions.sql` adds immutable Job identity; earlier migrations
+are unchanged. Grant the trusted worker only the operations listed in
+[PostgreSQL operations](postgresql.md). No credentials, PUBLIC grants or
+destructive cleanup are applied automatically.
 
 The existing PostgreSQL CI job runs the tests automatically. Locally, with a
 disposable loopback PostgreSQL and PERFENG_TEST_DATABASE_URL configured:
@@ -108,7 +121,8 @@ go test -race -count=1 -timeout=3m -v ./internal/postgres
 
 Tests cover multiple pools/workers, locked-row skipping, lease renewal/expiry,
 same-worker-ID fencing, retry delay and cancellation priority, stale-revision
-rejection, separate-process restart, and migration from a populated v1 database
-without losing runs, acceptance bindings or artifact references.
+rejection, immutable execution binding, separate-process restart, and migration
+from a populated v1 database without losing runs, acceptance bindings or
+artifact references.
 
 Reference: [PostgreSQL SELECT locking clauses](https://www.postgresql.org/docs/17/sql-select.html).

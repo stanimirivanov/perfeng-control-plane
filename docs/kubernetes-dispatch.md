@@ -29,6 +29,8 @@ Job and Pod defaults produced by the tested Kubernetes version, then requires
 semantic equality. It does not ignore arbitrary additional or changed fields.
 Kubernetes-assigned Job UID is returned with the expected specification
 fingerprint as the durable cluster-side identity for subsequent observation.
+`Dispatch.Execution()` removes the transient create/adopt result and produces
+the immutable value stored by the lease-fenced PostgreSQL execution store.
 
 An opt-in integration test creates an isolated namespace against a real API
 server and verifies create, replay adoption and observation after defaulting. Set
