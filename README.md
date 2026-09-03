@@ -14,12 +14,14 @@ coordination, not load generation or statistical decisions.
 - In-memory repository for bounded tests/development, with concurrency tests.
 - PostgreSQL repository, transactional migrations and immutable artifact references.
 - Durable worker claims, lease renewal/recovery and fenced lifecycle updates.
+- Duplicate-safe Kubernetes Job creation and adoption boundary.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
-administrative `cmd/migrate` command applies database migrations. No jobs execute,
-and cancellation remains CANCELLING until a future worker confirms execution has
-stopped. Tests use synthetic contract fixtures, not approved deployable resources.
+administrative `cmd/migrate` command applies database migrations. No worker
+executes Jobs, and cancellation remains CANCELLING until a future worker confirms
+execution has stopped. Tests use synthetic contract fixtures, not approved
+deployable resources.
 
 The in-memory adapter loses runs and idempotency bindings on restart. It cannot
 meet the API's production durability guarantees for 201/202 responses. Do not
@@ -29,8 +31,9 @@ dispatch, recovery, artifact collection and analysis integration follow.
 ## Development
 
 Use Go 1.26.6 (the tested toolchain, recorded in go.mod), or a reviewed newer Go
-toolchain. PostgreSQL uses pgx v5.10.0; go.mod and go.sum pin its dependencies.
-This Go repository does not need Python, uv or Ruff.
+toolchain. PostgreSQL uses pgx v5.10.0; the Kubernetes API libraries are aligned
+at v0.37.0. go.mod and go.sum pin all dependencies. This Go repository does not
+need Python, uv or Ruff.
 
 Start with [contributing and Go code-quality standards](CONTRIBUTING.md) for
 pinned tool installation, the review checklist and the complete local checks.
@@ -69,6 +72,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/memory | Atomic process-local test adapter |
 | internal/postgres | Durable transactions, migrations and artifact-reference storage |
 | internal/httpapi | HTTP parsing, auth/approval seams, status/response mapping |
+| internal/kubernetes | Deterministic Kubernetes Job creation and safe adoption |
 
 `httpapi.New(repository, authenticate, approve)` returns an `http.Handler`.
 All dependencies are mandatory and must be concurrency-safe. HTTP tests show
@@ -135,9 +139,11 @@ The PostgreSQL adapter also implements the privileged worker-only
 `run.ReconciliationStore`: active-run discovery, renewable leases, delayed
 release and lease/revision-checked updates. See
 [reconciliation ownership](docs/reconciliation.md) for usage and limitations.
-This is the first part of dispatch/reconciliation work, not a Job dispatcher.
-Database leases do not prevent stale in-flight Kubernetes side effects; that
-boundary still needs explicit execution identity and duplicate-safe Job handling.
+The Kubernetes [dispatch boundary](docs/kubernetes-dispatch.md) adds one fixed
+Job identity per Run and collision-checked create/adoption after uncertain API
+responses. It does not add the worker loop, Job observation or cancellation.
+Database leases fence lifecycle writes; deterministic Job identity makes replayed
+creation safe without claiming exactly-once execution.
 
 ## Contract provenance
 
