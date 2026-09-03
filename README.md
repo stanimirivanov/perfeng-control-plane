@@ -28,32 +28,37 @@ dispatch, recovery, artifact collection and analysis integration follow.
 
 ## Development
 
-Use Go 1.26.4 (the tested toolchain, recorded in go.mod), or a reviewed newer Go
+Use Go 1.26.6 (the tested toolchain, recorded in go.mod), or a reviewed newer Go
 toolchain. PostgreSQL uses pgx v5.10.0; go.mod and go.sum pin its dependencies.
 This Go repository does not need Python, uv or Ruff.
 
+Start with [contributing and Go code-quality standards](CONTRIBUTING.md) for
+pinned tool installation, the review checklist and the complete local checks.
 From this repository in PowerShell or a shell:
 
 ~~~sh
-go test ./...
-go vet ./...
-go test -race ./...
+go test -vet=off ./...
+golangci-lint run ./...
 gofmt -l .
+go test -vet=off -race ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 ~~~
 
-The last command must print nothing. To format changes: `gofmt -w internal`.
+Lint findings, including vet, are informational: review them and decide which
+changes improve the code. The separate gofmt check must print nothing.
+To format changes: `golangci-lint fmt`.
 Race detection requires a supported C toolchain; CI runs it on Linux. Optional
 bounded parser fuzzing:
 
 ~~~sh
-go test ./internal/httpapi -run=^$ -fuzz=FuzzParseJSON -fuzztime=10s
+go test -vet=off ./internal/httpapi -run=^$ -fuzz=FuzzParseJSON -fuzztime=10s
 ~~~
 
-VS Code recommends the Go extension; install its Go tools when prompted.
-Editor settings enable gofmt/import organization, and Go's language server
-provides type checking and static analysis. CI requires formatting, vet, tests
-and race detection. IntelliJ metadata, binaries, local state and secrets are
-ignored.
+VS Code recommends the Go extension. Its language server provides formatting,
+import organization and type checking; on-save lint uses the same informational
+configuration as CI. Install the pinned linter before using it in the editor.
+Formatting, test execution and reachable-vulnerability checks remain separate
+CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 
 ## Boundaries
 

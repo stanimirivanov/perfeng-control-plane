@@ -66,12 +66,15 @@ func (r *Repository) Migrate(ctx context.Context) error {
 		applied[version] = true
 	}
 	rowErr := rows.Err()
-	_ = rows.Close()
+	closeErr := rows.Close()
 	if err != nil {
 		return err
 	}
 	if rowErr != nil {
 		return storageError(rowErr)
+	}
+	if closeErr != nil {
+		return storageError(closeErr)
 	}
 	// ReadDir is lexical order; reject a ledger with gaps instead of guessing.
 	missing := false
@@ -83,7 +86,10 @@ func (r *Repository) Migrate(ctx context.Context) error {
 			continue
 		}
 		missing = true
-		b, _ := migrations.ReadFile("migrations/" + entry.Name())
+		b, err := migrations.ReadFile("migrations/" + entry.Name())
+		if err != nil {
+			return err
+		}
 		if _, err = tx.ExecContext(ctx, string(b)); err != nil {
 			return fmt.Errorf("migration %s: %w", entry.Name(), storageError(err))
 		}

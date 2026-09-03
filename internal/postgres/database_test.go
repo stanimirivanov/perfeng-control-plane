@@ -36,7 +36,8 @@ func TestScopeEncoding(t *testing.T) {
 	if scopeLock("a", "bc") == scopeLock("ab", "c") {
 		t.Fatal("ambiguous scope encoding")
 	}
-	if scopeLock("alice", "key") != scopeLock("alice", "key") {
+	first := scopeLock("alice", "key")
+	if repeated := scopeLock("alice", "key"); repeated != first {
 		t.Fatal("unstable lock")
 	}
 	if _, err := Open(context.Background(), ""); err == nil {

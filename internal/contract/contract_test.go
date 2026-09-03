@@ -35,7 +35,10 @@ func TestPinnedSnapshot(t *testing.T) {
 }
 
 func TestCreateFixtureAndStrictSchema(t *testing.T) {
-	b, _ := Files.ReadFile("snapshot/examples/create.json")
+	b, err := Files.ReadFile("snapshot/examples/create.json")
+	if err != nil {
+		t.Fatal(err)
+	}
 	var v map[string]any
 	if err := json.Unmarshal(b, &v); err != nil {
 		t.Fatal(err)
@@ -56,7 +59,9 @@ func TestCreateFixtureAndStrictSchema(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			var copy map[string]any
-			_ = json.Unmarshal(b, &copy)
+			if err := json.Unmarshal(b, &copy); err != nil {
+				t.Fatal(err)
+			}
 			mutate(copy)
 			if ValidateCreate(copy) == nil {
 				t.Fatal("accepted invalid request")

@@ -18,7 +18,10 @@ const key = "request-key-00000001"
 
 func request(t *testing.T) run.Request {
 	t.Helper()
-	b, _ := contract.Files.ReadFile("snapshot/examples/create.json")
+	b, err := contract.Files.ReadFile("snapshot/examples/create.json")
+	if err != nil {
+		t.Fatal(err)
+	}
 	var r run.Request
 	if err := json.Unmarshal(b, &r); err != nil {
 		t.Fatal(err)
@@ -54,7 +57,10 @@ func TestReplayScopeExpiryAndIsolation(t *testing.T) {
 	if replay.Run != a.Run || replay.ExpiresAt != a.ExpiresAt {
 		t.Fatal("replay not original")
 	}
-	got, _ := m.Get(ctx, "alice", a.Run.ID)
+	got, err := m.Get(ctx, "alice", a.Run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if got.State != current.State {
 		t.Fatal("replay reset run")
 	}
@@ -119,14 +125,20 @@ func TestConcurrentAcceptAndCancel(t *testing.T) {
 		})
 	}
 	wg.Wait()
-	r, _ := m.Get(ctx, "alice", id)
+	r, err := m.Get(ctx, "alice", id)
+	if err != nil {
+		t.Fatal(err)
+	}
 	r = advance(t, m, r, "ABORTED")
 	again, err := m.Cancel(ctx, "alice", id)
 	if err != nil || again.Revision != r.Revision || again.State != "ABORTED" {
 		t.Fatal("ABORTED cancel changed state")
 	}
 	*again.FinishedAt = time.Time{}
-	stored, _ := m.Get(ctx, "alice", id)
+	stored, err := m.Get(ctx, "alice", id)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if stored.FinishedAt.IsZero() {
 		t.Fatal("returned pointer mutated stored run")
 	}
@@ -144,7 +156,10 @@ func TestCancellationCompletionRace(t *testing.T) {
 		wg.Go(func() { _, cancelErr = m.Cancel(ctx, "alice", r.ID) })
 		wg.Go(func() { _, completeErr = m.Advance(ctx, "alice", r.ID, r.Revision, run.Change{State: "COMPLETED"}) })
 		wg.Wait()
-		final, _ := m.Get(ctx, "alice", r.ID)
+		final, err := m.Get(ctx, "alice", r.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
 		switch final.State {
 		case "COMPLETED":
 			if completeErr != nil || !errors.Is(cancelErr, run.ErrTerminal) {

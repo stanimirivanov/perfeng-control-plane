@@ -61,7 +61,7 @@ func testDatabase(t *testing.T) string {
 	ctx, cancel := context.WithTimeout(testContext, 15*time.Second)
 	defer cancel()
 	if _, err = admin.db.ExecContext(ctx, "CREATE DATABASE "+name); err != nil {
-		_ = admin.Close()
+		closeTest(t, admin)
 		t.Fatal("test role needs CREATEDB permission")
 	}
 	// New connections use the same local endpoint and credentials, with no
@@ -69,7 +69,7 @@ func testDatabase(t *testing.T) string {
 	connection := url.URL{Scheme: "postgres", User: url.UserPassword(config.User, config.Password),
 		Host: net.JoinHostPort(config.Host, strconv.Itoa(int(config.Port))), Path: "/" + name, RawQuery: "sslmode=disable"}
 	t.Cleanup(func() {
-		defer admin.Close()
+		defer closeTest(t, admin)
 		ctx, cancel := context.WithTimeout(testContext, 15*time.Second)
 		defer cancel()
 		if _, err := admin.db.ExecContext(ctx, "DROP DATABASE "+name); err != nil {
@@ -85,9 +85,17 @@ func openTest(t *testing.T, dsn string) *Repository {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = r.Close() })
+	t.Cleanup(func() { closeTest(t, r) })
 	return r
 }
+
+func closeTest(t *testing.T, r *Repository) {
+	t.Helper()
+	if err := r.Close(); err != nil {
+		t.Error("could not close test database connection pool")
+	}
+}
+
 func testRequest(t *testing.T) run.Request {
 	t.Helper()
 	b, err := contract.Files.ReadFile("snapshot/examples/create.json")
@@ -179,8 +187,12 @@ func TestPostgresIntegration(t *testing.T) {
 		t.Fatal("artifact ownership", err)
 	}
 	// An independent OS process cannot use the parent's pool or cached snapshot.
-	_ = r.Close()
-	_ = other.Close()
+	if err := r.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := other.Close(); err != nil {
+		t.Fatal(err)
+	}
 	command := exec.Command(os.Args[0], "-test.run=^TestPostgresRestartChild$", "-test.v")
 	command.Env = append(os.Environ(), "PERFENG_CHILD_DATABASE_URL="+dsn, "PERFENG_CHILD_RUN_ID="+a.Run.ID)
 	if output, err := command.CombinedOutput(); err != nil {
@@ -308,7 +320,9 @@ func TestPostgresIntegration(t *testing.T) {
 		if _, err := other.Accept(ctx, "deadline", "request-key-deadline", request); !errors.Is(err, run.ErrUnavailable) {
 			t.Fatal("lock wait not bounded", err)
 		}
-		_ = tx.Rollback()
+		if err := tx.Rollback(); err != nil {
+			t.Fatal(err)
+		}
 		accepted(t, other, "deadline", "request-key-deadline")
 	})
 	t.Run("checksum-drift", func(t *testing.T) {

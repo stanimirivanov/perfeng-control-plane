@@ -59,12 +59,15 @@ func (r *Repository) ClaimRuns(ctx context.Context, workerID string, limit int, 
 		candidates = append(candidates, run.Claim{Lease: run.Lease{Principal: principal, RunID: current.ID, WorkerID: workerID}, Run: current})
 	}
 	rowErr := rows.Err()
-	_ = rows.Close()
+	closeErr := rows.Close()
 	if err != nil {
 		return nil, err
 	}
 	if rowErr != nil {
 		return nil, storageError(rowErr)
+	}
+	if closeErr != nil {
+		return nil, storageError(closeErr)
 	}
 	result := make([]run.Claim, 0, len(candidates))
 	for _, candidate := range candidates {
