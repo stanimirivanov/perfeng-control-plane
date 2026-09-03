@@ -9,13 +9,14 @@ import (
 )
 
 // Router sends each active lifecycle state to exactly one reconciliation stage.
-// Analysis and reporting wait for their later stage implementations.
+// Reporting waits for its later stage implementation.
 type Router struct {
 	store         ClaimAdvancer
 	validation    worker.Reconciler
 	provisioning  worker.Reconciler
 	bound         worker.Reconciler
 	collection    worker.Reconciler
+	analysis      worker.Reconciler
 	deferredRetry time.Duration
 }
 
@@ -28,21 +29,23 @@ func NewRouter(
 	provisioning worker.Reconciler,
 	bound worker.Reconciler,
 	collection worker.Reconciler,
+	analysis worker.Reconciler,
 	deferredRetry time.Duration,
 ) (*Router, error) {
-	if store == nil || validation == nil || provisioning == nil || bound == nil || collection == nil ||
+	if store == nil || validation == nil || provisioning == nil || bound == nil ||
+		collection == nil || analysis == nil ||
 		deferredRetry <= 0 || !run.ValidRetryDelay(deferredRetry) {
 		return nil, run.ErrValidation
 	}
 
 	return &Router{
 		store: store, validation: validation, provisioning: provisioning,
-		bound: bound, collection: collection, deferredRetry: deferredRetry,
+		bound: bound, collection: collection, analysis: analysis, deferredRetry: deferredRetry,
 	}, nil
 }
 
 // Reconcile advances CREATED once, routes implemented stages, and quietly
-// defers states whose analysis or reporting components do not exist yet.
+// defers REPORTING until its component exists.
 func (router *Router) Reconcile(ctx context.Context, claim run.Claim) (worker.Result, error) {
 	if !validOwnedClaim(claim) {
 		return worker.Result{}, run.ErrValidation
@@ -59,7 +62,9 @@ func (router *Router) Reconcile(ctx context.Context, claim run.Claim) (worker.Re
 		return router.bound.Reconcile(ctx, claim)
 	case run.StateCollecting:
 		return router.collection.Reconcile(ctx, claim)
-	case run.StateAnalyzing, run.StateReporting:
+	case run.StateAnalyzing:
+		return router.analysis.Reconcile(ctx, claim)
+	case run.StateReporting:
 		return worker.Result{RetryAfter: router.deferredRetry}, nil
 	default:
 		return worker.Result{}, ErrStateNotHandled
