@@ -13,6 +13,7 @@ coordination, not load generation or statistical decisions.
 - Revision-checked worker transitions, terminal-state and failure-code rules.
 - In-memory repository for bounded tests/development, with concurrency tests.
 - PostgreSQL repository, transactional migrations and immutable artifact references.
+- Principal-scoped, restart-safe discovery of persisted artifact references.
 - Durable worker claims, lease renewal/recovery and fenced lifecycle updates.
 - Duplicate-safe Kubernetes Job creation and adoption boundary.
 - Identity-checked Kubernetes Job observation and cancellation requests.

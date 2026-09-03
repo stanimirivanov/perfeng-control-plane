@@ -65,3 +65,58 @@ func (r *Repository) GetArtifact(ctx context.Context, principal, runID, id strin
 	}
 	return artifact, nil
 }
+
+// ListArtifacts returns an owned Run's immutable references in artifact-ID
+// order. An owned Run with no evidence returns an empty slice; an invisible Run
+// returns ErrNotFound.
+func (r *Repository) ListArtifacts(
+	ctx context.Context,
+	principal string,
+	runID string,
+) (artifacts []run.Artifact, err error) {
+	ctx, cancel := context.WithTimeout(ctx, operationTimeout)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT a.reference
+		FROM perfeng_control.runs AS r
+		LEFT JOIN perfeng_control.artifacts AS a ON a.run_id = r.run_id
+		WHERE r.principal = $1 AND r.run_id = $2
+		ORDER BY a.artifact_id`, principal, runID)
+	if err != nil {
+		return nil, storageError(err)
+	}
+	defer func() {
+		if closeErr := rows.Close(); err == nil && closeErr != nil {
+			artifacts = nil
+			err = storageError(closeErr)
+		}
+	}()
+
+	foundRun := false
+	artifacts = make([]run.Artifact, 0)
+	for rows.Next() {
+		foundRun = true
+		var stored []byte
+		if err = rows.Scan(&stored); err != nil {
+			return nil, storageError(err)
+		}
+		if stored == nil {
+			continue
+		}
+
+		var artifact run.Artifact
+		if err = json.Unmarshal(stored, &artifact); err != nil {
+			return nil, err
+		}
+		artifacts = append(artifacts, artifact)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, storageError(err)
+	}
+	if !foundRun {
+		return nil, run.ErrNotFound
+	}
+
+	return artifacts, nil
+}
