@@ -54,9 +54,9 @@ must honor context cancellation promptly. A terminal transition expires its leas
 inside the store, so a later release returning ErrLeaseLost is also normal.
 
 `Router` advances CREATED and selects validation, provisioning, bound execution
-or raw-artifact collection from the claimed state. A registry-backed resolver,
-object-storage collector, analysis stages and production process wiring remain
-subsequent work.
+raw-artifact collection or analysis from the claimed state. A registry-backed
+resolver, object-storage collector, normalization executor, reporting stage and
+production process wiring remain subsequent work.
 
 ## Kubernetes lifecycle decisions
 
@@ -113,11 +113,12 @@ from storage:
 | PROVISIONING | Provisioning reconciler |
 | WARMING_UP, RUNNING, CANCELLING | Bound-execution reconciler |
 | COLLECTING | Raw-artifact collection reconciler |
-| ANALYZING, REPORTING | Deferred with bounded retry |
+| ANALYZING | Analysis reconciler |
+| REPORTING | Deferred with bounded retry |
 
-The final two states are deliberately quiet rather than producing repeated
-worker errors while their components are absent. Terminal and unknown states are
-rejected; the storage contract must not claim terminal Runs.
+REPORTING is deliberately quiet rather than producing repeated worker errors
+while its component is absent. Terminal and unknown states are rejected; the
+storage contract must not claim terminal Runs.
 
 CANCELLING currently routes to bound-execution reconciliation and therefore
 requires a durable execution identity. Recovery for cancellation after an
@@ -130,9 +131,10 @@ dedicated recovery stage.
 `CollectionReconciler` accepts only COLLECTING claims. Its injected
 `RawArtifactCollector` returns the immutable raw-result manifest reference and
 every object reference declared by that manifest. It must derive approved storage
-locations from trusted configuration, verify the manifest and object bytes, and attest storage
-ownership, checksums, sizes, media types, formats, Run identity and producer
-provenance. Public run requests never supply arbitrary fetch locations.
+locations from trusted configuration, verify the manifest and object bytes, and
+attest storage ownership, checksums, sizes, media types, formats, Run identity
+and producer provenance. Public run requests never supply arbitrary fetch
+locations.
 
 Storage visibility may lag execution completion. `ErrArtifactsNotReady` returns
 a bounded quiet retry; other operational errors remain worker failures.
@@ -157,6 +159,36 @@ objects, build raw manifests, dispatch analysis Jobs or interpret measurements.
 Later analysis reconciliation can rediscover the registered manifest and source
 objects through principal-scoped, artifact-ID-ordered storage listing; no
 in-memory handoff from the collection attempt is required.
+
+## Analysis reconciliation
+
+`AnalysisReconciler` accepts only ANALYZING claims. It lists the principal-owned
+artifact references, requires exactly one `raw-result/v1` JSON manifest and at
+least one raw source, and rejects malformed, cross-Run or ambiguous persisted
+evidence before invoking external work.
+
+The injected `AnalysisExecutor` starts, adopts or observes idempotent
+normalization using the immutable Run and an isolated input copy. It must use an
+approved, digest-pinned analysis implementation, retrieve and verify the selected
+object bytes, and attest a `normalized-result/v1` JSON object before returning its
+immutable reference. The public Run request cannot supply executable commands or
+artifact locations to this boundary.
+
+`ErrAnalysisPending` produces a bounded quiet retry. `ErrAnalysisFailed` advances
+to INFRASTRUCTURE_FAILURE with a fixed `ANALYSIS_ERROR` message; it never becomes
+a performance regression verdict. Context cancellation, deadlines, lease loss,
+storage unavailability and artifact conflicts take precedence over executor
+classification and do not change lifecycle state.
+
+The normalized reference is registered before advancing to REPORTING. If that
+transition fails or has an uncertain outcome, the next attempt rediscovers the
+existing normalized result, skips executor invocation and retries only the
+lifecycle transition. Conflicting or multiple normalized results fail closed and
+are never overwritten.
+
+This stage defines orchestration and recovery semantics only. The concrete
+Kubernetes analysis Job adapter, approved analysis image configuration, object
+downloads/uploads and reporting decisions remain separate work.
 
 ## Provisioning reconciliation
 

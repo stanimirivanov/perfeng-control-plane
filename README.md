@@ -24,14 +24,15 @@ coordination, not load generation or statistical decisions.
 - Bounded provisioning through an injected approved-template resolver.
 - Validated lifecycle entry and explicit routing for every active Run state.
 - Retry-safe registration of verified raw artifacts before analysis.
+- Restart-safe orchestration of normalization through an injected executor.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
 administrative `cmd/migrate` command applies database migrations. Reconciliation
 stages are not wired into a process. A trusted resource resolver, raw-artifact
-collector and analysis stages are still missing, so no worker executes Jobs
-from accepted requests. Tests use synthetic contract fixtures, not approved
-deployable resources.
+collector, normalization executor and reporting stage are still missing, so no
+worker executes Jobs from accepted requests. Tests use synthetic contract
+fixtures, not approved deployable resources.
 
 The in-memory adapter loses runs and idempotency bindings on restart. It cannot
 meet the API's production durability guarantees for 201/202 responses. Do not
@@ -167,11 +168,13 @@ go directly to bound reconciliation, never back to creation.
 the dispatcher's policy to classify invalid or revoked plans before PROVISIONING.
 `CollectionReconciler` waits for a verified raw-result manifest and its declared
 objects, registers every immutable reference idempotently, and advances to
-ANALYZING only after all writes succeed. `Router` advances CREATED, selects
-validation/provisioning/bound/collection
-stages, and quietly defers analysis and reporting until their components exist.
-A real approved resource resolver, raw-artifact collector, unbound-cancellation
-recovery, and production composition are still missing.
+ANALYZING only after all writes succeed. `AnalysisReconciler` rediscovers that
+evidence, invokes an idempotent normalization boundary, registers the normalized
+result, and advances to REPORTING. Existing normalized evidence is recovered
+without duplicate execution. `Router` advances CREATED, selects every implemented
+stage, and quietly defers reporting until its component exists. A real approved
+resource resolver, raw-artifact collector, normalization executor,
+unbound-cancellation recovery, and production composition are still missing.
 The `reconcile` policy defines that connection's state decisions independently
 of I/O: pending Jobs wait, running Jobs enter RUNNING, terminal Jobs enter
 COLLECTING, and unexpected disappearance/deletion is infrastructure failure.

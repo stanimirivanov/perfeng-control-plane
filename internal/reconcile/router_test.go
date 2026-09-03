@@ -35,6 +35,7 @@ func routerFixture(t *testing.T) (*Router, *advancingStore, *[]string) {
 		routeStage{name: "provisioning", calls: &calls, result: result},
 		routeStage{name: "bound", calls: &calls, result: result},
 		routeStage{name: "collection", calls: &calls, result: result},
+		routeStage{name: "analysis", calls: &calls, result: result},
 		5*time.Minute,
 	)
 	if err != nil {
@@ -55,6 +56,7 @@ func TestRouterRoutesEveryActiveState(t *testing.T) {
 		{run.StateRunning, "bound"},
 		{run.StateCancelling, "bound"},
 		{run.StateCollecting, "collection"},
+		{run.StateAnalyzing, "analysis"},
 	}
 	for _, test := range tests {
 		t.Run(string(test.state), func(t *testing.T) {
@@ -79,7 +81,7 @@ func TestRouterAdvancesCreatedAndDefersPostExecutionStates(t *testing.T) {
 		t.Fatalf("CREATED effects: %+v, %v", store, *calls)
 	}
 
-	for _, state := range []run.State{run.StateAnalyzing, run.StateReporting} {
+	for _, state := range []run.State{run.StateReporting} {
 		router, store, calls = routerFixture(t)
 		result, err := router.Reconcile(context.Background(), boundClaim(state))
 		if err != nil || result.RetryAfter != 5*time.Minute || store.calls != 0 || len(*calls) != 0 {
@@ -139,12 +141,13 @@ func TestRouterValidatesDependenciesAndDelay(t *testing.T) {
 			router.provisioning,
 			router.bound,
 			router.collection,
+			router.analysis,
 			delay,
 		); !errors.Is(err, run.ErrValidation) {
 			t.Fatalf("delay %s error = %v", delay, err)
 		}
 	}
-	for _, missing := range []string{"store", "validation", "provisioning", "bound", "collection"} {
+	for _, missing := range []string{"store", "validation", "provisioning", "bound", "collection", "analysis"} {
 		candidate := *router
 		switch missing {
 		case "store":
@@ -157,6 +160,8 @@ func TestRouterValidatesDependenciesAndDelay(t *testing.T) {
 			candidate.bound = nil
 		case "collection":
 			candidate.collection = nil
+		case "analysis":
+			candidate.analysis = nil
 		}
 		if _, err := NewRouter(
 			candidate.store,
@@ -164,6 +169,7 @@ func TestRouterValidatesDependenciesAndDelay(t *testing.T) {
 			candidate.provisioning,
 			candidate.bound,
 			candidate.collection,
+			candidate.analysis,
 			candidate.deferredRetry,
 		); !errors.Is(err, run.ErrValidation) {
 			t.Fatalf("missing %s error = %v", missing, err)
