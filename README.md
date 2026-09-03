@@ -28,6 +28,7 @@ coordination, not load generation or statistical decisions.
 - Duplicate-safe Kubernetes normalization Job creation and phase mapping.
 - Bounded verification of immutable objects from approved S3 locations.
 - AWS SDK for Go v2 adapter with safe S3 error classification.
+- Strict parsing and structural validation of raw-result manifests.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
@@ -89,6 +90,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/httpapi | HTTP parsing, auth/approval seams, status/response mapping |
 | internal/kubernetes | Deterministic Job dispatch, identity-checked observation, stop and Pod checks |
 | internal/objectstore | Approved S3 location policy and artifact-byte verification |
+| internal/rawresult | Untrusted raw-result manifest parsing and structural validation |
 | internal/worker | Bounded claim scheduling, lease renewal and attempt cancellation |
 | internal/reconcile | Lifecycle policy and lease-fenced persisted-execution reconciliation |
 
@@ -204,6 +206,11 @@ transport security and safe backend error classification.
 `objectstore.S3Getter` adapts the AWS SDK v2 `GetObject` operation and redacts
 backend messages and request details. It preserves cancellation, distinguishes
 missing keys, and classifies transient service/network failures as unavailable.
+The [raw-result parsing boundary](docs/raw-result-validation.md) validates the
+producer envelope's exact structure, identities, timestamps and artifact claims.
+Parsing does not approve provenance or attest remote bytes. A concrete collector
+still needs a trusted manifest publication reference before it can safely connect
+that parser to object verification and artifact registration.
 
 ## Contract provenance
 
