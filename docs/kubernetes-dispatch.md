@@ -24,9 +24,42 @@ returns `ErrJobConflict`. It is never deleted, patched or replaced. This makes a
 retry safe after an ambiguous create response: if the API server stored the Job
 but the worker did not receive the response, the next attempt adopts it.
 
-The comparison treats API-server defaulted fields as additions while requiring
-every field requested by the control plane to match. Kubernetes-assigned Job UID
-is returned as the durable cluster-side identity for subsequent observation.
+The comparison removes server-generated selector identity and then requires
+semantic equality. Kubernetes-assigned Job UID is returned with the expected specification
+fingerprint as the durable cluster-side identity for subsequent observation.
+
+### API-server integration limitation
+
+The client-go scheme used here does not register API-server Job/Pod defaulting.
+Consequently, server-added defaults can currently cause a matching Job to be
+rejected as `ErrJobConflict` during dispatch or observation. The in-memory client
+does not simulate those defaults. Specification normalization and real API-server
+integration tests are required before using this boundary against a cluster;
+passing unit tests does not establish live compatibility. Unexpected execution
+changes must continue to be rejected when that normalization is introduced.
+
+## Observe and stop
+
+`ObserveJob` reads by deterministic name, then verifies namespace, Run label,
+manager label, UID, recorded fingerprint and a newly calculated fingerprint of
+the stored specification. Only then does it report `PENDING`, `RUNNING`,
+`SUCCEEDED` or `FAILED`. A missing Job is reported as `ABSENT`; this is an
+execution fact, not by itself a successful or failed Run outcome.
+
+`RequestJobStop` performs the same identity checks and submits foreground
+deletion with the exact Job UID as a precondition. A replacement Job is never
+deleted, including when replacement occurs between the read and delete. An absent
+Job makes the request idempotently successful. Observation also reports whether
+deletion is in progress.
+
+Neither accepted deletion nor `ABSENT` proves all workload processes stopped.
+Foreground garbage collection waits only for known blocking dependents. A future
+worker must verify owned Pod termination and handle orphaned resources, node
+partitions and stale in-flight creation before moving a cancelled Run to
+`ABORTED`. Durable stop intent must also prevent reuse of the deleted Job name.
+These methods do not complete that cross-system cancellation protocol.
+
+See [Kubernetes foreground garbage collection](https://kubernetes.io/docs/concepts/architecture/garbage-collection/#foreground-deletion).
 
 ## Required execution policy
 
@@ -52,7 +85,8 @@ Kubernetes timeouts, throttling and service/internal failures map to
 status reason; server messages are not returned. If `AlreadyExists` is followed
 by `NotFound`, the caller retries because the identity changed during observation.
 
-The package performs no polling, lifecycle transitions, cancellation, log reads,
-artifact collection or automatic retries. Those are separate reconciliation
-slices. Unit tests use an injected narrow Job client and cover initial creation,
-matching adoption, ambiguous responses, conflicts, validation and error safety.
+The package performs no polling, lifecycle transitions, log reads, artifact
+collection or automatic retries. Those are separate reconciliation slices. Unit
+tests use an injected narrow Job client and cover initial creation, matching
+adoption, ambiguous responses, concurrent reconciliation, status observation,
+UID-safe cancellation, conflicts, validation and error safety.

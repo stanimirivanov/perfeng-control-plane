@@ -15,6 +15,7 @@ coordination, not load generation or statistical decisions.
 - PostgreSQL repository, transactional migrations and immutable artifact references.
 - Durable worker claims, lease renewal/recovery and fenced lifecycle updates.
 - Duplicate-safe Kubernetes Job creation and adoption boundary.
+- Identity-checked Kubernetes Job observation and cancellation requests.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
@@ -72,7 +73,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/memory | Atomic process-local test adapter |
 | internal/postgres | Durable transactions, migrations and artifact-reference storage |
 | internal/httpapi | HTTP parsing, auth/approval seams, status/response mapping |
-| internal/kubernetes | Deterministic Kubernetes Job creation and safe adoption |
+| internal/kubernetes | Deterministic Job dispatch, identity-checked observation and stop requests |
 
 `httpapi.New(repository, authenticate, approve)` returns an `http.Handler`.
 All dependencies are mandatory and must be concurrency-safe. HTTP tests show
@@ -141,7 +142,10 @@ release and lease/revision-checked updates. See
 [reconciliation ownership](docs/reconciliation.md) for usage and limitations.
 The Kubernetes [dispatch boundary](docs/kubernetes-dispatch.md) adds one fixed
 Job identity per Run and collision-checked create/adoption after uncertain API
-responses. It does not add the worker loop, Job observation or cancellation.
+responses. The same boundary observes the exact Job UID and requests foreground,
+UID-preconditioned deletion. It does not add the worker loop or lifecycle mapping.
+API-server default normalization remains an integration gap described in the
+dispatch documentation; this boundary is not yet validated against a live cluster.
 Database leases fence lifecycle writes; deterministic Job identity makes replayed
 creation safe without claiming exactly-once execution.
 
