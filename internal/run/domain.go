@@ -23,6 +23,60 @@ var (
 	ErrForbidden   = errors.New("forbidden")
 )
 
+// State identifies a persisted lifecycle state from the run-management contract.
+type State string
+
+const (
+	StateCreated               State = "CREATED"
+	StateValidating            State = "VALIDATING"
+	StateProvisioning          State = "PROVISIONING"
+	StateWarmingUp             State = "WARMING_UP"
+	StateRunning               State = "RUNNING"
+	StateCollecting            State = "COLLECTING"
+	StateAnalyzing             State = "ANALYZING"
+	StateReporting             State = "REPORTING"
+	StateCancelling            State = "CANCELLING"
+	StateCompleted             State = "COMPLETED"
+	StateInvalid               State = "INVALID"
+	StateAborted               State = "ABORTED"
+	StateInfrastructureFailure State = "INFRASTRUCTURE_FAILURE"
+	StateTestFailure           State = "TEST_FAILURE"
+)
+
+// FailureCode identifies the safe failure category persisted with a failed Run.
+type FailureCode string
+
+const (
+	FailureCodeValidationFailed    FailureCode = "VALIDATION_FAILED"
+	FailureCodeInfrastructureError FailureCode = "INFRASTRUCTURE_ERROR"
+	FailureCodePipelineTimeout     FailureCode = "PIPELINE_TIMEOUT"
+	FailureCodeToolError           FailureCode = "TOOL_ERROR"
+	FailureCodeAnalysisError       FailureCode = "ANALYSIS_ERROR"
+)
+
+const maxRunRevision int64 = 9007199254740991
+
+func (state State) acceptsFailure(code FailureCode) bool {
+	switch state {
+	case StateInvalid:
+		return code == FailureCodeValidationFailed
+	case StateTestFailure:
+		return code == FailureCodeToolError
+	case StateInfrastructureFailure:
+		return code == FailureCodeInfrastructureError ||
+			code == FailureCodePipelineTimeout ||
+			code == FailureCodeAnalysisError
+	default:
+		return false
+	}
+}
+
+func (state State) requiresFailure() bool {
+	return state == StateInvalid ||
+		state == StateTestFailure ||
+		state == StateInfrastructureFailure
+}
+
 type Reference struct {
 	ID      string `json:"id"`
 	Version string `json:"version"`
@@ -43,12 +97,12 @@ type Request struct {
 	Policy      Reference `json:"policy"`
 }
 type Failure struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    FailureCode `json:"code"`
+	Message string      `json:"message"`
 }
 type Run struct {
 	ID           string     `json:"id"`
-	State        string     `json:"state"`
+	State        State      `json:"state"`
 	Revision     int64      `json:"revision"`
 	Request      Request    `json:"request"`
 	CreatedAt    time.Time  `json:"createdAt"`
@@ -94,7 +148,7 @@ func ValidKey(key string) bool { return keyPattern.MatchString(key) }
 // Change is worker-only. A caller must supply the observed revision, a safe
 // failure message (never raw logs), and an unambiguous observed process exit.
 type Change struct {
-	State        string
+	State        State
 	Failure      *Failure
 	ToolExitCode *int
 }
@@ -103,31 +157,22 @@ func (r Run) Transition(expected int64, change Change, now time.Time) (Run, erro
 	if r.Revision != expected {
 		return Run{}, ErrRevision
 	}
-	if r.Revision >= 9007199254740991 || !contract.CanTransition(r.State, change.State) {
+	if r.Revision >= maxRunRevision ||
+		!contract.CanTransition(string(r.State), string(change.State)) {
 		return Run{}, ErrTransition
 	}
 	if change.ToolExitCode != nil && (*change.ToolExitCode < 0 || *change.ToolExitCode > 255) {
 		return Run{}, ErrValidation
 	}
-	validFailure := false
 	if f := change.Failure; f != nil {
 		if !utf8.ValidString(f.Message) || utf8.RuneCountInString(f.Message) < 1 || utf8.RuneCountInString(f.Message) > 1000 {
 			return Run{}, ErrValidation
 		}
-		switch change.State {
-		case "INVALID":
-			validFailure = f.Code == "VALIDATION_FAILED"
-		case "TEST_FAILURE":
-			validFailure = f.Code == "TOOL_ERROR"
-		case "INFRASTRUCTURE_FAILURE":
-			validFailure = f.Code == "INFRASTRUCTURE_ERROR" || f.Code == "PIPELINE_TIMEOUT" || f.Code == "ANALYSIS_ERROR"
-		}
-		if !validFailure {
+		if !change.State.acceptsFailure(f.Code) {
 			return Run{}, ErrValidation
 		}
 	}
-	needsFailure := change.State == "INVALID" || change.State == "TEST_FAILURE" || change.State == "INFRASTRUCTURE_FAILURE"
-	if needsFailure && !validFailure {
+	if change.State.requiresFailure() && change.Failure == nil {
 		return Run{}, ErrValidation
 	}
 	next := r.Clone()
@@ -142,7 +187,7 @@ func (r Run) Transition(expected int64, change Change, now time.Time) (Run, erro
 	if change.ToolExitCode != nil {
 		next.ToolExitCode = change.ToolExitCode
 	}
-	if contract.Terminal(next.State) {
+	if contract.Terminal(string(next.State)) {
 		finished := next.UpdatedAt
 		next.FinishedAt = &finished
 	}

@@ -166,7 +166,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	status := 200
-	if isCancel && result.State == "CANCELLING" {
+	if isCancel && result.State == run.StateCancelling {
 		status = 202
 	}
 	writeJSON(w, status, result)

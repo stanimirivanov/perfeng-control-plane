@@ -36,7 +36,7 @@ func create(t *testing.T, m *Repository) run.Accepted {
 	}
 	return a
 }
-func advance(t *testing.T, m *Repository, r run.Run, state string) run.Run {
+func advance(t *testing.T, m *Repository, r run.Run, state run.State) run.Run {
 	t.Helper()
 	next, err := m.Advance(ctx, "alice", r.ID, r.Revision, run.Change{State: state})
 	if err != nil {
@@ -148,7 +148,14 @@ func TestCancellationCompletionRace(t *testing.T) {
 	for range 100 {
 		m := New(nil)
 		r := create(t, m).Run
-		for _, state := range []string{"VALIDATING", "PROVISIONING", "RUNNING", "COLLECTING", "ANALYZING", "REPORTING"} {
+		for _, state := range []run.State{
+			run.StateValidating,
+			run.StateProvisioning,
+			run.StateRunning,
+			run.StateCollecting,
+			run.StateAnalyzing,
+			run.StateReporting,
+		} {
 			r = advance(t, m, r, state)
 		}
 		var cancelErr, completeErr error

@@ -113,6 +113,10 @@ SLO and regression outcomes belong to perfeng-analysis; no measurement window
 or result is fabricated here. This API is not the legacy run/v1 schema (which
 cannot represent CANCELLING).
 
+Go code uses the `run.State` and `run.FailureCode` constants for lifecycle
+and failure decisions. Their JSON representation remains the contract's string
+values; domain tests verify state coverage and failure-code compatibility.
+
 In-memory run storage is intentionally unbounded and process-local; use only
 bounded test/development workloads. A key can create a new run at expiry, but
 the old run remains readable during this process's lifetime.
@@ -147,6 +151,9 @@ build/test/runtime. Imported contract content is Apache-2.0, as in this reposito
 Review contract updates explicitly, regenerate the snapshot and checksums, and
 rerun tests. The request validator implements only the object/string/reference
 subset used by CreateRun, not arbitrary JSON Schema or full response validation.
+Schema regular expressions are compiled once during initialization. Invalid
+patterns, references or reachable unsupported constructs reject the embedded
+snapshot before requests are handled.
 Tests cover all lifecycle state pairs, strict request boundaries and observable
 HTTP behavior. A broader cross-language conformance suite can follow.
 

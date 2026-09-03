@@ -69,3 +69,47 @@ func TestCreateFixtureAndStrictSchema(t *testing.T) {
 		})
 	}
 }
+
+func TestPrepareSchemas(t *testing.T) {
+	valid := map[string]schema{
+		"CreateRun": {
+			Type: "object",
+			Properties: map[string]schema{
+				"name": {Ref: "#/components/schemas/Name"},
+			},
+		},
+		"RunId": {Type: "string", Pattern: "^run-[0-9]+$"},
+		"Name":  {Type: "string", Pattern: "^[a-z]+$"},
+	}
+
+	prepared, err := prepareSchemas(valid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prepared["RunId"].pattern == nil ||
+		prepared["Name"].pattern == nil ||
+		!prepared["RunId"].pattern.MatchString("run-42") {
+		t.Fatal("schema patterns were not prepared")
+	}
+
+	for name, definitions := range map[string]map[string]schema{
+		"invalid-pattern": {
+			"CreateRun": {Type: "string", Pattern: "["},
+			"RunId":     valid["RunId"],
+		},
+		"dangling-reference": {
+			"CreateRun": {Ref: "#/components/schemas/Missing"},
+			"RunId":     valid["RunId"],
+		},
+		"unsupported-request-schema": {
+			"CreateRun": {Type: "array"},
+			"RunId":     valid["RunId"],
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := prepareSchemas(definitions); err == nil {
+				t.Fatal("invalid validation schema accepted")
+			}
+		})
+	}
+}

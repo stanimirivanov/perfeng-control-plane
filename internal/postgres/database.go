@@ -20,6 +20,27 @@ type Repository struct{ db *sql.DB }
 
 var _ run.Repository = (*Repository)(nil)
 
+type postgresError struct {
+	sqlState string
+}
+
+func (err *postgresError) Error() string {
+	return fmt.Sprintf("postgres operation failed (SQLSTATE %s)", err.sqlState)
+}
+
+func validSQLState(code string) bool {
+	if len(code) != 5 {
+		return false
+	}
+	for _, character := range code {
+		if (character < '0' || character > '9') &&
+			(character < 'A' || character > 'Z') {
+			return false
+		}
+	}
+	return true
+}
+
 // Open establishes a bounded connection pool without running migrations.
 // DSNs are secrets: callers must not log them or driver connection errors.
 // The owner must Close the repository when its service shuts down.
@@ -38,7 +59,7 @@ func Open(ctx context.Context, dsn string) (*Repository, error) {
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
-		return nil, run.ErrUnavailable
+		return nil, storageError(err)
 	}
 	return &Repository{db: db}, nil
 }
@@ -66,17 +87,26 @@ func storageError(err error) error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return run.ErrNotFound
 	}
+	if errors.Is(err, context.Canceled) {
+		return context.Canceled
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return context.DeadlineExceeded
+	}
+
 	var pg *pgconn.PgError
 	if errors.As(err, &pg) {
+		if !validSQLState(pg.Code) {
+			return errors.New("postgres operation failed")
+		}
 		if strings.HasPrefix(pg.Code, "08") || strings.HasPrefix(pg.Code, "53") ||
 			strings.HasPrefix(pg.Code, "57") || pg.Code == "55P03" ||
 			pg.Code == "40001" || pg.Code == "40P01" || pg.Code == "23505" {
 			return run.ErrUnavailable
 		}
-		// Do not expose PostgreSQL DETAIL fields (which can contain row data).
-		return fmt.Errorf("postgres operation failed (SQLSTATE %s)", pg.Code)
+		return &postgresError{sqlState: pg.Code}
 	}
-	// Connection, deadline and ambiguous commit failures are retryable only with
+	// Unclassified connection and ambiguous commit failures are retryable only with
 	// the same idempotency key. No automatic replay of a possibly committed write.
 	return run.ErrUnavailable
 }
