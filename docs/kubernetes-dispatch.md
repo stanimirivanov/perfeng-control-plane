@@ -53,12 +53,17 @@ deleted, including when replacement occurs between the read and delete. An absen
 Job makes the request idempotently successful. Observation also reports whether
 deletion is in progress.
 
-Neither accepted deletion nor `ABSENT` proves all workload processes stopped.
-Foreground garbage collection waits only for known blocking dependents. A future
-worker must verify owned Pod termination and handle orphaned resources, node
-partitions and stale in-flight creation before moving a cancelled Run to
-`ABORTED`. Durable stop intent must also prevent reuse of the deleted Job name.
-These methods do not complete that cross-system cancellation protocol.
+Neither accepted deletion nor `ABSENT` alone proves all workload processes
+stopped. `StopVerifier` lists Pods by the control-plane identity and accepts only
+controller ownership by the persisted Job UID. `BoundExecutionReconciler` remains
+in one lease-renewed cancellation attempt until both Job absence and an empty
+owned-Pod list are observed.
+
+Kubernetes object absence still cannot prove a process on a partitioned node has
+stopped or prevent a stale in-flight create from appearing later. Production
+composition needs bounded dispatch requests and a durable stop-intent/admission
+strategy. The current boundary does not claim exactly-once execution or complete
+that cross-system cancellation protocol.
 
 See [Kubernetes foreground garbage collection](https://kubernetes.io/docs/concepts/architecture/garbage-collection/#foreground-deletion).
 
@@ -87,7 +92,8 @@ status reason; server messages are not returned. If `AlreadyExists` is followed
 by `NotFound`, the caller retries because the identity changed during observation.
 
 The package performs no polling, lifecycle transitions, log reads, artifact
-collection or automatic retries. Those are separate reconciliation slices. Unit
-tests use an injected narrow Job client and cover initial creation, matching
-adoption, ambiguous responses, concurrent reconciliation, status observation,
-UID-safe cancellation, conflicts, validation and error safety.
+collection or automatic retries. Polling and transitions are owned by the
+separate reconciliation package. Unit tests use injected narrow Job and Pod
+clients and cover initial creation, matching adoption, ambiguous responses,
+concurrent reconciliation, status observation, UID-safe cancellation, dependent
+Pod checks, conflicts, validation and error safety.

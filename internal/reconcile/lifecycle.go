@@ -16,9 +16,10 @@ var ErrStateNotHandled = errors.New("run state is not handled by Kubernetes exec
 type Action string
 
 const (
-	ActionWait    Action = "wait"
-	ActionStop    Action = "stop"
-	ActionAdvance Action = "advance"
+	ActionWait        Action = "wait"
+	ActionStop        Action = "stop"
+	ActionConfirmStop Action = "confirm-stop"
+	ActionAdvance     Action = "advance"
 )
 
 // Decision contains either a wait, a stop request, or one validated lifecycle
@@ -36,7 +37,7 @@ func DecideBoundExecution(state run.State, observation kubernetes.Observation) (
 	}
 	if state == run.StateCancelling {
 		if observation.Phase == kubernetes.JobAbsent {
-			return advance(run.Change{State: run.StateAborted}), nil
+			return Decision{Action: ActionConfirmStop}, nil
 		}
 
 		return Decision{Action: ActionStop}, nil

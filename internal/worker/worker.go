@@ -221,6 +221,10 @@ func (worker *Worker) finish(
 	result Result,
 	reconcileErr error,
 ) completion {
+	if errors.Is(reconcileErr, run.ErrLeaseLost) {
+		return completion{runID: claim.Run.ID}
+	}
+
 	delay := result.RetryAfter
 	events := make([]Event, 0, 2)
 	if reconcileErr != nil {
