@@ -16,6 +16,7 @@ coordination, not load generation or statistical decisions.
 - Durable worker claims, lease renewal/recovery and fenced lifecycle updates.
 - Duplicate-safe Kubernetes Job creation and adoption boundary.
 - Identity-checked Kubernetes Job observation and cancellation requests.
+- Lease-fenced, restart-safe persistence of Kubernetes execution identity.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
@@ -146,6 +147,8 @@ responses. The same boundary observes the exact Job UID and requests foreground,
 UID-preconditioned deletion. It does not add the worker loop or lifecycle mapping.
 API-server default normalization is covered by an isolated live integration test
 described in the dispatch documentation.
+The PostgreSQL adapter stores the accepted Job identity immutably so another
+worker process can recover it under a current reconciliation lease.
 Database leases fence lifecycle writes; deterministic Job identity makes replayed
 creation safe without claiming exactly-once execution.
 

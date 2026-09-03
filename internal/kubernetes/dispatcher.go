@@ -62,6 +62,17 @@ type Dispatch struct {
 	Created    bool
 }
 
+// Execution returns the durable subset of the accepted dispatch result.
+func (dispatch Dispatch) Execution() Execution {
+	return Execution{
+		RunID:      dispatch.RunID,
+		Namespace:  dispatch.Namespace,
+		JobName:    dispatch.JobName,
+		UID:        dispatch.UID,
+		SpecSHA256: dispatch.SpecSHA256,
+	}
+}
+
 // NewDispatcher binds dispatch to one namespace and an injected Kubernetes client.
 func NewDispatcher(jobs Jobs, namespace string) (*Dispatcher, error) {
 	if jobs == nil {

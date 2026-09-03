@@ -11,6 +11,7 @@ runners do not write these tables directly.
 | create_bindings | Original acceptance snapshot and 24-hour key expiration |
 | artifacts | Immutable identities for raw/normalized object references |
 | reconciliation_leases | Worker ownership tokens, lease expiry and retry availability |
+| kubernetes_executions | Immutable Job UID and specification identity per Run |
 
 Snapshots are JSONB using the accepted API field names, with relational identity,
 ownership, uniqueness and foreign-key constraints. This keeps optional API
@@ -75,9 +76,11 @@ GRANT SELECT, INSERT ON perfeng_control.artifacts TO perfeng_runtime;
 ~~~
 
 Only the trusted reconciliation worker role additionally needs SELECT, INSERT
-and UPDATE on `perfeng_control.reconciliation_leases`. It also needs the Run
-table privileges above. Do not grant the worker interface to tenant/API callers.
-Migration 0002 adds this table without altering migration 0001 or existing data.
+and UPDATE on `perfeng_control.reconciliation_leases`, plus SELECT and INSERT on
+`perfeng_control.kubernetes_executions`. It also needs the Run table privileges
+above. Do not grant the worker interfaces to tenant/API callers. Migration 0002
+adds leases; migration 0003 adds immutable execution identity without altering
+earlier migrations or existing data.
 See [worker-claim semantics](reconciliation.md).
 
 Provision that role/login through infrastructure; the migration does not create
@@ -118,6 +121,24 @@ checksums and approved storage first. This does not guarantee object retention
 or prevent someone overwriting objects in S3. No objects are fetched or uploaded.
 Adding evidence is a separate entity write, not a Run snapshot mutation.
 
+## Kubernetes execution identity
+
+The first accepted Kubernetes Job identity is stored separately from the public
+Run snapshot. It contains only Run ID, namespace, deterministic Job name, Job
+UID and canonical specification hash. Mutable Job status is not persisted here.
+
+`BindExecution` and `GetExecution` require a current reconciliation lease and
+lock the Run row used by renewal, cancellation and lifecycle transitions. An
+identical bind is a no-op. A different identity returns `ErrExecutionConflict`
+without replacing the original row. This remains true across connections,
+concurrent calls and worker process restarts.
+
+A worker may bind an execution after the Run becomes `CANCELLING`. This is
+intentional: cancellation may race an in-flight Kubernetes create, and losing
+the returned UID would make safe cleanup impossible. Terminal Runs and stale,
+expired or forged leases cannot read or bind execution identity. An uncertain
+commit must be retried only with the same identity.
+
 ## Isolated integration tests
 
 Start a disposable PostgreSQL 17 instance with a local-only connection and a
@@ -141,7 +162,8 @@ restricted to a disposable CI service; never copy that setting into production.
 Coverage includes empty-database migration, repeat migration, checksum rejection,
 transaction rollback, original acceptance replay, principal isolation, immutable
 artifacts, key expiry, duplicate acceptance across pools, cancellation/completion
-races, bounded lock waits and a fresh OS process reopening persisted records.
+races, bounded lock waits, immutable execution-binding races and a fresh OS
+process recovering persisted records.
 
 References: [PostgreSQL locking](https://www.postgresql.org/docs/17/explicit-locking.html)
 and [pgx database/sql adapter](https://pkg.go.dev/github.com/jackc/pgx/v5/stdlib).

@@ -81,7 +81,7 @@ func TestDispatcherAgainstAPIServer(t *testing.T) {
 	if adopted.Created || adopted.UID != created.UID || adopted.SpecSHA256 != created.SpecSHA256 {
 		t.Fatal("API-server-defaulted Job was not adopted")
 	}
-	if _, err := dispatcher.ObserveJob(ctx, adopted); err != nil {
+	if _, err := dispatcher.ObserveJob(ctx, adopted.Execution()); err != nil {
 		t.Fatal(err)
 	}
 }

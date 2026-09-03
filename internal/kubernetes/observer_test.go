@@ -54,7 +54,7 @@ func TestObserveJobPhases(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			client.job.Status = test.status
-			observation, err := dispatcher.ObserveJob(context.Background(), dispatch)
+			observation, err := dispatcher.ObserveJob(context.Background(), dispatch.Execution())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -74,27 +74,27 @@ func TestObserveJobPhases(t *testing.T) {
 func TestObserveJobAbsentAndIdentityConflicts(t *testing.T) {
 	dispatcher, client, dispatch := dispatchedJob(t)
 	client.job = nil
-	observation, err := dispatcher.ObserveJob(context.Background(), dispatch)
+	observation, err := dispatcher.ObserveJob(context.Background(), dispatch.Execution())
 	if err != nil || observation.Phase != JobAbsent {
 		t.Fatal("absent Job was not reported", err)
 	}
 
 	dispatcher, client, dispatch = dispatchedJob(t)
 	client.job.UID = types.UID("replacement")
-	if _, err := dispatcher.ObserveJob(context.Background(), dispatch); !errors.Is(err, ErrJobConflict) {
+	if _, err := dispatcher.ObserveJob(context.Background(), dispatch.Execution()); !errors.Is(err, ErrJobConflict) {
 		t.Fatal("replacement Job was observed as the dispatched workload", err)
 	}
 
 	dispatcher, client, dispatch = dispatchedJob(t)
 	client.job.Spec.Template.Spec.Containers[0].Args = []string{"changed"}
-	if _, err := dispatcher.ObserveJob(context.Background(), dispatch); !errors.Is(err, ErrJobConflict) {
+	if _, err := dispatcher.ObserveJob(context.Background(), dispatch.Execution()); !errors.Is(err, ErrJobConflict) {
 		t.Fatal("changed Job specification was observed", err)
 	}
 }
 
 func TestRequestJobStopUsesUIDAndIsIdempotent(t *testing.T) {
 	dispatcher, client, dispatch := dispatchedJob(t)
-	if err := dispatcher.RequestJobStop(context.Background(), dispatch); err != nil {
+	if err := dispatcher.RequestJobStop(context.Background(), dispatch.Execution()); err != nil {
 		t.Fatal(err)
 	}
 	if client.deletes != 1 || client.deleteOptions.Preconditions == nil ||
@@ -105,7 +105,7 @@ func TestRequestJobStopUsesUIDAndIsIdempotent(t *testing.T) {
 		t.Fatal("stop did not use foreground deletion with the dispatched UID")
 	}
 
-	if err := dispatcher.RequestJobStop(context.Background(), dispatch); err != nil {
+	if err := dispatcher.RequestJobStop(context.Background(), dispatch.Execution()); err != nil {
 		t.Fatal("repeated stop was not idempotent", err)
 	}
 	if client.deletes != 1 {
@@ -116,7 +116,7 @@ func TestRequestJobStopUsesUIDAndIsIdempotent(t *testing.T) {
 func TestRequestJobStopNeverDeletesReplacement(t *testing.T) {
 	dispatcher, client, dispatch := dispatchedJob(t)
 	client.job.UID = types.UID("replacement")
-	if err := dispatcher.RequestJobStop(context.Background(), dispatch); !errors.Is(err, ErrJobConflict) {
+	if err := dispatcher.RequestJobStop(context.Background(), dispatch.Execution()); !errors.Is(err, ErrJobConflict) {
 		t.Fatal("replacement Job did not produce a conflict", err)
 	}
 	if client.deletes != 0 || client.job == nil {
@@ -127,7 +127,7 @@ func TestRequestJobStopNeverDeletesReplacement(t *testing.T) {
 func TestRequestJobStopRejectsReplacementAfterRead(t *testing.T) {
 	dispatcher, client, dispatch := dispatchedJob(t)
 	client.beforeDelete = func(job *batchv1.Job) { job.UID = types.UID("replacement") }
-	if err := dispatcher.RequestJobStop(context.Background(), dispatch); !errors.Is(err, ErrJobConflict) {
+	if err := dispatcher.RequestJobStop(context.Background(), dispatch.Execution()); !errors.Is(err, ErrJobConflict) {
 		t.Fatal("UID precondition did not reject replacement after read", err)
 	}
 	if client.deletes != 1 || client.job == nil || client.job.UID != "replacement" {
@@ -138,10 +138,10 @@ func TestRequestJobStopRejectsReplacementAfterRead(t *testing.T) {
 func TestRequestJobStopDoesNotReportImmediateAbsence(t *testing.T) {
 	dispatcher, client, dispatch := dispatchedJob(t)
 	client.keepDeleting = true
-	if err := dispatcher.RequestJobStop(context.Background(), dispatch); err != nil {
+	if err := dispatcher.RequestJobStop(context.Background(), dispatch.Execution()); err != nil {
 		t.Fatal(err)
 	}
-	observation, err := dispatcher.ObserveJob(context.Background(), dispatch)
+	observation, err := dispatcher.ObserveJob(context.Background(), dispatch.Execution())
 	if err != nil || !observation.Deleting || observation.Phase == JobAbsent {
 		t.Fatal("accepted deletion was treated as completed deletion", err)
 	}
@@ -149,7 +149,7 @@ func TestRequestJobStopDoesNotReportImmediateAbsence(t *testing.T) {
 
 func TestObservationErrorsAndDispatchValidation(t *testing.T) {
 	dispatcher, client, dispatch := dispatchedJob(t)
-	invalid := dispatch
+	invalid := dispatch.Execution()
 	invalid.SpecSHA256 = "invalid"
 	if _, err := dispatcher.ObserveJob(context.Background(), invalid); !errors.Is(err, run.ErrValidation) {
 		t.Fatal("invalid dispatch was observed", err)
@@ -163,7 +163,7 @@ func TestObservationErrorsAndDispatchValidation(t *testing.T) {
 		"delete",
 		1,
 	)
-	if err := dispatcher.RequestJobStop(context.Background(), dispatch); !errors.Is(err, run.ErrUnavailable) {
+	if err := dispatcher.RequestJobStop(context.Background(), dispatch.Execution()); !errors.Is(err, run.ErrUnavailable) {
 		t.Fatal("transient delete was not classified as unavailable", err)
 	}
 }
@@ -181,7 +181,7 @@ func TestObserveJobRequiresTerminalCondition(t *testing.T) {
 				Active: 1, Failed: 1, Succeeded: 1,
 				Conditions: []batchv1.JobCondition{condition},
 			}
-			observation, err := dispatcher.ObserveJob(context.Background(), dispatch)
+			observation, err := dispatcher.ObserveJob(context.Background(), dispatch.Execution())
 			if err != nil || observation.Phase != JobRunning || observation.FinishedAt != nil {
 				t.Fatal("nonterminal status was treated as terminal", observation, err)
 			}
@@ -203,10 +203,10 @@ func TestObserveAndStopRejectChangedIdentity(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			dispatcher, client, dispatch := dispatchedJob(t)
 			mutate(client.job)
-			if _, err := dispatcher.ObserveJob(context.Background(), dispatch); !errors.Is(err, ErrJobConflict) {
+			if _, err := dispatcher.ObserveJob(context.Background(), dispatch.Execution()); !errors.Is(err, ErrJobConflict) {
 				t.Fatal("changed identity was observed", err)
 			}
-			if err := dispatcher.RequestJobStop(context.Background(), dispatch); !errors.Is(err, ErrJobConflict) {
+			if err := dispatcher.RequestJobStop(context.Background(), dispatch.Execution()); !errors.Is(err, ErrJobConflict) {
 				t.Fatal("changed identity was stopped", err)
 			}
 			if client.deletes != 0 {
@@ -229,11 +229,11 @@ func TestObserveAndStopPreserveSafeErrors(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			dispatcher, client, dispatch := dispatchedJob(t)
 			client.getError = test.err
-			_, observeErr := dispatcher.ObserveJob(context.Background(), dispatch)
-			stopErr := dispatcher.RequestJobStop(context.Background(), dispatch)
+			_, observeErr := dispatcher.ObserveJob(context.Background(), dispatch.Execution())
+			stopErr := dispatcher.RequestJobStop(context.Background(), dispatch.Execution())
 			client.getError = nil
 			client.deleteError = test.err
-			deleteErr := dispatcher.RequestJobStop(context.Background(), dispatch)
+			deleteErr := dispatcher.RequestJobStop(context.Background(), dispatch.Execution())
 			for _, err := range []error{observeErr, stopErr, deleteErr} {
 				if err == nil || strings.Contains(err.Error(), "secret") {
 					t.Fatal("missing or unsafe API error", err)
