@@ -36,10 +36,12 @@ synchronous-replication policy. This is not proof of HA or database-crash recove
 Integration tests prove persistence across independent service processes.
 
 The pool is bounded to 16 connections per repository, with 15-second operations
-and 5-second lock waits. Transient connection/locking errors map to UNAVAILABLE.
+and 5-second lock waits. Transient connection/locking errors map to UNAVAILABLE;
+context cancellation and deadlines retain their standard error identity.
 A commit error may mean the operation committed: retry create with the same
-key/body, never automatically with a new key. PostgreSQL errors do not expose
-row contents or connection credentials through the adapter.
+key/body, never automatically with a new key. Unexpected PostgreSQL errors expose
+only a validated five-character SQLSTATE, never server messages, row contents or
+connection credentials.
 
 ## Explicit migrations
 

@@ -64,7 +64,7 @@ func (m *Repository) Accept(ctx context.Context, principal, key string, request 
 			break
 		}
 	}
-	created := run.Run{ID: id, State: "CREATED", Revision: 1, Request: request, CreatedAt: now, UpdatedAt: now}
+	created := run.Run{ID: id, State: run.StateCreated, Revision: 1, Request: request, CreatedAt: now, UpdatedAt: now}
 	accepted := run.Accepted{Run: created, ExpiresAt: now.Add(24 * time.Hour)}
 	m.runs[id] = ownedRun{principal, created}
 	m.bindings[scope] = accepted
@@ -99,13 +99,13 @@ func (m *Repository) Cancel(ctx context.Context, principal, id string) (run.Run,
 	if err != nil {
 		return run.Run{}, err
 	}
-	if r.State == "CANCELLING" || r.State == "ABORTED" {
+	if r.State == run.StateCancelling || r.State == run.StateAborted {
 		return r.Clone(), nil
 	}
-	if contract.Terminal(r.State) {
+	if contract.Terminal(string(r.State)) {
 		return run.Run{}, run.ErrTerminal
 	}
-	next, err := r.Transition(r.Revision, run.Change{State: "CANCELLING"}, m.now())
+	next, err := r.Transition(r.Revision, run.Change{State: run.StateCancelling}, m.now())
 	if err != nil {
 		return run.Run{}, err
 	}

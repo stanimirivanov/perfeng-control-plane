@@ -235,7 +235,14 @@ func TestPostgresIntegration(t *testing.T) {
 		for i := range 20 {
 			a := accepted(t, r, "racer", fmt.Sprintf("request-key-race-%04d", i))
 			current := a.Run
-			for _, state := range []string{"VALIDATING", "PROVISIONING", "RUNNING", "COLLECTING", "ANALYZING", "REPORTING"} {
+			for _, state := range []run.State{
+				run.StateValidating,
+				run.StateProvisioning,
+				run.StateRunning,
+				run.StateCollecting,
+				run.StateAnalyzing,
+				run.StateReporting,
+			} {
 				var err error
 				current, err = r.Advance(testContext, "racer", current.ID, current.Revision, run.Change{State: state})
 				if err != nil {
@@ -317,8 +324,8 @@ func TestPostgresIntegration(t *testing.T) {
 		}
 		ctx, cancel := context.WithTimeout(testContext, 100*time.Millisecond)
 		defer cancel()
-		if _, err := other.Accept(ctx, "deadline", "request-key-deadline", request); !errors.Is(err, run.ErrUnavailable) {
-			t.Fatal("lock wait not bounded", err)
+		if _, err := other.Accept(ctx, "deadline", "request-key-deadline", request); !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatal("lock wait did not preserve the caller deadline", err)
 		}
 		if err := tx.Rollback(); err != nil {
 			t.Fatal(err)
@@ -333,6 +340,26 @@ func TestPostgresIntegration(t *testing.T) {
 			t.Fatal("modified migration accepted")
 		}
 	})
+}
+
+func TestStoragePreservesContextErrors(t *testing.T) {
+	dsn := testDatabase(t)
+	r := openTest(t, dsn)
+
+	cancelled, cancel := context.WithCancel(testContext)
+	cancel()
+	if _, err := Open(cancelled, dsn); !errors.Is(err, context.Canceled) {
+		t.Fatal("connection did not preserve cancellation", err)
+	}
+	if _, err := r.Get(cancelled, "alice", "perf-20260903-120000-12345678"); !errors.Is(err, context.Canceled) {
+		t.Fatal("storage did not preserve cancellation", err)
+	}
+
+	expired, cancel := context.WithDeadline(testContext, time.Now().Add(-time.Second))
+	defer cancel()
+	if _, err := r.Get(expired, "alice", "perf-20260903-120000-12345678"); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("storage did not preserve deadline", err)
+	}
 }
 
 func TestConcurrentMigrationAndTerminalSnapshots(t *testing.T) {

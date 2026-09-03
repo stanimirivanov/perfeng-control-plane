@@ -178,7 +178,7 @@ func tryAcquireClaim(
 	}
 	if err == nil &&
 		(now.Before(expiresAt) ||
-			(candidate.snapshot.State != "CANCELLING" && now.Before(availableAt))) {
+			(candidate.snapshot.State != run.StateCancelling && now.Before(availableAt))) {
 		return run.Claim{}, false, nil
 	}
 
@@ -268,7 +268,7 @@ func lockOwnedClaim(
 	if owner != lease.WorkerID ||
 		token != lease.Token ||
 		!now.Before(expiresAt) ||
-		contract.Terminal(current.State) {
+		contract.Terminal(string(current.State)) {
 		return run.Run{}, time.Time{}, run.ErrLeaseLost
 	}
 
@@ -401,7 +401,7 @@ func (r *Repository) AdvanceClaim(
 		return run.Run{}, storageError(err)
 	}
 
-	if contract.Terminal(next.State) {
+	if contract.Terminal(string(next.State)) {
 		_, err = tx.ExecContext(ctx, `
 			UPDATE perfeng_control.reconciliation_leases
 			SET expires_at = $1

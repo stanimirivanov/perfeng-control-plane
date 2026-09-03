@@ -78,7 +78,7 @@ func (r *Repository) Accept(ctx context.Context, principal, key string, request 
 	var suffix [4]byte
 	_, _ = rand.Read(suffix[:])
 	id := "perf-" + now.Format("20060102-150405") + "-" + hex.EncodeToString(suffix[:])
-	created := run.Run{ID: id, State: "CREATED", Revision: 1, Request: request, CreatedAt: now, UpdatedAt: now}
+	created := run.Run{ID: id, State: run.StateCreated, Revision: 1, Request: request, CreatedAt: now, UpdatedAt: now}
 	snapshot, err := json.Marshal(created)
 	if err != nil {
 		return run.Accepted{}, err
@@ -160,13 +160,13 @@ func (r *Repository) mutate(ctx context.Context, principal, id string, change fu
 
 func (r *Repository) Cancel(ctx context.Context, principal, id string) (run.Run, error) {
 	return r.mutate(ctx, principal, id, func(current run.Run, now time.Time) (run.Run, error) {
-		if current.State == "CANCELLING" || current.State == "ABORTED" {
+		if current.State == run.StateCancelling || current.State == run.StateAborted {
 			return current, nil
 		}
-		if contract.Terminal(current.State) {
+		if contract.Terminal(string(current.State)) {
 			return run.Run{}, run.ErrTerminal
 		}
-		return current.Transition(current.Revision, run.Change{State: "CANCELLING"}, now)
+		return current.Transition(current.Revision, run.Change{State: run.StateCancelling}, now)
 	})
 }
 

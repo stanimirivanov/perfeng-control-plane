@@ -247,7 +247,15 @@ func TestConflictTerminalAndDependencyFailures(t *testing.T) {
 	h.approve = func(context.Context, string, run.Request) error { return nil }
 	changed := bytes.Replace(fixture(t), []byte("smoke"), []byte("soak"), 1)
 	checkError(t, call(h, "POST", "/v1/runs", "alice-token", changed), 409, "IDEMPOTENCY_CONFLICT")
-	for _, state := range []string{"VALIDATING", "PROVISIONING", "RUNNING", "COLLECTING", "ANALYZING", "REPORTING", "COMPLETED"} {
+	for _, state := range []run.State{
+		run.StateValidating,
+		run.StateProvisioning,
+		run.StateRunning,
+		run.StateCollecting,
+		run.StateAnalyzing,
+		run.StateReporting,
+		run.StateCompleted,
+	} {
 		var err error
 		r, err = repo.Advance(context.Background(), "alice", r.ID, r.Revision, run.Change{State: state})
 		if err != nil {
@@ -263,6 +271,7 @@ func TestConflictTerminalAndDependencyFailures(t *testing.T) {
 		code   string
 	}{
 		{run.ErrUnavailable, 503, "UNAVAILABLE"}, {run.ErrForbidden, 403, "FORBIDDEN"},
+		{context.Canceled, 503, "UNAVAILABLE"}, {context.DeadlineExceeded, 503, "UNAVAILABLE"},
 		{errors.New("secret connection string"), 500, "INTERNAL_ERROR"},
 	} {
 		h.approve = func(context.Context, string, run.Request) error { return c.err }
