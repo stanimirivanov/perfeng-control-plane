@@ -26,6 +26,7 @@ coordination, not load generation or statistical decisions.
 - Retry-safe registration of verified raw artifacts before analysis.
 - Restart-safe orchestration of normalization through an injected executor.
 - Duplicate-safe Kubernetes normalization Job creation and phase mapping.
+- Bounded verification of immutable objects from approved S3 locations.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
@@ -85,6 +86,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/postgres | Durable transactions, migrations and artifact-reference storage |
 | internal/httpapi | HTTP parsing, auth/approval seams, status/response mapping |
 | internal/kubernetes | Deterministic Job dispatch, identity-checked observation, stop and Pod checks |
+| internal/objectstore | Approved S3 location policy and artifact-byte verification |
 | internal/worker | Bounded claim scheduling, lease renewal and attempt cancellation |
 | internal/reconcile | Lifecycle policy and lease-fenced persisted-execution reconciliation |
 
@@ -191,6 +193,12 @@ The PostgreSQL adapter stores the accepted Job identity immutably so another
 worker process can recover it under a current reconciliation lease.
 Database leases fence lifecycle writes; deterministic Job identity makes replayed
 creation safe without claiming exactly-once execution.
+
+The [object-storage verification boundary](docs/artifact-storage.md) accepts only
+the configured S3 bucket and each artifact's `runs/<run-id>/` namespace. It
+returns bytes only after bounded reading and exact metadata, size and SHA-256
+checks. An injected client still owns S3 authentication, endpoint configuration,
+transport security and safe backend error classification.
 
 ## Contract provenance
 
