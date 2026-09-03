@@ -33,6 +33,18 @@ the Run row lock used by cancellation and lifecycle writes. Eligibility is
 rechecked in a new statement after row locking: an older JOIN snapshot must not
 allow a worker to replace a lease another transaction just committed.
 
+The PostgreSQL implementation keeps that sequence visible in three layers:
+
+1. `ClaimRuns` owns the timeout, transaction, batch loop and single commit.
+2. `lockClaimCandidates` selects and locks Run rows, decodes their snapshots,
+   and closes query rows before any further statement uses the transaction.
+3. `tryAcquireClaim` reads database time, rechecks one candidate's current
+   lease, and writes its replacement when eligible.
+
+All acquired leases therefore commit or roll back together. Helper return does
+not release a Run lock; transaction completion does. Do not perform registry,
+Kubernetes, object-storage, or other external I/O between selection and commit.
+
 Lease deadlines use the database clock. The caller's ExpiresAt is only a hint.
 Every new claim gets a cryptographically random token, including when the same
 worker ID reclaims the same run. An expired token cannot renew, release or mutate
@@ -62,6 +74,12 @@ On ErrLeaseLost, stop writing as that owner. On ErrRevision, read the current
 snapshot through renewal before deciding what to do. A timeout/UNAVAILABLE at
 commit can leave the outcome uncertain; do not assume the lease or transition
 was rolled back. An unacknowledged new lease eventually expires.
+
+Input validation returns ErrValidation before storage access. After a Run is
+locked, missing Run/lease rows, owner or token mismatch, expiry, and terminal
+state are intentionally reported as the same ErrLeaseLost value. This prevents
+the privileged interface from exposing whether another principal or worker owns
+the Run. AdvanceClaim verifies ownership before revision/transition validation.
 
 **A database lease does not fence Kubernetes requests.** A paused/partitioned
 worker can have an in-flight external request after ownership expires. The future
