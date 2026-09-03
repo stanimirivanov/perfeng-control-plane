@@ -85,6 +85,14 @@ func NewDispatcher(jobs Jobs, namespace string) (*Dispatcher, error) {
 	return &Dispatcher{jobs: jobs, namespace: namespace}, nil
 }
 
+// ValidateJob applies the dispatcher's identity and execution policy without
+// contacting Kubernetes. The caller retains ownership of its template.
+func (dispatcher *Dispatcher) ValidateJob(runID string, template *batchv1.Job) error {
+	_, err := dispatcher.prepare(runID, template)
+
+	return err
+}
+
 // EnsureJob creates the Run's Job or adopts the existing Job only when its
 // control-plane identity, fingerprint and requested specification match.
 // Already-existing conflicts are never deleted or replaced.

@@ -53,10 +53,9 @@ stopped; durable leases become reclaimable after expiry. Reconciler implementati
 must honor context cancellation promptly. A terminal transition expires its lease
 inside the store, so a later release returning ErrLeaseLost is also normal.
 
-`ProvisioningReconciler` handles PROVISIONING with an injected approved-template
-resolver. It delegates already-bound executions to `BoundExecutionReconciler`.
-A registry-backed resolver, initial validation, complete state routing, artifact
-collection and production process wiring remain subsequent work.
+`Router` advances CREATED and selects validation, provisioning or bound execution
+reconciliation from the claimed state. A registry-backed resolver, artifact and
+analysis stages, and production process wiring remain subsequent work.
 
 ## Kubernetes lifecycle decisions
 
@@ -83,6 +82,46 @@ advance it to COLLECTING.
 
 The policy requires an existing durable execution identity. It does not decide
 whether an unbound Job should be created or adopted.
+
+## Validation and routing
+
+`ValidationReconciler` accepts only VALIDATING claims. It resolves the principal's
+pinned request through the same `JobResolver` used by provisioning, then calls
+`Dispatcher.ValidateJob`. That validation applies deterministic identity and the
+restricted execution policy without contacting Kubernetes or mutating the caller's
+template.
+
+A valid plan advances to PROVISIONING under the current lease and claimed revision.
+`ErrValidation`, a nil template, or a revoked plan reported as `ErrForbidden`
+advances to INVALID with a fixed safe `VALIDATION_FAILED` message. Resolver
+unavailability, cancellation and lease loss remain operational errors and do not
+change lifecycle state. A revision race requests immediate rediscovery.
+
+Validation does not persist a mutable Job template. Provisioning resolves the
+same immutable references again and rechecks ownership before dispatch. The real
+resolver must enforce identity, version and checksum immutability so both reads
+converge on the same plan.
+
+`Router` has one explicit destination for every active state currently claimed
+from storage:
+
+| Run state | Destination |
+| --- | --- |
+| CREATED | Lease-fenced advance to VALIDATING |
+| VALIDATING | Validation reconciler |
+| PROVISIONING | Provisioning reconciler |
+| WARMING_UP, RUNNING, CANCELLING | Bound-execution reconciler |
+| COLLECTING, ANALYZING, REPORTING | Deferred with bounded retry |
+
+The final group is deliberately quiet rather than producing repeated worker
+errors while its components are absent. Terminal and unknown states are rejected;
+the storage contract must not claim terminal Runs.
+
+CANCELLING currently routes to bound-execution reconciliation and therefore
+requires a durable execution identity. Recovery for cancellation after an
+ambiguous create but before identity binding remains a production-composition
+gap; the router must not be wired into a production worker until that path has a
+dedicated recovery stage.
 
 ## Provisioning reconciliation
 

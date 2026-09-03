@@ -196,6 +196,24 @@ func TestEnsureJobCreatesThenAdopts(t *testing.T) {
 	}
 }
 
+func TestValidateJobHasNoKubernetesSideEffects(t *testing.T) {
+	client := &memoryJobs{}
+	dispatcher := newTestDispatcher(t, client)
+	template := jobTemplate()
+	original := template.DeepCopy()
+
+	if err := dispatcher.ValidateJob(testRunID, template); err != nil {
+		t.Fatal(err)
+	}
+	if client.creates != 0 || client.gets != 0 || client.deletes != 0 ||
+		!apiequality.Semantic.DeepEqual(template, original) {
+		t.Fatal("validation contacted Kubernetes or mutated the caller's template")
+	}
+	if err := dispatcher.ValidateJob(testRunID, &batchv1.Job{}); !errors.Is(err, run.ErrValidation) {
+		t.Fatalf("invalid template error = %v", err)
+	}
+}
+
 func addServerIdentity(job *batchv1.Job) {
 	job.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{
 		batchv1.ControllerUidLabel: "job-uid",
