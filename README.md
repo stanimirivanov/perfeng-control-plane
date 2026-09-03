@@ -22,12 +22,13 @@ coordination, not load generation or statistical decisions.
 - Lease-fenced reconciliation of persisted executions and owned-Pod stop checks.
 - Bounded provisioning through an injected approved-template resolver.
 - Validated lifecycle entry and explicit routing for every active Run state.
+- Retry-safe registration of verified raw artifacts before analysis.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
-administrative `cmd/migrate` command applies database migrations. Provisioning
-and bound-execution stages are not wired into a process. A trusted resource
-resolver and post-execution stages are still missing, so no worker executes Jobs
+administrative `cmd/migrate` command applies database migrations. Reconciliation
+stages are not wired into a process. A trusted resource resolver, raw-artifact
+collector and analysis stages are still missing, so no worker executes Jobs
 from accepted requests. Tests use synthetic contract fixtures, not approved
 deployable resources.
 
@@ -163,10 +164,13 @@ creates or adopts the deterministic Job, and binds its identity. Existing bindin
 go directly to bound reconciliation, never back to creation.
 `ValidationReconciler` resolves the pinned request without cluster I/O and uses
 the dispatcher's policy to classify invalid or revoked plans before PROVISIONING.
-`Router` advances CREATED, selects validation/provisioning/bound stages, and
-quietly defers post-execution states until their components exist. A real approved
-resource resolver, unbound-cancellation recovery, and production composition are
-still missing.
+`CollectionReconciler` waits for a verified raw-result manifest and its declared
+objects, registers every immutable reference idempotently, and advances to
+ANALYZING only after all writes succeed. `Router` advances CREATED, selects
+validation/provisioning/bound/collection
+stages, and quietly defers analysis and reporting until their components exist.
+A real approved resource resolver, raw-artifact collector, unbound-cancellation
+recovery, and production composition are still missing.
 The `reconcile` policy defines that connection's state decisions independently
 of I/O: pending Jobs wait, running Jobs enter RUNNING, terminal Jobs enter
 COLLECTING, and unexpected disappearance/deletion is infrastructure failure.
