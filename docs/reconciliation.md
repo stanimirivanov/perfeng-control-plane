@@ -53,8 +53,9 @@ stopped; durable leases become reclaimable after expiry. Reconciler implementati
 must honor context cancellation promptly. A terminal transition expires its lease
 inside the store, so a later release returning ErrLeaseLost is also normal.
 
-The worker can use `BoundExecutionReconciler` for Runs that already have a durable
-Kubernetes execution identity. Resource resolution, unbound dispatch, artifact
+`ProvisioningReconciler` handles PROVISIONING with an injected approved-template
+resolver. It delegates already-bound executions to `BoundExecutionReconciler`.
+A registry-backed resolver, initial validation, complete state routing, artifact
 collection and production process wiring remain subsequent work.
 
 ## Kubernetes lifecycle decisions
@@ -82,6 +83,45 @@ advance it to COLLECTING.
 
 The policy requires an existing durable execution identity. It does not decide
 whether an unbound Job should be created or adopted.
+
+## Provisioning reconciliation
+
+`ProvisioningReconciler` accepts only PROVISIONING claims. It first loads the
+durable execution binding under the current lease. If a binding exists, it invokes
+the bound stage without resolving or creating a Job, even when that Job is absent
+from Kubernetes. A persisted execution must never be silently replaced.
+
+For an unbound Run, `JobResolver` receives the principal and an independent Run
+snapshot. The resolver must authorize the pinned resources, verify their published
+bytes and return an independently owned, reproducible Job template for that Run
+ID and immutable request. It must not accept arbitrary manifests, commands or
+credentials from API callers. This interface is not a registry implementation.
+
+After resolution, the reconciler renews the lease and checks the latest lifecycle
+state and revision. Observed cancellation or a revision change skips dispatch and
+requests immediate rediscovery. Otherwise `EnsureJob` creates or adopts a matching
+deterministic Job, and `BindExecution` persists its identity under the same lease.
+The new-binding attempt does not advance lifecycle state; the next attempt uses
+the bound stage's observed-state decisions.
+
+The whole attempt has one context deadline, defaulting to 10 seconds within a
+30-second lease. Configure the same lease TTL as the worker; the attempt deadline
+must be positive and no greater than half that TTL. Dependencies must honor context
+cancellation. This timeout bounds client work, not the outcome of an already-sent
+Kubernetes request or database commit.
+
+Retries always start with the binding lookup: an ambiguous committed binding
+routes directly to the bound stage, while an unbound matching Job is adopted.
+Dispatch, resolver and binding errors retain their identity; no cleanup deletes
+an accepted Job merely because its binding failed. If cancellation races a
+successful create, the returned identity is still bound when context and lease
+ownership permit, without overwriting CANCELLING.
+
+The pre-dispatch ownership check is not atomic with the Kubernetes request.
+Unbound cancellation after an ambiguous create remains an explicit recovery gap;
+this stage refuses CANCELLING claims and never creates a Job to cancel it. A full
+router must address that gap before production use. Migrations and public API
+behavior are unchanged by this stage.
 
 ## Bound execution reconciliation
 
