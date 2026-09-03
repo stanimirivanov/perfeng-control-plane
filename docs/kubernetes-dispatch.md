@@ -24,19 +24,18 @@ returns `ErrJobConflict`. It is never deleted, patched or replaced. This makes a
 retry safe after an ambiguous create response: if the API server stored the Job
 but the worker did not receive the response, the next attempt adopts it.
 
-The comparison removes server-generated selector identity and then requires
-semantic equality. Kubernetes-assigned Job UID is returned with the expected specification
+The comparison removes server-generated selector identity and the documented
+Job and Pod defaults produced by the tested Kubernetes version, then requires
+semantic equality. It does not ignore arbitrary additional or changed fields.
+Kubernetes-assigned Job UID is returned with the expected specification
 fingerprint as the durable cluster-side identity for subsequent observation.
 
-### API-server integration limitation
-
-The client-go scheme used here does not register API-server Job/Pod defaulting.
-Consequently, server-added defaults can currently cause a matching Job to be
-rejected as `ErrJobConflict` during dispatch or observation. The in-memory client
-does not simulate those defaults. Specification normalization and real API-server
-integration tests are required before using this boundary against a cluster;
-passing unit tests does not establish live compatibility. Unexpected execution
-changes must continue to be rejected when that normalization is introduced.
+An opt-in integration test creates an isolated namespace against a real API
+server and verifies create, replay adoption and observation after defaulting. Set
+`PERFENG_TEST_KUBECONFIG` to run it locally. CI runs kind v0.31.0 against
+Kubernetes v1.35.0 using a digest-pinned node image. When Kubernetes dependencies
+or the cluster version change, review the canonical defaults and rerun this test;
+do not broadly discard unknown fields.
 
 ## Observe and stop
 

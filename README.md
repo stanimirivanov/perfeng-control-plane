@@ -144,8 +144,8 @@ The Kubernetes [dispatch boundary](docs/kubernetes-dispatch.md) adds one fixed
 Job identity per Run and collision-checked create/adoption after uncertain API
 responses. The same boundary observes the exact Job UID and requests foreground,
 UID-preconditioned deletion. It does not add the worker loop or lifecycle mapping.
-API-server default normalization remains an integration gap described in the
-dispatch documentation; this boundary is not yet validated against a live cluster.
+API-server default normalization is covered by an isolated live integration test
+described in the dispatch documentation.
 Database leases fence lifecycle writes; deterministic Job identity makes replayed
 creation safe without claiming exactly-once execution.
 
