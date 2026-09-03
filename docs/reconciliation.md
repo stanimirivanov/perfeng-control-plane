@@ -57,6 +57,34 @@ The current injected reconciler is an interface seam. Resource resolution,
 Kubernetes lifecycle mapping, artifact collection and production process wiring
 remain subsequent work.
 
+## Kubernetes lifecycle decisions
+
+`reconcile.DecideBoundExecution` maps an identity-checked observation of a
+durably persisted execution to one action. It deliberately performs no storage
+or Kubernetes I/O, so transition policy can be tested independently from retry
+and ownership mechanics.
+
+| Run state | Job observation | Decision |
+| --- | --- | --- |
+| PROVISIONING | pending | Wait |
+| PROVISIONING | running or terminal | Advance to RUNNING |
+| WARMING_UP or RUNNING | pending or running | Wait |
+| WARMING_UP or RUNNING | succeeded or failed | Advance to COLLECTING |
+| CANCELLING | present | Request identity-checked stop |
+| CANCELLING | absent | Advance to ABORTED |
+| Execution state | unexpectedly absent or deleting | INFRASTRUCTURE_FAILURE |
+
+A failed Job advances to COLLECTING rather than TEST_FAILURE because Kubernetes
+status cannot establish the runner exit code or whether usable diagnostic and
+result artifacts exist. A terminal Job observed during PROVISIONING first enters
+RUNNING to preserve an accepted state-machine path; the next observation can
+advance it to COLLECTING.
+
+The policy requires an existing durable execution identity. It does not decide
+whether an unbound Job should be created or adopted. The I/O reconciler that
+resolves an approved template, persists dispatch identity, applies decisions and
+polls foreground cancellation remains a subsequent slice.
+
 ## Ownership and concurrency
 
 Claims use short PostgreSQL transactions and row locks with SKIP LOCKED, sharing

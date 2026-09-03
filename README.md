@@ -18,6 +18,7 @@ coordination, not load generation or statistical decisions.
 - Identity-checked Kubernetes Job observation and cancellation requests.
 - Lease-fenced, restart-safe persistence of Kubernetes execution identity.
 - Bounded reconciliation attempts with lease renewal and cooperative shutdown.
+- Explicit lifecycle decisions for identity-checked Kubernetes Job observations.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
@@ -78,6 +79,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/httpapi | HTTP parsing, auth/approval seams, status/response mapping |
 | internal/kubernetes | Deterministic Job dispatch, identity-checked observation and stop requests |
 | internal/worker | Bounded claim scheduling, lease renewal and attempt cancellation |
+| internal/reconcile | Run-lifecycle decisions from trusted execution observations |
 
 `httpapi.New(repository, authenticate, approve)` returns an `http.Handler`.
 All dependencies are mandatory and must be concurrency-safe. HTTP tests show
@@ -152,6 +154,12 @@ Job identity per Run and collision-checked create/adoption after uncertain API
 responses. The same boundary observes the exact Job UID and requests foreground,
 UID-preconditioned deletion. These components are not yet connected by a resource
 resolver or lifecycle reconciler.
+The `reconcile` policy defines that connection's state decisions independently
+of I/O: pending Jobs wait, running Jobs enter RUNNING, terminal Jobs enter
+COLLECTING, and unexpected disappearance/deletion is infrastructure failure.
+Kubernetes failure never directly means TEST_FAILURE; artifact and process
+evidence must be collected first. Cancellation reaches ABORTED only after the
+exact persisted execution is absent.
 API-server default normalization is covered by an isolated live integration test
 described in the dispatch documentation.
 The PostgreSQL adapter stores the accepted Job identity immutably so another
