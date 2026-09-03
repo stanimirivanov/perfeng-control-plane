@@ -24,7 +24,10 @@ func failureFor(state string) *Failure {
 }
 
 func TestEveryTransitionPair(t *testing.T) {
-	b, _ := contract.Files.ReadFile("snapshot/transitions.json")
+	b, err := contract.Files.ReadFile("snapshot/transitions.json")
+	if err != nil {
+		t.Fatal(err)
+	}
 	var table map[string][]string
 	if err := json.Unmarshal(b, &table); err != nil {
 		t.Fatal(err)

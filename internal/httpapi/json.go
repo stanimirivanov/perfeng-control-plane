@@ -22,7 +22,7 @@ func parseJSON(b []byte) (any, error) {
 	if err != nil {
 		return nil, errJSON
 	}
-	if _, err = d.Token(); err != io.EOF {
+	if _, err = d.Token(); !errors.Is(err, io.EOF) {
 		return nil, errJSON
 	}
 	return value, nil

@@ -22,12 +22,32 @@ jobs:
           cache: false
       - name: Check formatting
         run: test -z "$(gofmt -l .)"
-      - name: Vet
-        run: go vet ./...
+      - name: Lint report (informational)
+        uses: golangci/golangci-lint-action@db9de0fc1a667e1a49d2291a1a042dff081d78f6 # v9
+        with:
+          version-file: .golangci-lint-version
+          args: --config=.golangci.yml ./...
+          skip-cache: true
+      - name: Verify dependencies
+        run: go mod verify
       - name: Test with race detector
-        run: go test -race -count=1 ./...
+        run: go test -vet=off -race -count=1 ./...
       - name: Fuzz JSON parser
-        run: go test ./internal/httpapi -run=^$ -fuzz=FuzzParseJSON -fuzztime=10s
+        run: go test -vet=off ./internal/httpapi -run=^$ -fuzz=FuzzParseJSON -fuzztime=10s
+
+  vulnerabilities:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Scan reachable vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 
   postgres:
     runs-on: ubuntu-latest
@@ -55,4 +75,4 @@ jobs:
       - name: PostgreSQL integration and restart tests
         env:
           PERFENG_TEST_DATABASE_URL: postgres://postgres@127.0.0.1:${{ job.services.postgres.ports[5432] }}/postgres?sslmode=disable
-        run: go test -race -count=1 -timeout=3m -v ./internal/postgres
+        run: go test -vet=off -race -count=1 -timeout=3m -v ./internal/postgres

@@ -215,7 +215,9 @@ func TestConcurrentClaimsAndSkipLocked(t *testing.T) {
 			t.Fatal("locked run claimed")
 		}
 	}
-	_ = tx.Rollback()
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
 	if oneClaim(t, r, "last-worker").Run.ID != lockedID {
 		t.Fatal("unlocked work was lost")
 	}
@@ -236,7 +238,9 @@ func TestClaimsSurviveProcessRestart(t *testing.T) {
 			t.Fatalf("worker restart check failed: %v\n%s", err, output)
 		}
 	}
-	_ = r.Close()
+	if err := r.Close(); err != nil {
+		t.Fatal(err)
+	}
 	checkChild("active")
 	r = openTest(t, dsn)
 	if _, err := r.db.Exec("UPDATE perfeng_control.reconciliation_leases SET expires_at=clock_timestamp()-interval '1 second' WHERE run_id=$1", old.Run.ID); err != nil {

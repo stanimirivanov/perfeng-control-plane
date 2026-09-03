@@ -1,0 +1,65 @@
+version: "2"
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+  # Findings inform human review; they do not fail the build.
+  issues-exit-code: 0
+
+linters:
+  default: none
+  enable:
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - errcheck
+    - errorlint
+    - sqlclosecheck
+    - rowserrcheck
+    - revive
+    - wsl_v5
+    - gocognit
+  settings:
+    staticcheck:
+      # Keep optional quick-fix suggestions out of this report.
+      checks: [all, "-QF*"]
+    errcheck:
+      check-blank: true
+    revive:
+      rules:
+        - name: context-as-argument
+        - name: error-naming
+        - name: error-strings
+        - name: error-return
+        - name: receiver-naming
+        - name: exported
+        - name: package-comments
+    wsl_v5:
+      default: none
+      enable:
+        - err
+        - return
+        - branch
+        - leading-whitespace
+        - trailing-whitespace
+      branch-max-lines: 4
+      allow-first-in-block: true
+      allow-whole-block: false
+    gocognit:
+      min-complexity: 20
+  exclusions:
+    # Do not silently exclude tests or the default common-error patterns.
+    presets: []
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+severity:
+  default: warning

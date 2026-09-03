@@ -28,7 +28,9 @@ func setup(t *testing.T) (*Handler, *memory.Repository) {
 	t.Helper()
 	repo := memory.New(nil)
 	var approved run.Request
-	_ = json.Unmarshal(fixture(t), &approved)
+	if err := json.Unmarshal(fixture(t), &approved); err != nil {
+		t.Fatal(err)
+	}
 	h, err := New(repo, func(_ context.Context, token string) (Identity, error) {
 		switch token {
 		case "alice-token", "rotated-token":
@@ -119,8 +121,13 @@ func TestCreateGetCancelReplay(t *testing.T) {
 	}
 	// Reorder all properties and change whitespace, then rotate the credential.
 	var object any
-	_ = json.Unmarshal(fixture(t), &object)
-	reordered, _ := json.MarshalIndent(object, "", "  ")
+	if err := json.Unmarshal(fixture(t), &object); err != nil {
+		t.Fatal(err)
+	}
+	reordered, err := json.MarshalIndent(object, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
 	replay := call(h, "POST", "/v1/runs", "rotated-token", reordered)
 	if replay.Code != 201 || replay.Body.String() != first.Body.String() || replay.Header().Get("Location") != location || replay.Header().Get("Idempotency-Key-Expires-At") != first.Header().Get("Idempotency-Key-Expires-At") {
 		t.Fatal("replay not original acceptance")
@@ -129,7 +136,7 @@ func TestCreateGetCancelReplay(t *testing.T) {
 	if current.Code != 200 || decodeRun(t, current).State != "CANCELLING" {
 		t.Fatal("replay reset current run")
 	}
-	_, err := repo.Advance(context.Background(), "alice", r.ID, 2, run.Change{State: "ABORTED"})
+	_, err = repo.Advance(context.Background(), "alice", r.ID, 2, run.Change{State: "ABORTED"})
 	if err != nil {
 		t.Fatal(err)
 	}
