@@ -28,3 +28,31 @@ jobs:
         run: go test -race -count=1 ./...
       - name: Fuzz JSON parser
         run: go test ./internal/httpapi -run=^$ -fuzz=FuzzParseJSON -fuzztime=10s
+
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.11-bookworm@sha256:051f7b7b3abdd564d5d1bd1e8c4b9c1b6e77087d1dd22020ede611c096a272e0
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: PostgreSQL integration and restart tests
+        env:
+          PERFENG_TEST_DATABASE_URL: postgres://postgres@127.0.0.1:${{ job.services.postgres.ports[5432] }}/postgres?sslmode=disable
+        run: go test -race -count=1 -timeout=3m -v ./internal/postgres

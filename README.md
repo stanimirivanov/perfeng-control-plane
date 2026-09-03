@@ -12,21 +12,23 @@ coordination, not load generation or statistical decisions.
 - Original acceptance replay, current-state reads and asynchronous cancellation.
 - Revision-checked worker transitions, terminal-state and failure-code rules.
 - In-memory repository for bounded tests/development, with concurrency tests.
+- PostgreSQL repository, transactional migrations and immutable artifact references.
 
 This is a library foundation, **not a deployable service**. There is intentionally
-no server executable, Docker image or Kubernetes deployment yet. No jobs execute,
+no HTTP server executable, Docker image or Kubernetes deployment yet. The
+administrative `cmd/migrate` command applies database migrations. No jobs execute,
 and cancellation remains CANCELLING until a future worker confirms execution has
 stopped. Tests use synthetic contract fixtures, not approved deployable resources.
 
 The in-memory adapter loses runs and idempotency bindings on restart. It cannot
 meet the API's production durability guarantees for 201/202 responses. Do not
-expose it as a production API. PostgreSQL persistence is the next implementation
-slice; dispatch, recovery, artifact collection and analysis integration follow.
+expose it as a production API. The PostgreSQL adapter provides durable storage;
+dispatch, recovery, artifact collection and analysis integration follow.
 
 ## Development
 
 Use Go 1.26.4 (the tested toolchain, recorded in go.mod), or a reviewed newer Go
-toolchain. There are no third-party Go dependencies and no go.sum is needed.
+toolchain. PostgreSQL uses pgx v5.10.0; go.mod and go.sum pin its dependencies.
 This Go repository does not need Python, uv or Ruff.
 
 From this repository in PowerShell or a shell:
@@ -59,6 +61,7 @@ ignored.
 | internal/contract | Embedded, reviewed API schema/transition snapshot |
 | internal/run | Request/run types, lifecycle rules, repository contract |
 | internal/memory | Atomic process-local test adapter |
+| internal/postgres | Durable transactions, migrations and artifact-reference storage |
 | internal/httpapi | HTTP parsing, auth/approval seams, status/response mapping |
 
 `httpapi.New(repository, authenticate, approve)` returns an `http.Handler`.
@@ -81,8 +84,8 @@ does not fetch caller URLs, accept commands, or treat synthetic fixture hashes
 as approved resources. The eventual adapter owns resource-registry I/O and its
 error classification; safe sentinel errors map to 422, 403 or 503.
 
-A service composition must add verified identity/resource adapters, durable
-storage, TLS outside isolated development, bounded HTTP server timeouts,
+A service composition must wire verified identity/resource adapters and the
+PostgreSQL adapter, TLS outside isolated development, bounded HTTP server timeouts,
 admission/rate limits, observability and graceful shutdown before deployment.
 This slice does not implement rate limiting or return REQUEST_IN_PROGRESS:
 the in-memory adapter serializes acceptance, so concurrent identical calls
@@ -92,7 +95,7 @@ with Retry-After; internal diagnostics are never echoed to callers.
 ## State and persistence rules
 
 The repository interface requires atomic create/binding persistence and
-serialized cancellation/worker updates. A future SQL adapter must enforce these
+serialized cancellation/worker updates. The PostgreSQL adapter enforces these
 in database transactions, not just process-local locks. Worker updates use an
 expected revision and cannot overwrite a concurrent cancellation. No generic
 HTTP endpoint exposes worker transitions.
@@ -107,6 +110,14 @@ cannot represent CANCELLING).
 In-memory run storage is intentionally unbounded and process-local; use only
 bounded test/development workloads. A key can create a new run at expiry, but
 the old run remains readable during this process's lifetime.
+
+## PostgreSQL
+
+See [storage and migration instructions](docs/postgresql.md) for schema ownership,
+explicit migrations, the prototype migration boundary and isolated integration
+tests. Ordinary `go test ./...` skips live PostgreSQL tests unless
+`PERFENG_TEST_DATABASE_URL` is set. CI runs them against a pinned PostgreSQL
+17.11 service, including a separate-process restart check.
 
 ## Contract provenance
 
