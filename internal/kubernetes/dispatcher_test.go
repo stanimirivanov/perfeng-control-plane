@@ -9,6 +9,7 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -203,6 +204,86 @@ func addServerIdentity(job *batchv1.Job) {
 	job.Spec.Template.Labels[batchv1.JobNameLabel] = testRunID
 	job.Spec.Template.Labels["controller-uid"] = "job-uid"
 	job.Spec.Template.Labels["job-name"] = testRunID
+}
+
+func addAPIServerDefaults(job *batchv1.Job) {
+	manualSelector, suspend := false, false
+	completionMode := batchv1.NonIndexedCompletion
+	podReplacementPolicy := batchv1.TerminatingOrFailed
+	terminationGracePeriod := int64(30)
+	job.Spec.ManualSelector = &manualSelector
+	job.Spec.CompletionMode = &completionMode
+	job.Spec.Suspend = &suspend
+	job.Spec.PodReplacementPolicy = &podReplacementPolicy
+	job.Spec.Template.Spec.TerminationGracePeriodSeconds = &terminationGracePeriod
+	job.Spec.Template.Spec.DNSPolicy = corev1.DNSClusterFirst
+	job.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{}
+	job.Spec.Template.Spec.SchedulerName = corev1.DefaultSchedulerName
+	for index := range job.Spec.Template.Spec.Containers {
+		container := &job.Spec.Template.Spec.Containers[index]
+		container.TerminationMessagePath = corev1.TerminationMessagePathDefault
+		container.TerminationMessagePolicy = corev1.TerminationMessageReadFile
+		container.ImagePullPolicy = corev1.PullIfNotPresent
+	}
+}
+
+func TestEnsureJobAcceptsAPIServerDefaults(t *testing.T) {
+	client := &memoryJobs{mutateStored: addAPIServerDefaults}
+	dispatcher := newTestDispatcher(t, client)
+	created, err := dispatcher.EnsureJob(context.Background(), testRunID, jobTemplate())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := dispatcher.ObserveJob(context.Background(), created); err != nil {
+		t.Fatal(err)
+	}
+	adopted, err := dispatcher.EnsureJob(context.Background(), testRunID, jobTemplate())
+	if err != nil || adopted.Created || adopted.UID != created.UID {
+		t.Fatal("API-server-defaulted Job was not adopted", err)
+	}
+}
+
+func TestNormalizationKeepsExplicitReplacementPolicy(t *testing.T) {
+	desired := jobTemplate()
+	policy := batchv1.Failed
+	desired.Spec.PodReplacementPolicy = &policy
+	defaulted := desired.DeepCopy()
+	defaultPolicy := batchv1.TerminatingOrFailed
+	defaulted.Spec.PodReplacementPolicy = &defaultPolicy
+	if apiequality.Semantic.DeepEqual(normalizedSpec(desired), normalizedSpec(defaulted)) {
+		t.Fatal("explicit replacement policy was normalized as an API-server default")
+	}
+
+	desiredWithFailurePolicy := jobTemplate()
+	desiredWithFailurePolicy.Spec.PodFailurePolicy = &batchv1.PodFailurePolicy{}
+	defaultedWithFailurePolicy := desiredWithFailurePolicy.DeepCopy()
+	defaultedWithFailurePolicy.Spec.PodReplacementPolicy = &policy
+	if !apiequality.Semantic.DeepEqual(
+		normalizedSpec(desiredWithFailurePolicy),
+		normalizedSpec(defaultedWithFailurePolicy),
+	) {
+		t.Fatal("conditional replacement-policy default was not normalized")
+	}
+}
+
+func TestEnsureJobRejectsNondefaultServerChanges(t *testing.T) {
+	for name, mutate := range map[string]func(*batchv1.Job){
+		"scheduler": func(job *batchv1.Job) { job.Spec.Template.Spec.SchedulerName = "other" },
+		"pull-policy": func(job *batchv1.Job) {
+			job.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullAlways
+		},
+		"security-context": func(job *batchv1.Job) {
+			job.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{RunAsNonRoot: new(true)}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := &memoryJobs{mutateStored: mutate}
+			_, err := newTestDispatcher(t, client).EnsureJob(context.Background(), testRunID, jobTemplate())
+			if !errors.Is(err, ErrJobConflict) {
+				t.Fatal("nondefault server change was accepted", err)
+			}
+		})
+	}
 }
 
 func TestEnsureJobConcurrentReconcilersConverge(t *testing.T) {

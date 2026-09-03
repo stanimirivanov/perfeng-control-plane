@@ -17,7 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
-	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
@@ -141,8 +140,6 @@ func (dispatcher *Dispatcher) prepare(runID string, template *batchv1.Job) (*bat
 		desired.Spec.Template.Annotations,
 		specAnnotation,
 	)
-	kubernetesscheme.Scheme.Default(desired)
-
 	fingerprint, err := jobFingerprint(desired)
 	if err != nil {
 		return nil, errors.New("could not fingerprint Kubernetes Job specification")
@@ -219,8 +216,8 @@ func jobFingerprint(job *batchv1.Job) (string, error) {
 
 func normalizedSpec(job *batchv1.Job) batchv1.JobSpec {
 	normalized := job.DeepCopy()
-	kubernetesscheme.Scheme.Default(normalized)
 	normalized.Spec.Selector = nil
+	clearAPIServerDefaults(&normalized.Spec)
 	for _, key := range []string{
 		batchv1.ControllerUidLabel,
 		batchv1.JobNameLabel,
@@ -231,6 +228,57 @@ func normalizedSpec(job *batchv1.Job) batchv1.JobSpec {
 	}
 
 	return normalized.Spec
+}
+
+func clearAPIServerDefaults(spec *batchv1.JobSpec) {
+	if spec.ManualSelector != nil && !*spec.ManualSelector {
+		spec.ManualSelector = nil
+	}
+	if spec.CompletionMode != nil && *spec.CompletionMode == batchv1.NonIndexedCompletion {
+		spec.CompletionMode = nil
+	}
+	if spec.Suspend != nil && !*spec.Suspend {
+		spec.Suspend = nil
+	}
+	if spec.PodReplacementPolicy != nil {
+		policy := *spec.PodReplacementPolicy
+		if policy == batchv1.TerminatingOrFailed ||
+			(policy == batchv1.Failed && spec.PodFailurePolicy != nil) {
+			spec.PodReplacementPolicy = nil
+		}
+	}
+
+	pod := &spec.Template.Spec
+	if pod.TerminationGracePeriodSeconds != nil && *pod.TerminationGracePeriodSeconds == 30 {
+		pod.TerminationGracePeriodSeconds = nil
+	}
+	if pod.DNSPolicy == corev1.DNSClusterFirst {
+		pod.DNSPolicy = ""
+	}
+	if pod.SchedulerName == corev1.DefaultSchedulerName {
+		pod.SchedulerName = ""
+	}
+	if apiequality.Semantic.DeepEqual(pod.SecurityContext, &corev1.PodSecurityContext{}) {
+		pod.SecurityContext = nil
+	}
+	for index := range pod.InitContainers {
+		clearContainerDefaults(&pod.InitContainers[index])
+	}
+	for index := range pod.Containers {
+		clearContainerDefaults(&pod.Containers[index])
+	}
+}
+
+func clearContainerDefaults(container *corev1.Container) {
+	if container.TerminationMessagePath == corev1.TerminationMessagePathDefault {
+		container.TerminationMessagePath = ""
+	}
+	if container.TerminationMessagePolicy == corev1.TerminationMessageReadFile {
+		container.TerminationMessagePolicy = ""
+	}
+	if container.ImagePullPolicy == corev1.PullIfNotPresent {
+		container.ImagePullPolicy = ""
+	}
 }
 
 func acceptedDispatch(
