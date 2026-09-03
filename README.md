@@ -20,13 +20,15 @@ coordination, not load generation or statistical decisions.
 - Bounded reconciliation attempts with lease renewal and cooperative shutdown.
 - Explicit lifecycle decisions for identity-checked Kubernetes Job observations.
 - Lease-fenced reconciliation of persisted executions and owned-Pod stop checks.
+- Bounded provisioning through an injected approved-template resolver.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
-administrative `cmd/migrate` command applies database migrations. The bound
-execution reconciler is not wired into a process and cannot create an unbound
-Job, so no worker executes Jobs from accepted requests. Tests use synthetic
-contract fixtures, not approved deployable resources.
+administrative `cmd/migrate` command applies database migrations. Provisioning
+and bound-execution stages are not wired into a process. A trusted resource
+resolver, initial validation stage and complete state router are still missing,
+so no worker executes Jobs from accepted requests. Tests use synthetic contract
+fixtures, not approved deployable resources.
 
 The in-memory adapter loses runs and idempotency bindings on restart. It cannot
 meet the API's production durability guarantees for 201/202 responses. Do not
@@ -154,8 +156,11 @@ Job identity per Run and collision-checked create/adoption after uncertain API
 responses. The same boundary observes the exact Job UID and requests foreground,
 UID-preconditioned deletion. The bound-execution reconciler connects persisted
 identities to those observation and stop boundaries, applying lifecycle changes
-through the current lease and expected revision. An approved resource resolver
-and unbound dispatch stage are still missing.
+through the current lease and expected revision. `ProvisioningReconciler` resolves
+an approved template through an injected interface, renews and rechecks the claim,
+creates or adopts the deterministic Job, and binds its identity. Existing bindings
+go directly to bound reconciliation, never back to creation. A real approved
+resource resolver and the initial validation/routing stages are still missing.
 The `reconcile` policy defines that connection's state decisions independently
 of I/O: pending Jobs wait, running Jobs enter RUNNING, terminal Jobs enter
 COLLECTING, and unexpected disappearance/deletion is infrastructure failure.

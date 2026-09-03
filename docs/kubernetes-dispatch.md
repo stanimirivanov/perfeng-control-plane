@@ -32,6 +32,13 @@ fingerprint as the durable cluster-side identity for subsequent observation.
 `Dispatch.Execution()` removes the transient create/adopt result and produces
 the immutable value stored by the lease-fenced PostgreSQL execution store.
 
+`reconcile.ProvisioningReconciler` connects these boundaries for PROVISIONING
+Runs. It checks durable bindings before dispatch, resolves a trusted template,
+rechecks the current lease/state, then creates or adopts and binds the returned
+identity. It bounds the attempt with a context deadline and never recreates an
+already-bound execution. See [provisioning reconciliation](reconciliation.md#provisioning-reconciliation)
+for ambiguous outcomes and the remaining unbound-cancellation recovery gap.
+
 An opt-in integration test creates an isolated namespace against a real API
 server and verifies create, replay adoption and observation after defaulting. Set
 `PERFENG_TEST_KUBECONFIG` to run it locally. CI runs kind v0.31.0 against
