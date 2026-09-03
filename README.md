@@ -27,6 +27,7 @@ coordination, not load generation or statistical decisions.
 - Restart-safe orchestration of normalization through an injected executor.
 - Duplicate-safe Kubernetes normalization Job creation and phase mapping.
 - Bounded verification of immutable objects from approved S3 locations.
+- AWS SDK for Go v2 adapter with safe S3 error classification.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
@@ -45,8 +46,9 @@ dispatch, recovery, artifact collection and analysis integration follow.
 
 Use Go 1.26.6 (the tested toolchain, recorded in go.mod), or a reviewed newer Go
 toolchain. PostgreSQL uses pgx v5.10.0; the Kubernetes API libraries are aligned
-at v0.37.0. go.mod and go.sum pin all dependencies. This Go repository does not
-need Python, uv or Ruff.
+at v0.37.0; and the S3 adapter uses AWS SDK for Go v2 service/s3 v1.110.0.
+go.mod and go.sum pin all dependencies. This Go repository does not need Python,
+uv or Ruff.
 
 Start with [contributing and Go code-quality standards](CONTRIBUTING.md) for
 pinned tool installation, the review checklist and the complete local checks.
@@ -199,6 +201,9 @@ the configured S3 bucket and each artifact's `runs/<run-id>/` namespace. It
 returns bytes only after bounded reading and exact metadata, size and SHA-256
 checks. An injected client still owns S3 authentication, endpoint configuration,
 transport security and safe backend error classification.
+`objectstore.S3Getter` adapts the AWS SDK v2 `GetObject` operation and redacts
+backend messages and request details. It preserves cancellation, distinguishes
+missing keys, and classifies transient service/network failures as unavailable.
 
 ## Contract provenance
 
