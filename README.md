@@ -13,6 +13,7 @@ coordination, not load generation or statistical decisions.
 - Revision-checked worker transitions, terminal-state and failure-code rules.
 - In-memory repository for bounded tests/development, with concurrency tests.
 - PostgreSQL repository, transactional migrations and immutable artifact references.
+- Durable worker claims, lease renewal/recovery and fenced lifecycle updates.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
@@ -118,6 +119,16 @@ explicit migrations, the prototype migration boundary and isolated integration
 tests. Ordinary `go test ./...` skips live PostgreSQL tests unless
 `PERFENG_TEST_DATABASE_URL` is set. CI runs them against a pinned PostgreSQL
 17.11 service, including a separate-process restart check.
+
+## Reconciliation foundation
+
+The PostgreSQL adapter also implements the privileged worker-only
+`run.ReconciliationStore`: active-run discovery, renewable leases, delayed
+release and lease/revision-checked updates. See
+[reconciliation ownership](docs/reconciliation.md) for usage and limitations.
+This is the first part of dispatch/reconciliation work, not a Job dispatcher.
+Database leases do not prevent stale in-flight Kubernetes side effects; that
+boundary still needs explicit execution identity and duplicate-safe Job handling.
 
 ## Contract provenance
 

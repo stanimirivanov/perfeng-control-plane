@@ -10,6 +10,7 @@ runners do not write these tables directly.
 | runs | Principal-owned current run snapshots |
 | create_bindings | Original acceptance snapshot and 24-hour key expiration |
 | artifacts | Immutable identities for raw/normalized object references |
+| reconciliation_leases | Worker ownership tokens, lease expiry and retry availability |
 
 Snapshots are JSONB using the accepted API field names, with relational identity,
 ownership, uniqueness and foreign-key constraints. This keeps optional API
@@ -70,6 +71,12 @@ GRANT SELECT, INSERT, UPDATE ON perfeng_control.runs TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.create_bindings TO perfeng_runtime;
 GRANT SELECT, INSERT ON perfeng_control.artifacts TO perfeng_runtime;
 ~~~
+
+Only the trusted reconciliation worker role additionally needs SELECT, INSERT
+and UPDATE on `perfeng_control.reconciliation_leases`. It also needs the Run
+table privileges above. Do not grant the worker interface to tenant/API callers.
+Migration 0002 adds this table without altering migration 0001 or existing data.
+See [worker-claim semantics](reconciliation.md).
 
 Provision that role/login through infrastructure; the migration does not create
 credentials or grant permissions to PUBLIC. Do not use the schema owner as the
