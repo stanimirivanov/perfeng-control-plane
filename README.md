@@ -17,13 +17,15 @@ coordination, not load generation or statistical decisions.
 - Duplicate-safe Kubernetes Job creation and adoption boundary.
 - Identity-checked Kubernetes Job observation and cancellation requests.
 - Lease-fenced, restart-safe persistence of Kubernetes execution identity.
+- Bounded reconciliation attempts with lease renewal and cooperative shutdown.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
-administrative `cmd/migrate` command applies database migrations. No worker
-executes Jobs, and cancellation remains CANCELLING until a future worker confirms
-execution has stopped. Tests use synthetic contract fixtures, not approved
-deployable resources.
+administrative `cmd/migrate` command applies database migrations. The worker
+engine has no production composition or Kubernetes lifecycle reconciler, so no
+worker executes Jobs and cancellation remains CANCELLING until a later component
+confirms execution has stopped. Tests use synthetic contract fixtures, not
+approved deployable resources.
 
 The in-memory adapter loses runs and idempotency bindings on restart. It cannot
 meet the API's production durability guarantees for 201/202 responses. Do not
@@ -75,6 +77,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/postgres | Durable transactions, migrations and artifact-reference storage |
 | internal/httpapi | HTTP parsing, auth/approval seams, status/response mapping |
 | internal/kubernetes | Deterministic Job dispatch, identity-checked observation and stop requests |
+| internal/worker | Bounded claim scheduling, lease renewal and attempt cancellation |
 
 `httpapi.New(repository, authenticate, approve)` returns an `http.Handler`.
 All dependencies are mandatory and must be concurrency-safe. HTTP tests show
@@ -141,10 +144,14 @@ The PostgreSQL adapter also implements the privileged worker-only
 `run.ReconciliationStore`: active-run discovery, renewable leases, delayed
 release and lease/revision-checked updates. See
 [reconciliation ownership](docs/reconciliation.md) for usage and limitations.
-The Kubernetes [dispatch boundary](docs/kubernetes-dispatch.md) adds one fixed
+The `worker.Worker` engine claims only its available capacity, renews each active
+lease and invokes an injected one-attempt reconciler. See the reconciliation
+documentation for retry, cancellation and shutdown behavior. The Kubernetes
+[dispatch boundary](docs/kubernetes-dispatch.md) adds one fixed
 Job identity per Run and collision-checked create/adoption after uncertain API
 responses. The same boundary observes the exact Job UID and requests foreground,
-UID-preconditioned deletion. It does not add the worker loop or lifecycle mapping.
+UID-preconditioned deletion. These components are not yet connected by a resource
+resolver or lifecycle reconciler.
 API-server default normalization is covered by an isolated live integration test
 described in the dispatch documentation.
 The PostgreSQL adapter stores the accepted Job identity immutably so another

@@ -1,9 +1,10 @@
 # Reconciliation work claims
 
-The PostgreSQL reconciliation store is a prerequisite for a restart-safe worker.
-It discovers active runs without an in-memory queue or a caller-provided list of
-run IDs. This is coordination infrastructure, not a Kubernetes dispatcher.
-No Jobs are created, stopped, retried or deleted by this code.
+The PostgreSQL reconciliation store and `worker.Worker` provide restart-safe,
+bounded reconciliation attempts. Runs are discovered without an in-memory queue
+or a caller-provided list of run IDs. This is coordination infrastructure, not a
+Kubernetes lifecycle reconciler. No Jobs are created, stopped, retried or deleted
+by the worker engine itself.
 
 ## Worker-only interface
 
@@ -22,9 +23,39 @@ listing endpoint. Claim tokens must not be exposed in HTTP responses or logs.
 
 Worker IDs are 1-128 ASCII letters/digits/dot/underscore/colon/hyphen, starting
 with a letter/digit. Lease TTL is 5-300 whole seconds; retry delay is 0-300 whole
-seconds. Use small batches appropriate to worker capacity and renew well before
-expiry. Empty/short batches under contention are normal, not proof that no work
-exists. A worker loop and its heartbeat/shutdown policy are subsequent work.
+seconds. Empty/short batches under contention are normal, not proof that no work
+exists.
+
+## Worker engine
+
+`worker.New` requires a reconciliation store, a one-attempt `Reconciler`, an
+event reporter and validated configuration. The worker claims only its available
+capacity and never runs more than the configured number of attempts. Each active
+attempt renews its lease at an interval no greater than half the lease TTL.
+
+The reconciler returns a delay before normal rediscovery. Delays use the store's
+0-300 whole-second contract. A reconciler error or invalid delay is reported and
+uses the configured failure delay; it does not stop the worker. Claim and release
+failures are also reported. Events identify the run and operation but contain no
+lease token. The reporter must return promptly and must handle diagnostic errors
+without publishing secrets.
+
+Lease loss is an expected concurrency outcome: the attempt is cancelled and the
+worker neither reports nor releases the stale lease. Other renewal failures also
+cancel the attempt and leave the lease to expire because ownership is uncertain.
+When renewal first observes CANCELLING, the attempt receives
+`ErrCancellationObserved` as its cancellation cause and releases immediately so
+the run can be rediscovered without normal backoff.
+
+Shutdown cancels active attempts, stops renewal and waits for their reconcilers
+to return. It does not release their leases or claim that external effects have
+stopped; durable leases become reclaimable after expiry. Reconciler implementations
+must honor context cancellation promptly. A terminal transition expires its lease
+inside the store, so a later release returning ErrLeaseLost is also normal.
+
+The current injected reconciler is an interface seam. Resource resolution,
+Kubernetes lifecycle mapping, artifact collection and production process wiring
+remain subsequent work.
 
 ## Ownership and concurrency
 
@@ -97,8 +128,9 @@ its lease remains valid so a cancellation worker can recover and stop it.
 
 The binding does not fence the Kubernetes request itself and does not authorize
 reusing a deleted Job name. A conflict means the Run is already associated with
-another UID or specification and must not be overwritten. The future worker loop
-must handle that condition and ambiguous external/commit outcomes explicitly.
+another UID or specification and must not be overwritten. A Kubernetes lifecycle
+reconciler must handle that condition and ambiguous external/commit outcomes
+explicitly.
 
 Likewise, the future collector must verify durable evidence before leaving
 COLLECTING. This change adds no registry resolver, measurement window, artifact
@@ -119,7 +151,9 @@ disposable loopback PostgreSQL and PERFENG_TEST_DATABASE_URL configured:
 go test -race -count=1 -timeout=3m -v ./internal/postgres
 ~~~
 
-Tests cover multiple pools/workers, locked-row skipping, lease renewal/expiry,
+Tests cover bounded worker concurrency, renewal, cancellation propagation,
+retry delays, lease-loss and shutdown behavior. Storage tests cover multiple
+pools/workers, locked-row skipping, lease renewal/expiry,
 same-worker-ID fencing, retry delay and cancellation priority, stale-revision
 rejection, immutable execution binding, separate-process restart, and migration
 from a populated v1 database without losing runs, acceptance bindings or
