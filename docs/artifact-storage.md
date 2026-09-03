@@ -39,13 +39,38 @@ without design review.
 
 `ErrObjectNotFound` distinguishes storage visibility from
 `ErrObjectMismatch`, which means that stored metadata or bytes contradict the
-immutable reference. The S3 client adapter must map backend not-found responses
-to the former and return safe operational errors for all other failures.
+immutable reference.
+
+## AWS SDK adapter
+
+`S3Getter` implements `Getter` through the AWS SDK for Go v2 `GetObject`
+operation. Its caller-defined `S3GetObjectAPI` interface contains only that
+operation, allowing unit tests without a network service while remaining
+directly compatible with `*s3.Client`.
+
+The adapter:
+
+- preserves caller cancellation and deadlines;
+- maps modeled `NoSuchKey` and `NotFound` responses to `ErrObjectNotFound`;
+- maps server faults, throttling and network failures to `run.ErrUnavailable`;
+- exposes only a safe error code for other S3 API failures;
+- never returns backend messages, object keys, endpoints or signed requests; and
+- rejects nil or incomplete successful SDK responses.
+
+Client construction remains explicit composition. The local SeaweedFS client
+must use region `us-east-1`, its cluster-local base endpoint and path-style
+addressing. Credentials must come from the runtime Secret/provider chain, never
+artifact references, command arguments or committed configuration. Production
+endpoint and transport policy require a separate deployment review.
 
 ## Remaining integration
 
-This package intentionally does not construct an AWS SDK client, load
-credentials, choose endpoints, parse raw-result or normalized-result contracts,
-or change Run lifecycle state. Those responsibilities belong to production
-composition and the raw/normalized collectors. Tests use an injected in-memory
-getter and never contact object storage.
+This package intentionally does not construct the configured AWS SDK client,
+load credentials, choose endpoints, parse raw-result or normalized-result
+contracts, or change Run lifecycle state. Those responsibilities belong to
+production composition and the raw/normalized collectors. Tests use injected
+SDK and storage interfaces and never contact object storage.
+
+References: [AWS SDK for Go v2 GetObject usage](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/using.html),
+[client endpoint configuration](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/configure-endpoints.html),
+and [error handling](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/handle-errors.html).
