@@ -186,9 +186,15 @@ existing normalized result, skips executor invocation and retries only the
 lifecycle transition. Conflicting or multiple normalized results fail closed and
 are never overwritten.
 
-This stage defines orchestration and recovery semantics only. The concrete
-Kubernetes analysis Job adapter, approved analysis image configuration, object
-downloads/uploads and reporting decisions remain separate work.
+`KubernetesAnalysisExecutor` implements the process boundary with a deterministic
+`<run-id>-analysis` Job. An injected resolver supplies the approved, digest-pinned
+template. The Kubernetes adapter creates or adopts only an identically owned and
+fingerprinted Job, maps pending/running/failed phases to the analysis contract,
+and asks an injected output collector to attest bytes only after Job success.
+Kubernetes completion by itself never creates an artifact reference.
+
+Approved analysis image configuration, object downloads/uploads, concrete
+template resolution and reporting decisions remain separate work.
 
 ## Provisioning reconciliation
 
