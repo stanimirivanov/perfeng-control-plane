@@ -116,9 +116,10 @@ also rejects credentials, query strings and fragments in artifact URLs.
 
 An identical retry is a no-op. Rebinding an artifact ID to different content,
 location or run returns ErrArtifactConflict. Registration checks run ownership
-and persists references only: the future collector must verify object bytes,
-checksums and approved storage first. This does not guarantee object retention
-or prevent someone overwriting objects in S3. No objects are fetched or uploaded.
+and persists references only: the `RawArtifactCollector` must verify object bytes,
+checksums and approved storage before returning them to reconciliation. This does
+not guarantee object retention or prevent someone overwriting objects in S3. No
+objects are fetched or uploaded.
 Adding evidence is a separate entity write, not a Run snapshot mutation.
 
 ## Kubernetes execution identity

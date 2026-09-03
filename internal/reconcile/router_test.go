@@ -34,6 +34,7 @@ func routerFixture(t *testing.T) (*Router, *advancingStore, *[]string) {
 		routeStage{name: "validation", calls: &calls, result: result},
 		routeStage{name: "provisioning", calls: &calls, result: result},
 		routeStage{name: "bound", calls: &calls, result: result},
+		routeStage{name: "collection", calls: &calls, result: result},
 		5*time.Minute,
 	)
 	if err != nil {
@@ -53,6 +54,7 @@ func TestRouterRoutesEveryActiveState(t *testing.T) {
 		{run.StateWarmingUp, "bound"},
 		{run.StateRunning, "bound"},
 		{run.StateCancelling, "bound"},
+		{run.StateCollecting, "collection"},
 	}
 	for _, test := range tests {
 		t.Run(string(test.state), func(t *testing.T) {
@@ -77,7 +79,7 @@ func TestRouterAdvancesCreatedAndDefersPostExecutionStates(t *testing.T) {
 		t.Fatalf("CREATED effects: %+v, %v", store, *calls)
 	}
 
-	for _, state := range []run.State{run.StateCollecting, run.StateAnalyzing, run.StateReporting} {
+	for _, state := range []run.State{run.StateAnalyzing, run.StateReporting} {
 		router, store, calls = routerFixture(t)
 		result, err := router.Reconcile(context.Background(), boundClaim(state))
 		if err != nil || result.RetryAfter != 5*time.Minute || store.calls != 0 || len(*calls) != 0 {
@@ -131,11 +133,18 @@ func TestRouterPreservesRevisionAndStageErrors(t *testing.T) {
 func TestRouterValidatesDependenciesAndDelay(t *testing.T) {
 	router, _, _ := routerFixture(t)
 	for _, delay := range []time.Duration{0, time.Millisecond, 5*time.Minute + time.Second} {
-		if _, err := NewRouter(router.store, router.validation, router.provisioning, router.bound, delay); !errors.Is(err, run.ErrValidation) {
+		if _, err := NewRouter(
+			router.store,
+			router.validation,
+			router.provisioning,
+			router.bound,
+			router.collection,
+			delay,
+		); !errors.Is(err, run.ErrValidation) {
 			t.Fatalf("delay %s error = %v", delay, err)
 		}
 	}
-	for _, missing := range []string{"store", "validation", "provisioning", "bound"} {
+	for _, missing := range []string{"store", "validation", "provisioning", "bound", "collection"} {
 		candidate := *router
 		switch missing {
 		case "store":
@@ -146,12 +155,15 @@ func TestRouterValidatesDependenciesAndDelay(t *testing.T) {
 			candidate.provisioning = nil
 		case "bound":
 			candidate.bound = nil
+		case "collection":
+			candidate.collection = nil
 		}
 		if _, err := NewRouter(
 			candidate.store,
 			candidate.validation,
 			candidate.provisioning,
 			candidate.bound,
+			candidate.collection,
 			candidate.deferredRetry,
 		); !errors.Is(err, run.ErrValidation) {
 			t.Fatalf("missing %s error = %v", missing, err)

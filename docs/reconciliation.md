@@ -53,9 +53,10 @@ stopped; durable leases become reclaimable after expiry. Reconciler implementati
 must honor context cancellation promptly. A terminal transition expires its lease
 inside the store, so a later release returning ErrLeaseLost is also normal.
 
-`Router` advances CREATED and selects validation, provisioning or bound execution
-reconciliation from the claimed state. A registry-backed resolver, artifact and
-analysis stages, and production process wiring remain subsequent work.
+`Router` advances CREATED and selects validation, provisioning, bound execution
+or raw-artifact collection from the claimed state. A registry-backed resolver,
+object-storage collector, analysis stages and production process wiring remain
+subsequent work.
 
 ## Kubernetes lifecycle decisions
 
@@ -111,17 +112,48 @@ from storage:
 | VALIDATING | Validation reconciler |
 | PROVISIONING | Provisioning reconciler |
 | WARMING_UP, RUNNING, CANCELLING | Bound-execution reconciler |
-| COLLECTING, ANALYZING, REPORTING | Deferred with bounded retry |
+| COLLECTING | Raw-artifact collection reconciler |
+| ANALYZING, REPORTING | Deferred with bounded retry |
 
-The final group is deliberately quiet rather than producing repeated worker
-errors while its components are absent. Terminal and unknown states are rejected;
-the storage contract must not claim terminal Runs.
+The final two states are deliberately quiet rather than producing repeated
+worker errors while their components are absent. Terminal and unknown states are
+rejected; the storage contract must not claim terminal Runs.
 
 CANCELLING currently routes to bound-execution reconciliation and therefore
 requires a durable execution identity. Recovery for cancellation after an
 ambiguous create but before identity binding remains a production-composition
 gap; the router must not be wired into a production worker until that path has a
 dedicated recovery stage.
+
+## Raw-artifact collection
+
+`CollectionReconciler` accepts only COLLECTING claims. Its injected
+`RawArtifactCollector` returns the immutable raw-result manifest reference and
+every object reference declared by that manifest. It must derive approved storage
+locations from trusted configuration, verify the manifest and object bytes, and attest storage
+ownership, checksums, sizes, media types, formats, Run identity and producer
+provenance. Public run requests never supply arbitrary fetch locations.
+
+Storage visibility may lag execution completion. `ErrArtifactsNotReady` returns
+a bounded quiet retry; other operational errors remain worker failures.
+`ErrInvalidArtifacts` advances to TEST_FAILURE with a fixed `TOOL_ERROR` message
+that does not persist parser, object-store or credential details. A successful
+collector response is treated as a trusted-adapter boundary and must contain a
+non-empty, unique set of valid raw references for the claimed Run. The manifest
+is itself required to be an `application/json` raw artifact in `raw-result/v1`
+format, with an identity and location distinct from its declared objects.
+
+Declared object references and then the manifest reference are registered before
+the Run advances to ANALYZING. Registration is immutable and idempotent, so
+retrying after a partial write, timeout or uncertain commit safely repeats earlier
+registrations. An artifact identity conflict is an operational error and never
+overwrites existing evidence. A revision race after registration requests
+rediscovery; cancellation wins the lifecycle write without invalidating already
+verified immutable references.
+
+This stage registers references only. The concrete S3-compatible collector must
+still be implemented and must verify bytes before returning. It does not upload
+objects, build raw manifests, dispatch analysis Jobs or interpret measurements.
 
 ## Provisioning reconciliation
 
@@ -264,9 +296,10 @@ another UID or specification and must not be overwritten. A Kubernetes lifecycle
 reconciler must handle that condition and ambiguous external/commit outcomes
 explicitly.
 
-Likewise, the future collector must verify durable evidence before leaving
-COLLECTING. This change adds no registry resolver, measurement window, artifact
-collection, retry policy for load tests, or analysis result.
+Likewise, the injected raw-artifact collector must verify durable evidence before
+returning references to `CollectionReconciler`. This change adds no concrete
+object-storage adapter, registry resolver, measurement-window discovery, retry
+policy for load tests or analysis result.
 
 ## Storage, migrations and tests
 
