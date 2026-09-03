@@ -38,11 +38,12 @@ var imagePattern = regexp.MustCompile(
 // different owner or execution specification. It must not be deleted or replaced.
 var ErrJobConflict = errors.New("kubernetes Job identity conflicts with the requested execution")
 
-// Jobs is the narrow Kubernetes API surface required for duplicate-safe dispatch.
+// Jobs is the Kubernetes API boundary for dispatch, observation and stop requests.
 // A typed client-go JobInterface satisfies this contract.
 type Jobs interface {
 	Create(context.Context, *batchv1.Job, metav1.CreateOptions) (*batchv1.Job, error)
 	Get(context.Context, string, metav1.GetOptions) (*batchv1.Job, error)
+	Delete(context.Context, string, metav1.DeleteOptions) error
 }
 
 // Dispatcher creates or adopts one deterministic Kubernetes Job per Run.
@@ -54,11 +55,12 @@ type Dispatcher struct {
 // Dispatch identifies the Kubernetes Job accepted for a Run. Created is false
 // when an earlier, matching create was adopted after a retry or worker restart.
 type Dispatch struct {
-	RunID     string
-	Namespace string
-	JobName   string
-	UID       types.UID
-	Created   bool
+	RunID      string
+	Namespace  string
+	JobName    string
+	UID        types.UID
+	SpecSHA256 string
+	Created    bool
 }
 
 // NewDispatcher binds dispatch to one namespace and an injected Kubernetes client.
@@ -203,7 +205,10 @@ func matchingJob(desired, existing *batchv1.Job) bool {
 }
 
 func jobFingerprint(job *batchv1.Job) (string, error) {
-	encoded, err := json.Marshal(normalizedSpec(job))
+	withoutFingerprint := job.DeepCopy()
+	delete(withoutFingerprint.Annotations, specAnnotation)
+	delete(withoutFingerprint.Spec.Template.Annotations, specAnnotation)
+	encoded, err := json.Marshal(normalizedSpec(withoutFingerprint))
 	if err != nil {
 		return "", err
 	}
@@ -246,11 +251,12 @@ func acceptedDispatch(
 	}
 
 	return Dispatch{
-		RunID:     runID,
-		Namespace: actual.Namespace,
-		JobName:   actual.Name,
-		UID:       actual.UID,
-		Created:   created,
+		RunID:      runID,
+		Namespace:  actual.Namespace,
+		JobName:    actual.Name,
+		UID:        actual.UID,
+		SpecSHA256: desired.Annotations[specAnnotation],
+		Created:    created,
 	}, nil
 }
 

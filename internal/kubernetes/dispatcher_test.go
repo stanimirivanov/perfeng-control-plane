@@ -23,10 +23,16 @@ type memoryJobs struct {
 	mu             sync.Mutex
 	job            *batchv1.Job
 	createError    error
+	getError       error
 	storeThenError error
 	mutateStored   func(*batchv1.Job)
+	deleteError    error
+	deleteOptions  *metav1.DeleteOptions
+	beforeDelete   func(*batchv1.Job)
+	keepDeleting   bool
 	creates        int
 	gets           int
+	deletes        int
 }
 
 func (client *memoryJobs) Create(
@@ -75,11 +81,55 @@ func (client *memoryJobs) Get(
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	if client.getError != nil {
+		return nil, client.getError
+	}
 	if client.job == nil || client.job.Name != name {
 		return nil, apierrors.NewNotFound(schema.GroupResource{Group: "batch", Resource: "jobs"}, name)
 	}
 
 	return client.job.DeepCopy(), nil
+}
+
+func (client *memoryJobs) Delete(
+	ctx context.Context,
+	name string,
+	options metav1.DeleteOptions,
+) error {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	client.deletes++
+	client.deleteOptions = options.DeepCopy()
+
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if client.deleteError != nil {
+		return client.deleteError
+	}
+	if client.job == nil || client.job.Name != name {
+		return apierrors.NewNotFound(schema.GroupResource{Group: "batch", Resource: "jobs"}, name)
+	}
+	if client.beforeDelete != nil {
+		client.beforeDelete(client.job)
+	}
+	if options.Preconditions == nil || options.Preconditions.UID == nil ||
+		*options.Preconditions.UID != client.job.UID {
+		return apierrors.NewConflict(
+			schema.GroupResource{Group: "batch", Resource: "jobs"},
+			name,
+			errors.New("UID precondition failed"),
+		)
+	}
+
+	if client.keepDeleting {
+		now := metav1.Now()
+		client.job.DeletionTimestamp = &now
+	} else {
+		client.job = nil
+	}
+
+	return nil
 }
 
 func jobTemplate() *batchv1.Job {
@@ -135,9 +185,9 @@ func TestEnsureJobCreatesThenAdopts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if adopted.Created || adopted != (Dispatch{
-		RunID: testRunID, Namespace: "perf-runs", JobName: testRunID, UID: "job-uid",
-	}) {
+	if adopted.Created || adopted.RunID != testRunID || adopted.Namespace != "perf-runs" ||
+		adopted.JobName != testRunID || adopted.UID != "job-uid" ||
+		!fingerprintPattern.MatchString(adopted.SpecSHA256) {
 		t.Fatal("matching Job was not adopted")
 	}
 	if client.creates != 2 || client.gets != 1 {
