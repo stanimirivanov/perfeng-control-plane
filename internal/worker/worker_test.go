@@ -389,6 +389,29 @@ func TestWorkerReportsReconciliationFailuresAndUsesSafeDelay(t *testing.T) {
 	}
 }
 
+func TestWorkerTreatsLeaseLossInsideReconcilerAsExpected(t *testing.T) {
+	store := newWorkerStore(testClaim(1))
+	reconciler := reconcileFunc(func(context.Context, run.Claim) (Result, error) {
+		return Result{}, run.ErrLeaseLost
+	})
+	worker, events := testWorker(t, store, reconciler, 1)
+	cancel, done := runWorker(t, worker)
+
+	receive(t, store.claimLimits, "first claim")
+	receive(t, store.claimLimits, "poll after lease loss")
+	stopWorker(t, cancel, done)
+	select {
+	case released := <-store.releases:
+		t.Errorf("unexpected release after lease loss: %+v", released)
+	default:
+	}
+	select {
+	case event := <-events:
+		t.Errorf("unexpected event after lease loss: %+v", event)
+	default:
+	}
+}
+
 func TestWorkerReportsClaimAndReleaseFailures(t *testing.T) {
 	claim := testClaim(1)
 	store := newWorkerStore(claim)

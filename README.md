@@ -19,14 +19,14 @@ coordination, not load generation or statistical decisions.
 - Lease-fenced, restart-safe persistence of Kubernetes execution identity.
 - Bounded reconciliation attempts with lease renewal and cooperative shutdown.
 - Explicit lifecycle decisions for identity-checked Kubernetes Job observations.
+- Lease-fenced reconciliation of persisted executions and owned-Pod stop checks.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
-administrative `cmd/migrate` command applies database migrations. The worker
-engine has no production composition or Kubernetes lifecycle reconciler, so no
-worker executes Jobs and cancellation remains CANCELLING until a later component
-confirms execution has stopped. Tests use synthetic contract fixtures, not
-approved deployable resources.
+administrative `cmd/migrate` command applies database migrations. The bound
+execution reconciler is not wired into a process and cannot create an unbound
+Job, so no worker executes Jobs from accepted requests. Tests use synthetic
+contract fixtures, not approved deployable resources.
 
 The in-memory adapter loses runs and idempotency bindings on restart. It cannot
 meet the API's production durability guarantees for 201/202 responses. Do not
@@ -77,9 +77,9 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/memory | Atomic process-local test adapter |
 | internal/postgres | Durable transactions, migrations and artifact-reference storage |
 | internal/httpapi | HTTP parsing, auth/approval seams, status/response mapping |
-| internal/kubernetes | Deterministic Job dispatch, identity-checked observation and stop requests |
+| internal/kubernetes | Deterministic Job dispatch, identity-checked observation, stop and Pod checks |
 | internal/worker | Bounded claim scheduling, lease renewal and attempt cancellation |
-| internal/reconcile | Run-lifecycle decisions from trusted execution observations |
+| internal/reconcile | Lifecycle policy and lease-fenced persisted-execution reconciliation |
 
 `httpapi.New(repository, authenticate, approve)` returns an `http.Handler`.
 All dependencies are mandatory and must be concurrency-safe. HTTP tests show
@@ -152,14 +152,16 @@ documentation for retry, cancellation and shutdown behavior. The Kubernetes
 [dispatch boundary](docs/kubernetes-dispatch.md) adds one fixed
 Job identity per Run and collision-checked create/adoption after uncertain API
 responses. The same boundary observes the exact Job UID and requests foreground,
-UID-preconditioned deletion. These components are not yet connected by a resource
-resolver or lifecycle reconciler.
+UID-preconditioned deletion. The bound-execution reconciler connects persisted
+identities to those observation and stop boundaries, applying lifecycle changes
+through the current lease and expected revision. An approved resource resolver
+and unbound dispatch stage are still missing.
 The `reconcile` policy defines that connection's state decisions independently
 of I/O: pending Jobs wait, running Jobs enter RUNNING, terminal Jobs enter
 COLLECTING, and unexpected disappearance/deletion is infrastructure failure.
 Kubernetes failure never directly means TEST_FAILURE; artifact and process
 evidence must be collected first. Cancellation reaches ABORTED only after the
-exact persisted execution is absent.
+exact persisted execution is absent and no Pod owned by its Job UID remains.
 API-server default normalization is covered by an isolated live integration test
 described in the dispatch documentation.
 The PostgreSQL adapter stores the accepted Job identity immutably so another

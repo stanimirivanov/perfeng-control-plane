@@ -33,7 +33,7 @@ func TestDecideBoundExecution(t *testing.T) {
 		{"cancelling running", run.StateCancelling, observed(kubernetes.JobRunning), ActionStop, ""},
 		{"cancelling succeeded", run.StateCancelling, observed(kubernetes.JobSucceeded), ActionStop, ""},
 		{"cancelling failed", run.StateCancelling, observed(kubernetes.JobFailed), ActionStop, ""},
-		{"cancelling absent", run.StateCancelling, observed(kubernetes.JobAbsent), ActionAdvance, run.StateAborted},
+		{"cancelling absent", run.StateCancelling, observed(kubernetes.JobAbsent), ActionConfirmStop, ""},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

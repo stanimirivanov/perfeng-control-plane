@@ -53,9 +53,9 @@ stopped; durable leases become reclaimable after expiry. Reconciler implementati
 must honor context cancellation promptly. A terminal transition expires its lease
 inside the store, so a later release returning ErrLeaseLost is also normal.
 
-The current injected reconciler is an interface seam. Resource resolution,
-Kubernetes lifecycle mapping, artifact collection and production process wiring
-remain subsequent work.
+The worker can use `BoundExecutionReconciler` for Runs that already have a durable
+Kubernetes execution identity. Resource resolution, unbound dispatch, artifact
+collection and production process wiring remain subsequent work.
 
 ## Kubernetes lifecycle decisions
 
@@ -71,7 +71,7 @@ and ownership mechanics.
 | WARMING_UP or RUNNING | pending or running | Wait |
 | WARMING_UP or RUNNING | succeeded or failed | Advance to COLLECTING |
 | CANCELLING | present | Request identity-checked stop |
-| CANCELLING | absent | Advance to ABORTED |
+| CANCELLING | absent | Confirm owned Pods are gone, then advance to ABORTED |
 | Execution state | unexpectedly absent or deleting | INFRASTRUCTURE_FAILURE |
 
 A failed Job advances to COLLECTING rather than TEST_FAILURE because Kubernetes
@@ -81,9 +81,34 @@ RUNNING to preserve an accepted state-machine path; the next observation can
 advance it to COLLECTING.
 
 The policy requires an existing durable execution identity. It does not decide
-whether an unbound Job should be created or adopted. The I/O reconciler that
-resolves an approved template, persists dispatch identity, applies decisions and
-polls foreground cancellation remains a subsequent slice.
+whether an unbound Job should be created or adopted.
+
+## Bound execution reconciliation
+
+`BoundExecutionReconciler` loads the immutable execution identity through the
+current lease, obtains an identity-checked Job observation and applies decisions
+with `AdvanceClaim` and the claimed Run revision. Pending work is released with
+a validated rediscovery delay. A revision race is rediscovered immediately;
+lease loss is an expected ownership outcome and is neither reported nor released
+by the worker.
+
+Cancellation stays inside one reconciliation attempt while the worker renews its
+lease. The reconciler submits one UID-preconditioned foreground deletion request,
+polls the exact Job until it is absent, then uses `kubernetes.StopVerifier` to
+list Pods carrying the Run and manager labels. Every returned Pod must have a
+controller reference to the persisted Job name and UID. Conflicting ownership is
+an error, any remaining owned Pod keeps the Run in CANCELLING, and only an empty
+verified list permits ABORTED.
+
+This confirmation covers Kubernetes objects known to the API server. It cannot
+prove a process on a partitioned node has stopped or prevent a stale in-flight
+create from appearing later. Production composition still needs bounded dispatch
+requests and a durable stop-intent/admission strategy; the platform does not claim
+exactly-once execution.
+
+The reconciler intentionally rejects a missing execution binding. Approved
+template resolution, create/adopt and binding must run before this stage, with an
+explicit recovery policy for cancellation that races an ambiguous create.
 
 ## Ownership and concurrency
 
