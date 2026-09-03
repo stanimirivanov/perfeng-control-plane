@@ -16,8 +16,8 @@ var ErrExecutionNotBound = errors.New("run has no durable Kubernetes execution i
 
 // BoundExecutionStore is the lease-fenced storage required after dispatch.
 type BoundExecutionStore interface {
+	ClaimAdvancer
 	GetExecution(context.Context, run.Lease) (kubernetes.Execution, bool, error)
-	AdvanceClaim(context.Context, run.Lease, int64, run.Change) (run.Run, error)
 }
 
 // ExecutionController observes and stops an exact Kubernetes execution.
@@ -192,17 +192,7 @@ func (reconciler *BoundExecutionReconciler) apply(
 		return worker.Result{}, run.ErrValidation
 	}
 
-	_, err := reconciler.store.AdvanceClaim(
-		ctx,
-		claim.Lease,
-		claim.Run.Revision,
-		decision.Change,
-	)
-	if errors.Is(err, run.ErrRevision) {
-		return worker.Result{}, nil
-	}
-
-	return worker.Result{}, err
+	return advanceOwnedClaim(ctx, reconciler.store, claim, decision.Change)
 }
 
 func wait(ctx context.Context, delay time.Duration) error {

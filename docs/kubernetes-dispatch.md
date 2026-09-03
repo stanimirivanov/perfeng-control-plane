@@ -19,6 +19,9 @@ The dispatcher:
 4. creates the deterministic Job; or
 5. after `AlreadyExists`, reads and adopts only a matching owned Job.
 
+`Dispatcher.ValidateJob` applies the same preparation and execution policy without
+calling the Kubernetes API. Validation does not mutate the supplied template.
+
 An existing Job with another owner, fingerprint or requested specification
 returns `ErrJobConflict`. It is never deleted, patched or replaced. This makes a
 retry safe after an ambiguous create response: if the API server stored the Job
