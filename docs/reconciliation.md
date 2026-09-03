@@ -154,6 +154,9 @@ verified immutable references.
 This stage registers references only. The concrete S3-compatible collector must
 still be implemented and must verify bytes before returning. It does not upload
 objects, build raw manifests, dispatch analysis Jobs or interpret measurements.
+Later analysis reconciliation can rediscover the registered manifest and source
+objects through principal-scoped, artifact-ID-ordered storage listing; no
+in-memory handoff from the collection attempt is required.
 
 ## Provisioning reconciliation
 

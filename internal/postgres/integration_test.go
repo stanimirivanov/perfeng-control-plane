@@ -164,8 +164,21 @@ func TestPostgresIntegration(t *testing.T) {
 	if _, err := r.Cancel(testContext, "bob", a.Run.ID); !errors.Is(err, run.ErrNotFound) {
 		t.Fatal("cross-principal cancellation", err)
 	}
+	if artifacts, err := r.ListArtifacts(testContext, "bob", b.Run.ID); err != nil || len(artifacts) != 0 {
+		t.Fatal("owned empty artifact list", artifacts, err)
+	}
 	art := artifactFor(a.Run.ID)
 	if err := r.RegisterArtifact(testContext, "alice", art); err != nil {
+		t.Fatal(err)
+	}
+	points := art
+	points.ID = "1cfa0000-0000-4000-8000-000000000002"
+	points.URI = "s3://perfeng-artifacts/runs/" + a.Run.ID + "/points.jsonl"
+	points.SHA256 = strings.Repeat("b", 64)
+	points.SizeBytes = 84
+	points.MediaType = "application/x-ndjson"
+	points.Format = "k6-json-points"
+	if err := r.RegisterArtifact(testContext, "alice", points); err != nil {
 		t.Fatal(err)
 	}
 	if err := other.RegisterArtifact(testContext, "alice", art); err != nil {
@@ -175,6 +188,10 @@ func TestPostgresIntegration(t *testing.T) {
 	if err != nil || gotArtifact != art {
 		t.Fatal("artifact not durable", err)
 	}
+	listed, err := other.ListArtifacts(testContext, "alice", a.Run.ID)
+	if err != nil || !reflect.DeepEqual(listed, []run.Artifact{art, points}) {
+		t.Fatal("artifact list not durable or ordered", listed, err)
+	}
 	altered := art
 	altered.SHA256 = strings.Repeat("b", 64)
 	if err := r.RegisterArtifact(testContext, "alice", altered); !errors.Is(err, run.ErrArtifactConflict) {
@@ -182,6 +199,9 @@ func TestPostgresIntegration(t *testing.T) {
 	}
 	if _, err := r.GetArtifact(testContext, "bob", a.Run.ID, art.ID); !errors.Is(err, run.ErrNotFound) {
 		t.Fatal("artifact visibility", err)
+	}
+	if _, err := r.ListArtifacts(testContext, "bob", a.Run.ID); !errors.Is(err, run.ErrNotFound) {
+		t.Fatal("artifact list visibility", err)
 	}
 	if err := r.RegisterArtifact(testContext, "bob", art); !errors.Is(err, run.ErrNotFound) {
 		t.Fatal("artifact ownership", err)
@@ -445,6 +465,10 @@ func TestPostgresRestartChild(t *testing.T) {
 	got, err := r.GetArtifact(testContext, "alice", id, artifact.ID)
 	if err != nil || got != artifact {
 		t.Fatal("artifact reference lost across restart")
+	}
+	listed, err := r.ListArtifacts(testContext, "alice", id)
+	if err != nil || len(listed) != 2 || listed[0] != artifact {
+		t.Fatal("artifact list lost across restart")
 	}
 }
 

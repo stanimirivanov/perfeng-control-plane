@@ -109,10 +109,11 @@ not a relocation of the prototype SQL.
 ## Artifact references
 
 `run.Artifact` follows the fields of artifact/v1 from perfeng-contracts commit
-`220140137a2e70367f3d6aa3bde8aede4d49c8b7`. RegisterArtifact/GetArtifact
-are worker-only interfaces, not new HTTP routes. IDs are stored as canonical
-lowercase UUIDs; sizes fit PostgreSQL/Go signed 64-bit integers. Storage policy
-also rejects credentials, query strings and fragments in artifact URLs.
+`220140137a2e70367f3d6aa3bde8aede4d49c8b7`. `RegisterArtifact`, `GetArtifact`
+and `ListArtifacts` are worker-only interfaces, not new HTTP routes. IDs are
+stored as canonical lowercase UUIDs; sizes fit PostgreSQL/Go signed 64-bit
+integers. Storage policy also rejects credentials, query strings and fragments
+in artifact URLs.
 
 An identical retry is a no-op. Rebinding an artifact ID to different content,
 location or run returns ErrArtifactConflict. Registration checks run ownership
@@ -121,6 +122,13 @@ checksums and approved storage before returning them to reconciliation. This doe
 not guarantee object retention or prevent someone overwriting objects in S3. No
 objects are fetched or uploaded.
 Adding evidence is a separate entity write, not a Run snapshot mutation.
+
+`ListArtifacts` returns every reference for a principal-owned Run ordered by
+artifact ID. Stable ordering and durable storage let an analysis worker recover
+after restart without retaining manifest or object IDs in memory. An owned Run
+with no references returns an empty list; a missing or cross-principal Run returns
+`ErrNotFound`, matching the repository's visibility boundary. Listing metadata
+does not fetch or attest the referenced object bytes.
 
 ## Kubernetes execution identity
 

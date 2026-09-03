@@ -51,9 +51,13 @@ func (a Artifact) Validate() error {
 
 // ArtifactRepository is a separate worker-only boundary. Registration is
 // immutable and idempotent; it does not mutate the Run snapshot/revision.
-// The collector must verify bytes, checksum, approved storage and ownership
-// before registration. These methods neither upload nor fetch objects.
+// Listing is principal-scoped and ordered by artifact ID so restarted workers
+// can rediscover evidence without retained process state. An owned Run without
+// evidence returns an empty slice; an invisible Run returns ErrNotFound. The
+// collector must verify bytes, checksum, approved storage and ownership before
+// registration. These methods neither upload nor fetch objects.
 type ArtifactRepository interface {
 	RegisterArtifact(ctx context.Context, principal string, artifact Artifact) error
 	GetArtifact(ctx context.Context, principal, runID, artifactID string) (Artifact, error)
+	ListArtifacts(ctx context.Context, principal, runID string) ([]Artifact, error)
 }
