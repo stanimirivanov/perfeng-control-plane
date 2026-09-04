@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -39,6 +40,8 @@ func setup(t *testing.T) (*Handler, *memory.Repository) {
 			return Identity{"bob", true, true, true}, nil
 		case "read-only":
 			return Identity{"alice", false, true, false}, nil
+		case "create-only":
+			return Identity{"alice", true, false, false}, nil
 		case "unavailable":
 			return Identity{}, run.ErrUnavailable
 		default:
@@ -73,6 +76,25 @@ func decodeRun(t *testing.T, w *httptest.ResponseRecorder) run.Run {
 		t.Fatal(err)
 	}
 	return r
+}
+
+func artifactFixture(t *testing.T, runID string) artifactCollection {
+	t.Helper()
+	b, err := contract.Files.ReadFile("snapshot/examples/artifacts.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var collection artifactCollection
+	if err := json.Unmarshal(b, &collection); err != nil {
+		t.Fatal(err)
+	}
+	for index := range collection.Artifacts {
+		artifact := &collection.Artifacts[index]
+		artifact.URI = strings.Replace(artifact.URI, artifact.RunID, runID, 1)
+		artifact.RunID = runID
+	}
+
+	return collection
 }
 func checkError(t *testing.T, w *httptest.ResponseRecorder, status int, code string) {
 	t.Helper()
@@ -147,6 +169,50 @@ func TestCreateGetCancelReplay(t *testing.T) {
 	checkError(t, call(h, "GET", location, "bob-token", nil), 404, "NOT_FOUND")
 	checkError(t, call(h, "POST", location+"/cancel", "bob-token", nil), 404, "NOT_FOUND")
 	checkError(t, call(h, "POST", location+"/cancel", "alice-token", []byte("{}")), 400, "BAD_REQUEST")
+}
+
+func TestListArtifacts(t *testing.T) {
+	h, repo := setup(t)
+	accepted := call(h, "POST", "/v1/runs", "alice-token", fixture(t))
+	current := decodeRun(t, accepted)
+	path := "/v1/runs/" + current.ID + "/artifacts"
+
+	empty := call(h, http.MethodGet, path, "read-only", nil)
+	if empty.Code != http.StatusOK || empty.Body.String() != "{\"artifacts\":[]}\n" {
+		t.Fatalf("empty response = %d %s", empty.Code, empty.Body)
+	}
+
+	want := artifactFixture(t, current.ID)
+	for index := len(want.Artifacts) - 1; index >= 0; index-- {
+		if err := repo.RegisterArtifact(context.Background(), "alice", want.Artifacts[index]); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	response := call(h, http.MethodGet, path, "alice-token", nil)
+	if response.Code != http.StatusOK {
+		t.Fatal(response.Body)
+	}
+	var got artifactCollection
+	if err := json.Unmarshal(response.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("artifacts = %#v, want %#v", got, want)
+	}
+	if response.Header().Get("Cache-Control") != "no-store" {
+		t.Fatal("artifact references were cacheable")
+	}
+
+	checkError(t, call(h, http.MethodGet, path, "bob-token", nil), 404, "NOT_FOUND")
+	checkError(t, call(h, http.MethodGet, path, "create-only", nil), 403, "FORBIDDEN")
+	checkError(t, call(h, http.MethodGet, path, "alice-token", []byte("{}")), 400, "BAD_REQUEST")
+	checkError(
+		t,
+		call(h, http.MethodGet, "/v1/runs/bad/artifacts", "alice-token", nil),
+		400,
+		"BAD_REQUEST",
+	)
 }
 
 func TestStrictBodies(t *testing.T) {

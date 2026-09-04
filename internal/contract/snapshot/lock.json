@@ -1,12 +1,13 @@
 {
   "repository": "https://github.com/stanimirivanov/perfeng-contracts",
-  "commit": "220140137a2e70367f3d6aa3bde8aede4d49c8b7",
-  "bundleVersion": "0.5.0",
-  "apiVersion": "0.1.0",
+  "commit": "82baa78c9a08851431688f647e69a09d66da42f1",
+  "bundleVersion": "0.6.0",
+  "apiVersion": "0.2.0",
   "transformation": "JSON whitespace compacted; LF final newline. Hashes cover local snapshot bytes.",
   "sha256": {
-    "openapi.json": "4c3cfe97ce3ff990433419aed03847fed70ed0091ef8526943a47597ccb1e271",
+    "openapi.json": "0568c6cded49fffe78a1d5adf36be15ae8e0f2e3195e7f40b50ce5b078718f50",
     "transitions.json": "66678c5be79b0e19446e8ae9d0047d43c3bab4981f9f75b9effa932dfed3ed5f",
-    "examples/create.json": "302c78fcd1ca535e53d4edd271bc39c71d7f69fd016df7ebea77d26d186e16d0"
+    "examples/create.json": "302c78fcd1ca535e53d4edd271bc39c71d7f69fd016df7ebea77d26d186e16d0",
+    "examples/artifacts.json": "0db3692246e7543589385cef3a0b8b46d8de2ffd101a63634294a295e1174824"
   }
 }

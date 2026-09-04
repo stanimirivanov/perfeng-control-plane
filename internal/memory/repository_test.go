@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -200,5 +202,46 @@ func TestRejectedAcceptDoesNotReserveKey(t *testing.T) {
 	create(t, m)
 	if len(m.runs) != 1 || len(m.bindings) != 1 {
 		t.Fatal("rejection reserved state")
+	}
+}
+
+func TestArtifactReferencesAreImmutableScopedAndOrdered(t *testing.T) {
+	m := New(nil)
+	accepted := create(t, m)
+	artifact := func(id, name string) run.Artifact {
+		return run.Artifact{
+			ID: id, RunID: accepted.Run.ID, Kind: "raw",
+			URI:    "s3://perfeng-artifacts/runs/" + accepted.Run.ID + "/" + name,
+			SHA256: strings.Repeat("a", 64), SizeBytes: 10,
+			MediaType: "application/json", Format: "raw-data/v1",
+		}
+	}
+	second := artifact("22222222-2222-4222-8222-222222222222", "second.json")
+	first := artifact("11111111-1111-4111-8111-111111111111", "first.json")
+	for _, reference := range []run.Artifact{second, first, first} {
+		if err := m.RegisterArtifact(ctx, "alice", reference); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	listed, err := m.ListArtifacts(ctx, "alice", accepted.Run.ID)
+	if err != nil || !reflect.DeepEqual(listed, []run.Artifact{first, second}) {
+		t.Fatalf("artifacts = %#v, error = %v", listed, err)
+	}
+	got, err := m.GetArtifact(ctx, "alice", accepted.Run.ID, first.ID)
+	if err != nil || got != first {
+		t.Fatalf("artifact = %#v, error = %v", got, err)
+	}
+
+	conflict := first
+	conflict.SHA256 = strings.Repeat("b", 64)
+	if err := m.RegisterArtifact(ctx, "alice", conflict); !errors.Is(err, run.ErrArtifactConflict) {
+		t.Fatalf("conflict error = %v", err)
+	}
+	if _, err := m.ListArtifacts(ctx, "bob", accepted.Run.ID); !errors.Is(err, run.ErrNotFound) {
+		t.Fatalf("cross-principal list error = %v", err)
+	}
+	if _, err := m.GetArtifact(ctx, "alice", accepted.Run.ID, "ffffffff-ffff-4fff-8fff-ffffffffffff"); !errors.Is(err, run.ErrNotFound) {
+		t.Fatalf("missing artifact error = %v", err)
 	}
 }
