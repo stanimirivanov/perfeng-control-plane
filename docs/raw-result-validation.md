@@ -47,3 +47,10 @@ current producer contract does not yet provide a trusted manifest receipt or a
 deterministic manifest identity, so this package deliberately does not locate
 manifests or assign their artifact IDs.
 
+`reconcile.VerifiedRawCollector` connects this parser to the object-storage
+reader without weakening that boundary. It receives a complete immutable
+manifest reference from an injected trusted resolver, verifies and parses the
+manifest, invokes an injected provenance approver, validates the manifest and
+source references as one set, and verifies every source object's bytes. The
+resolver and approver remain deployment-specific interfaces; the collector does
+not infer a reference from an object key or approve claims itself.

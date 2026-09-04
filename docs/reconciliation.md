@@ -145,6 +145,21 @@ non-empty, unique set of valid raw references for the claimed Run. The manifest
 is itself required to be an `application/json` raw artifact in `raw-result/v1`
 format, with an identity and location distinct from its declared objects.
 
+`VerifiedRawCollector` implements this composition behind the injected
+`RawArtifactCollector` interface. A trusted resolver supplies the manifest's
+complete immutable artifact reference; it is never discovered by listing a
+bucket. The collector verifies those bytes, parses the exact raw-result
+contract, asks a separate approver to bind producer, test and workload claims
+to the accepted Run, validates the complete set, and verifies every declared
+object before returning any references. Inputs passed to the resolver and
+approver are isolated copies.
+
+An absent manifest or source object remains `ErrArtifactsNotReady`. A checksum,
+metadata, reference, envelope or provenance mismatch becomes
+`ErrInvalidArtifacts`. Cancellation, deadlines and safe operational errors are
+preserved. Ambiguous readiness/invalidity classifications fail validation
+instead of choosing a lifecycle outcome.
+
 Declared object references and then the manifest reference are registered before
 the Run advances to ANALYZING. Registration is immutable and idempotent, so
 retrying after a partial write, timeout or uncertain commit safely repeats earlier
@@ -153,9 +168,10 @@ overwrites existing evidence. A revision race after registration requests
 rediscovery; cancellation wins the lifecycle write without invalidating already
 verified immutable references.
 
-This stage registers references only. The concrete S3-compatible collector must
-still be implemented and must verify bytes before returning. It does not upload
-objects, build raw manifests, dispatch analysis Jobs or interpret measurements.
+This stage registers references only. Its composition does not upload objects,
+build raw manifests, determine how Kubernetes publishes the trusted manifest
+reference, implement catalogue provenance approval, dispatch analysis Jobs or
+interpret measurements.
 Later analysis reconciliation can rediscover the registered manifest and source
 objects through principal-scoped, artifact-ID-ordered storage listing; no
 in-memory handoff from the collection attempt is required.
@@ -337,10 +353,10 @@ another UID or specification and must not be overwritten. A Kubernetes lifecycle
 reconciler must handle that condition and ambiguous external/commit outcomes
 explicitly.
 
-Likewise, the injected raw-artifact collector must verify durable evidence before
-returning references to `CollectionReconciler`. This change adds no concrete
-object-storage adapter, registry resolver, measurement-window discovery, retry
-policy for load tests or analysis result.
+Likewise, raw-artifact collection verifies durable evidence before returning
+references to `CollectionReconciler`. The composition still needs concrete
+manifest-publication and provenance adapters. It adds no measurement-window
+discovery, retry policy for load tests or analysis result.
 
 ## Storage, migrations and tests
 
