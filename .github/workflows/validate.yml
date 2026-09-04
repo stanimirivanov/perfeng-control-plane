@@ -80,8 +80,6 @@ jobs:
   kubernetes:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      PERFENG_TEST_KUBECONFIG: ${{ runner.temp }}/perfeng-kubeconfig
     steps:
       - uses: actions/checkout@v4
         with:
@@ -93,6 +91,8 @@ jobs:
       - name: Install kind
         run: go install sigs.k8s.io/kind@v0.31.0
       - name: Create pinned Kubernetes cluster
+        env:
+          PERFENG_TEST_KUBECONFIG: ${{ runner.temp }}/perfeng-kubeconfig
         run: >-
           kind create cluster
           --name perfeng-test
@@ -100,6 +100,8 @@ jobs:
           --kubeconfig "$PERFENG_TEST_KUBECONFIG"
           --wait 60s
       - name: Kubernetes API integration tests
+        env:
+          PERFENG_TEST_KUBECONFIG: ${{ runner.temp }}/perfeng-kubeconfig
         run: go test -vet=off -race -count=1 -timeout=3m -run TestDispatcherAgainstAPIServer -v ./internal/kubernetes
       - name: Delete Kubernetes cluster
         if: always()
