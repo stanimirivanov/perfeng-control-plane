@@ -275,9 +275,20 @@ identically owned and fingerprinted Job, maps pending/running/failed phases to
 the reporting contract, and asks an injected output collector to attest bytes
 only after Job success.
 
+`VerifiedReportCollector` performs that attestation composition. A trusted
+resolver supplies the immutable output reference, the shared object reader
+verifies its approved location, metadata, size and checksum, and the
+`analysisresult` parser validates the exact bytes. The report's candidate must
+equal the normalized artifact supplied to reporting. An injected approver then
+authorizes the exact policy, every selected reference and baseline lifecycle,
+the producer image, and the verdict semantics. Publication lag remains pending;
+changed bytes, invalid reports, candidate mismatches and rejected approval become
+report failures. Operational cancellation, lease loss, conflicts and
+unavailability take precedence and do not become persisted analysis failures.
+
 Concrete policy and baseline resolution, report-template resolution,
-output-publication resolution, byte verification, provenance policy and
-production composition remain separate work.
+output-publication resolution, approval policy and production composition remain
+separate work.
 
 ## Provisioning reconciliation
 

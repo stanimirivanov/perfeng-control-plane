@@ -28,6 +28,9 @@ Structural validity is not trust. Before registration, composition must also:
 - attest the report producer image and publication context; and
 - validate or recompute policy rule coverage and verdict arithmetic.
 
-Those checks belong to the reporting output collector and its injected approval
-adapter. The parser performs no network, database, Kubernetes or object-storage
-I/O.
+`VerifiedReportCollector` composes the approved object reader and this parser,
+requires the parsed candidate to equal the normalized artifact handed to
+reporting, and returns the immutable report reference only after an injected
+approver accepts the remaining policy, reference, producer and verdict claims.
+The parser itself performs no network, database, Kubernetes or object-storage
+I/O. Concrete publication resolution and approval remain external adapters.
