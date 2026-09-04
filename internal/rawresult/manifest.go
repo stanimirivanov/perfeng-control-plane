@@ -66,7 +66,7 @@ type Window struct {
 // manifest only when its structure matches the expected Run and contract bundle.
 func Parse(data []byte, expectedRunID, expectedContractsVersion string) (Manifest, error) {
 	if len(data) == 0 || len(data) > maximumManifestBytes || !utf8.Valid(data) ||
-		!contract.ValidID(expectedRunID) || !versionPattern.MatchString(expectedContractsVersion) ||
+		!contract.ValidID(expectedRunID) || !ValidContractsVersion(expectedContractsVersion) ||
 		uniqueJSON(data) != nil || !hasExactFields(data) {
 		return Manifest{}, run.ErrValidation
 	}
@@ -90,7 +90,7 @@ func Parse(data []byte, expectedRunID, expectedContractsVersion string) (Manifes
 func (manifest Manifest) Validate(expectedRunID, expectedContractsVersion string) error {
 	if manifest.SchemaVersion != 1 || manifest.Kind != "RawResult" ||
 		manifest.ContractsVersion != expectedContractsVersion || manifest.RunID != expectedRunID ||
-		!versionPattern.MatchString(manifest.ContractsVersion) || !contract.ValidID(manifest.RunID) ||
+		!ValidContractsVersion(manifest.ContractsVersion) || !contract.ValidID(manifest.RunID) ||
 		!resourceID.MatchString(manifest.TestID) ||
 		!validIdentity(manifest.Workload) || !validProducer(manifest.Producer) ||
 		len(manifest.Artifacts) == 0 {
@@ -121,6 +121,12 @@ func (manifest Manifest) Validate(expectedRunID, expectedContractsVersion string
 	}
 
 	return nil
+}
+
+// ValidContractsVersion reports whether a bundle version has the exact numeric
+// three-part form required by the transport contracts.
+func ValidContractsVersion(version string) bool {
+	return versionPattern.MatchString(version)
 }
 
 func validIdentity(identity Identity) bool {

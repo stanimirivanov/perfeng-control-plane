@@ -29,12 +29,14 @@ coordination, not load generation or statistical decisions.
 - Bounded verification of immutable objects from approved S3 locations.
 - AWS SDK for Go v2 adapter with safe S3 error classification.
 - Strict parsing and structural validation of raw-result manifests.
+- Composable verification of manifest provenance and every declared raw object.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
 administrative `cmd/migrate` command applies database migrations. Reconciliation
 stages are not wired into a process. Trusted resource/template resolvers,
-artifact collectors and the reporting stage are still missing, so no
+manifest publication/provenance adapters, normalized-output collection and the
+reporting stage are still missing, so no
 worker executes Jobs from accepted requests. Tests use synthetic contract
 fixtures, not approved deployable resources.
 
@@ -183,7 +185,8 @@ template, creates or adopts the Run's deterministic `-analysis` Job, maps its
 identity-checked phase, and delegates successful output to a separate byte
 attestor. `Router` advances CREATED, selects every implemented stage, and
 quietly defers reporting until its component exists. Real approved
-resource/template resolvers, raw and normalized artifact collectors,
+resource/template resolvers, raw-manifest publication/provenance adapters,
+normalized artifact collectors,
 unbound-cancellation recovery, and production composition are still missing.
 The `reconcile` policy defines that connection's state decisions independently
 of I/O: pending Jobs wait, running Jobs enter RUNNING, terminal Jobs enter
@@ -208,9 +211,11 @@ backend messages and request details. It preserves cancellation, distinguishes
 missing keys, and classifies transient service/network failures as unavailable.
 The [raw-result parsing boundary](docs/raw-result-validation.md) validates the
 producer envelope's exact structure, identities, timestamps and artifact claims.
-Parsing does not approve provenance or attest remote bytes. A concrete collector
-still needs a trusted manifest publication reference before it can safely connect
-that parser to object verification and artifact registration.
+Parsing does not approve provenance or attest remote bytes. A collector
+composition accepts that approval and a trusted manifest publication reference
+through separate injected boundaries, then verifies the manifest and every
+declared object. Kubernetes publication discovery and a real provenance adapter
+remain unwired.
 
 ## Contract provenance
 
