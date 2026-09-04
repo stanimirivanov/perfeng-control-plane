@@ -260,9 +260,16 @@ an uncertain write rediscovers the existing report, skips executor invocation an
 retries only completion. Multiple reports, identity collisions and unsupported
 artifact formats fail validation rather than overwriting evidence.
 
-This stage defines orchestration and persistence only. Concrete policy and
-baseline resolution, report execution, output-byte verification, publication and
-Kubernetes Job composition remain separate work.
+`KubernetesReportExecutor` implements the report process boundary with a
+deterministic `<run-id>-report` Job. An injected resolver supplies the approved,
+digest-pinned template. The Kubernetes adapter creates or adopts only an
+identically owned and fingerprinted Job, maps pending/running/failed phases to
+the reporting contract, and asks an injected output collector to attest bytes
+only after Job success.
+
+Concrete policy and baseline resolution, report-template resolution,
+output-publication resolution, byte verification, provenance policy and
+production composition remain separate work.
 
 ## Provisioning reconciliation
 

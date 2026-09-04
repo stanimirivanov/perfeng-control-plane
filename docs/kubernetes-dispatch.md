@@ -124,3 +124,23 @@ must retrieve and verify the output bytes before returning an immutable
 reference. Kubernetes success alone does not attest output existence, checksum,
 format or provenance. Template resolution, storage access and worker composition
 remain external boundaries.
+
+## Reporting Jobs
+
+Reporting uses a deterministic `<run-id>-report` Job with
+`perfeng.io/stage=reporting` identity on both the Job and Pod template.
+`ReportingDispatcher` shares the normalization dispatcher's restricted Job
+policy, immutable fingerprint and strict create-or-adopt behavior. Analysis and
+report Jobs have distinct names and stage identities, so neither can be adopted
+as the other.
+
+`reconcile.KubernetesReportExecutor` maps pending and running Jobs to quiet
+reporting retries and a failed Job to a definitive report-process failure. A
+successful Job is delegated to an injected report-artifact collector. That
+collector must retrieve and attest the `analysis-result/v1` bytes before it
+returns an immutable reference; Kubernetes completion is not evidence of a
+quality verdict or a valid report.
+
+Approved report template resolution, policy and baseline selection, storage
+publication, output-byte verification and production composition remain
+external boundaries.
