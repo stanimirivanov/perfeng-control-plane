@@ -12,6 +12,7 @@ runners do not write these tables directly.
 | artifacts | Immutable identities for raw/normalized object references |
 | reconciliation_leases | Worker ownership tokens, lease expiry and retry availability |
 | kubernetes_executions | Immutable Job UID and specification identity per Run |
+| baselines | Principal-owned baseline versions and lifecycle snapshots |
 
 Snapshots are JSONB using the accepted API field names, with relational identity,
 ownership, uniqueness and foreign-key constraints. This keeps optional API
@@ -73,20 +74,46 @@ GRANT USAGE ON SCHEMA perfeng_control TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.runs TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.create_bindings TO perfeng_runtime;
 GRANT SELECT, INSERT ON perfeng_control.artifacts TO perfeng_runtime;
+GRANT SELECT, INSERT, UPDATE ON perfeng_control.baselines TO perfeng_runtime;
 ~~~
 
 Only the trusted reconciliation worker role additionally needs SELECT, INSERT
 and UPDATE on `perfeng_control.reconciliation_leases`, plus SELECT and INSERT on
 `perfeng_control.kubernetes_executions`. It also needs the Run table privileges
 above. Do not grant the worker interfaces to tenant/API callers. Migration 0002
-adds leases; migration 0003 adds immutable execution identity without altering
-earlier migrations or existing data.
+adds leases, migration 0003 adds immutable execution identity, and migration
+0004 adds baseline storage without altering earlier migrations or existing data.
 See [worker-claim semantics](reconciliation.md).
 
 Provision that role/login through infrastructure; the migration does not create
 credentials or grant permissions to PUBLIC. Do not use the schema owner as the
 runtime login. Artifact UPDATE/DELETE and schema DDL are intentionally excluded.
 The role needs no extensions, sequences, superuser or database-creation rights.
+
+## Baselines
+
+Migration 0004 adds one row for each principal, baseline ID and semantic version.
+Relational source-Run, artifact, revision and state columns are constrained to
+match the JSON snapshot. The source Run must belong to the principal, and the
+artifact foreign key binds the exact registered artifact to that Run.
+
+`CreateBaseline` reads the database clock, validates a new candidate, locks its
+completed source Run for consistent verification, and compares the supplied
+normalized reference with the immutable artifact registry. It returns
+`ErrNotFound` for missing or cross-principal evidence, `ErrValidation` for an
+unfinished Run or mismatched reference, and `ErrConflict` when the requested
+baseline version already exists.
+
+`TransitionBaseline` locks the baseline row before reading the database clock
+and applying its expected revision. Qualification evidence, state, revision and
+append-only lifecycle history commit in one update. Concurrent decisions from
+the same observed revision cannot both commit. `GetBaseline` uses the same
+principal visibility boundary as Run reads.
+
+This storage interface does not list or automatically select approved records.
+It cannot promote the latest successful Run and therefore does not introduce
+baseline drift. Approved-baseline resolution and HTTP administration are later
+interfaces with their own authorization rules.
 
 ## Prototype migration boundary
 
@@ -174,8 +201,8 @@ restricted to a disposable CI service; never copy that setting into production.
 Coverage includes empty-database migration, repeat migration, checksum rejection,
 transaction rollback, original acceptance replay, principal isolation, immutable
 artifacts, key expiry, duplicate acceptance across pools, cancellation/completion
-races, bounded lock waits, immutable execution-binding races and a fresh OS
-process recovering persisted records.
+races, bounded lock waits, immutable execution-binding races, serialized baseline
+approval and a fresh OS process recovering persisted records.
 
 References: [PostgreSQL locking](https://www.postgresql.org/docs/17/explicit-locking.html)
 and [pgx database/sql adapter](https://pkg.go.dev/github.com/jackc/pgx/v5/stdlib).
