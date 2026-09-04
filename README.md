@@ -34,6 +34,7 @@ coordination, not load generation or statistical decisions.
 - Composable verification of manifest provenance and every declared raw object.
 - Strict parsing and internal-consistency validation of normalized-result envelopes.
 - Composable verification of normalized output bytes, sources and provenance.
+- Strict parsing and internal-consistency validation of analysis-result reports.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
@@ -98,6 +99,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/objectstore | Approved S3 location policy and artifact-byte verification |
 | internal/jsondocument | Shared bounded, duplicate-safe contract JSON handling |
 | internal/normalizedresult | Untrusted normalized-result parsing and consistency validation |
+| internal/analysisresult | Untrusted analysis-result parsing and consistency validation |
 | internal/rawresult | Untrusted raw-result manifest parsing and structural validation |
 | internal/worker | Bounded claim scheduling, lease renewal and attempt cancellation |
 | internal/reconcile | Lifecycle policy and lease-fenced persisted-execution reconciliation |
