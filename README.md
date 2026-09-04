@@ -35,6 +35,7 @@ coordination, not load generation or statistical decisions.
 - Strict parsing and internal-consistency validation of normalized-result envelopes.
 - Composable verification of normalized output bytes, sources and provenance.
 - Strict parsing and internal-consistency validation of analysis-result reports.
+- Composable verification of report output bytes, candidate binding and approval.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
