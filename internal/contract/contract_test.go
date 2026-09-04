@@ -13,13 +13,16 @@ func TestPinnedSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	var lock struct {
-		Commit string
-		SHA256 map[string]string
+		Commit        string
+		BundleVersion string
+		APIVersion    string
+		SHA256        map[string]string
 	}
 	if err := json.Unmarshal(b, &lock); err != nil {
 		t.Fatal(err)
 	}
-	if lock.Commit != "220140137a2e70367f3d6aa3bde8aede4d49c8b7" || len(lock.SHA256) != 3 {
+	if lock.Commit != "82baa78c9a08851431688f647e69a09d66da42f1" ||
+		lock.BundleVersion != "0.6.0" || lock.APIVersion != "0.2.0" || len(lock.SHA256) != 4 {
 		t.Fatal("unexpected contract provenance")
 	}
 	for name, expected := range lock.SHA256 {

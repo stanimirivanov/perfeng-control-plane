@@ -35,13 +35,20 @@ type Authenticate func(context.Context, string) (Identity, error)
 // It is a required seam, not an implicit allowlist or a network-fetch mechanism.
 type Approve func(context.Context, string, run.Request) error
 
+// Repository contains the principal-scoped run and artifact reads exposed by
+// the HTTP API together with run mutation operations.
+type Repository interface {
+	run.Repository
+	ListArtifacts(context.Context, string, string) ([]run.Artifact, error)
+}
+
 type Handler struct {
-	repository   run.Repository
+	repository   Repository
 	authenticate Authenticate
 	approve      Approve
 }
 
-func New(repository run.Repository, authenticate Authenticate, approve Approve) (*Handler, error) {
+func New(repository Repository, authenticate Authenticate, approve Approve) (*Handler, error) {
 	if repository == nil || authenticate == nil || approve == nil {
 		return nil, errors.New("repository, authentication and resource approval are required")
 	}
@@ -131,18 +138,28 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.create(w, r, identity.Principal)
 		return
 	}
+	h.serveRun(w, r, identity, path)
+}
+
+func (h *Handler) serveRun(
+	w http.ResponseWriter,
+	r *http.Request,
+	identity Identity,
+	path string,
+) {
 	parts := strings.Split(strings.TrimPrefix(path, "/v1/runs/"), "/")
 	if !strings.HasPrefix(path, "/v1/runs/") || len(parts) > 2 {
 		fail(w, 404, "NOT_FOUND")
 		return
 	}
 	isGet := len(parts) == 1 && r.Method == http.MethodGet
+	isArtifactList := len(parts) == 2 && parts[1] == "artifacts" && r.Method == http.MethodGet
 	isCancel := len(parts) == 2 && parts[1] == "cancel" && r.Method == http.MethodPost
-	if !isGet && !isCancel {
+	if !isGet && !isArtifactList && !isCancel {
 		fail(w, 404, "NOT_FOUND")
 		return
 	}
-	if (isGet && !identity.Read) || (isCancel && !identity.Cancel) {
+	if ((isGet || isArtifactList) && !identity.Read) || (isCancel && !identity.Cancel) {
 		fail(w, 403, "FORBIDDEN")
 		return
 	}
@@ -153,6 +170,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1))
 	if err != nil || len(body) > 0 {
 		fail(w, 400, "BAD_REQUEST")
+		return
+	}
+	if isArtifactList {
+		h.listArtifacts(w, r, identity.Principal, parts[0])
 		return
 	}
 	var result run.Run
@@ -170,6 +191,28 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		status = 202
 	}
 	writeJSON(w, status, result)
+}
+
+type artifactCollection struct {
+	Artifacts []run.Artifact `json:"artifacts"`
+}
+
+func (h *Handler) listArtifacts(
+	w http.ResponseWriter,
+	r *http.Request,
+	principal string,
+	runID string,
+) {
+	artifacts, err := h.repository.ListArtifacts(r.Context(), principal, runID)
+	if err != nil {
+		failRepository(w, err)
+
+		return
+	}
+	if artifacts == nil {
+		artifacts = make([]run.Artifact, 0)
+	}
+	writeJSON(w, http.StatusOK, artifactCollection{Artifacts: artifacts})
 }
 
 func (h *Handler) create(w http.ResponseWriter, r *http.Request, principal string) {

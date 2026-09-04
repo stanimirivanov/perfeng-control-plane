@@ -18,10 +18,11 @@ type ownedRun struct {
 }
 type bindingKey struct{ principal, key string }
 type Repository struct {
-	mu       sync.Mutex
-	now      func() time.Time
-	runs     map[string]ownedRun
-	bindings map[bindingKey]run.Accepted
+	mu        sync.Mutex
+	now       func() time.Time
+	runs      map[string]ownedRun
+	bindings  map[bindingKey]run.Accepted
+	artifacts map[string]run.Artifact
 }
 
 var _ run.Repository = (*Repository)(nil)
@@ -32,7 +33,13 @@ func New(now func() time.Time) *Repository {
 	if now == nil {
 		now = time.Now
 	}
-	return &Repository{now: now, runs: make(map[string]ownedRun), bindings: make(map[bindingKey]run.Accepted)}
+
+	return &Repository{
+		now:       now,
+		runs:      make(map[string]ownedRun),
+		bindings:  make(map[bindingKey]run.Accepted),
+		artifacts: make(map[string]run.Artifact),
+	}
 }
 
 func (m *Repository) Accept(ctx context.Context, principal, key string, request run.Request) (run.Accepted, error) {

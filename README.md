@@ -6,14 +6,14 @@ coordination, not load generation or statistical decisions.
 
 ## Current scope
 
-- Authenticated create, get and cancel HTTP handlers.
+- Authenticated create, get, cancel and artifact-list HTTP handlers.
 - Strict declarative request validation against the pinned contract.
 - Atomic, principal-scoped idempotent creation with 24-hour retention.
 - Original acceptance replay, current-state reads and asynchronous cancellation.
 - Revision-checked worker transitions, terminal-state and failure-code rules.
 - In-memory repository for bounded tests/development, with concurrency tests.
 - PostgreSQL repository, transactional migrations and immutable artifact references.
-- Principal-scoped, restart-safe discovery of persisted artifact references.
+- Principal-scoped, restart-safe worker and HTTP discovery of persisted artifact references.
 - Durable worker claims, lease renewal/recovery and fenced lifecycle updates.
 - Duplicate-safe Kubernetes Job creation and adoption boundary.
 - Identity-checked Kubernetes Job observation and cancellation requests.
@@ -31,13 +31,14 @@ coordination, not load generation or statistical decisions.
 - Strict parsing and structural validation of raw-result manifests.
 - Composable verification of manifest provenance and every declared raw object.
 - Strict parsing and internal-consistency validation of normalized-result envelopes.
+- Composable verification of normalized output bytes, sources and provenance.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
 administrative `cmd/migrate` command applies database migrations. Reconciliation
 stages are not wired into a process. Trusted resource/template resolvers,
-manifest publication/provenance adapters, normalized-output collection and the
-reporting stage are still missing, so no
+concrete publication/provenance adapters and the reporting stage are still
+missing, so no
 worker executes Jobs from accepted requests. Tests use synthetic contract
 fixtures, not approved deployable resources.
 
@@ -229,9 +230,10 @@ discovery and the real approval policy remain deployment-specific adapters.
 ## Contract provenance
 
 The [snapshot lock](internal/contract/snapshot/lock.json) pins perfeng-contracts
-commit `220140137a2e70367f3d6aa3bde8aede4d49c8b7`, candidate bundle 0.5.0,
-API 0.1.0. The OpenAPI document, transitions and create fixture were mechanically
-compacted as JSON with LF final newlines; lock hashes cover these local bytes.
+commit `82baa78c9a08851431688f647e69a09d66da42f1`, candidate bundle 0.6.0,
+API 0.2.0. The OpenAPI document, transitions, create fixture and artifact-list
+fixture were mechanically compacted as JSON with LF final newlines; lock hashes
+cover these local bytes.
 Tests verify checksums. There is no sibling-checkout or network dependency at
 build/test/runtime. Imported contract content is Apache-2.0, as in this repository.
 
