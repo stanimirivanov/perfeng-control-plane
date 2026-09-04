@@ -2,14 +2,12 @@
 package rawresult
 
 import (
-	"bytes"
 	"encoding/json"
-	"io"
 	"regexp"
 	"time"
-	"unicode/utf8"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/jsondocument"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
@@ -65,20 +63,13 @@ type Window struct {
 // Parse rejects malformed or unsupported envelopes and returns an isolated
 // manifest only when its structure matches the expected Run and contract bundle.
 func Parse(data []byte, expectedRunID, expectedContractsVersion string) (Manifest, error) {
-	if len(data) == 0 || len(data) > maximumManifestBytes || !utf8.Valid(data) ||
-		!contract.ValidID(expectedRunID) || !ValidContractsVersion(expectedContractsVersion) ||
-		uniqueJSON(data) != nil || !hasExactFields(data) {
+	if !jsondocument.Valid(data, maximumManifestBytes) || !contract.ValidID(expectedRunID) ||
+		!ValidContractsVersion(expectedContractsVersion) || !hasExactFields(data) {
 		return Manifest{}, run.ErrValidation
 	}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
 	var manifest Manifest
-	if err := decoder.Decode(&manifest); err != nil {
-		return Manifest{}, run.ErrValidation
-	}
-	if err := requireJSONEnd(decoder); err != nil ||
-		manifest.Validate(expectedRunID, expectedContractsVersion) != nil {
+	if !jsondocument.Decode(data, &manifest) || manifest.Validate(expectedRunID, expectedContractsVersion) != nil {
 		return Manifest{}, run.ErrValidation
 	}
 
@@ -140,16 +131,20 @@ func validProducer(producer Producer) bool {
 }
 
 func hasExactFields(data []byte) bool {
-	var root map[string]json.RawMessage
-	if json.Unmarshal(data, &root) != nil || !exactKeys(root,
+	root, valid := jsondocument.ExactObject(data,
 		"schemaVersion", "kind", "contractsVersion", "runId", "testId", "workload",
-		"producer", "measurementWindow", "createdAt", "artifacts") {
+		"producer", "measurementWindow", "createdAt", "artifacts")
+	if !valid {
 		return false
 	}
 
-	if !exactObject(root["workload"], "id", "version", "sha256") ||
-		!exactObject(root["producer"], "name", "version", "image") ||
-		!exactObject(root["measurementWindow"], "start", "end") {
+	if _, valid = jsondocument.ExactObject(root["workload"], "id", "version", "sha256"); !valid {
+		return false
+	}
+	if _, valid = jsondocument.ExactObject(root["producer"], "name", "version", "image"); !valid {
+		return false
+	}
+	if _, valid = jsondocument.ExactObject(root["measurementWindow"], "start", "end"); !valid {
 		return false
 	}
 
@@ -158,25 +153,9 @@ func hasExactFields(data []byte) bool {
 		return false
 	}
 	for _, artifact := range artifacts {
-		if !exactObject(artifact, "id", "runId", "kind", "uri", "sha256", "sizeBytes", "mediaType", "format") {
-			return false
-		}
-	}
-
-	return true
-}
-
-func exactObject(data json.RawMessage, keys ...string) bool {
-	var object map[string]json.RawMessage
-	return json.Unmarshal(data, &object) == nil && exactKeys(object, keys...)
-}
-
-func exactKeys(object map[string]json.RawMessage, keys ...string) bool {
-	if len(object) != len(keys) {
-		return false
-	}
-	for _, key := range keys {
-		if _, exists := object[key]; !exists {
+		if _, valid = jsondocument.ExactObject(
+			artifact, "id", "runId", "kind", "uri", "sha256", "sizeBytes", "mediaType", "format",
+		); !valid {
 			return false
 		}
 	}
@@ -191,83 +170,4 @@ func validTimestamp(value string) (time.Time, bool) {
 	parsed, err := time.Parse(time.RFC3339Nano, value)
 
 	return parsed, err == nil
-}
-
-func uniqueJSON(data []byte) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	if err := consumeUniqueValue(decoder, 0); err != nil {
-		return err
-	}
-
-	return requireJSONEnd(decoder)
-}
-
-func consumeUniqueValue(decoder *json.Decoder, depth int) error {
-	if depth > 64 {
-		return run.ErrValidation
-	}
-	token, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-	delimiter, composite := token.(json.Delim)
-	if !composite {
-		return nil
-	}
-
-	switch delimiter {
-	case '{':
-		return consumeUniqueObject(decoder, depth)
-	case '[':
-		return consumeUniqueArray(decoder, depth)
-	default:
-		return run.ErrValidation
-	}
-}
-
-func consumeUniqueObject(decoder *json.Decoder, depth int) error {
-	keys := make(map[string]struct{})
-	for decoder.More() {
-		keyToken, err := decoder.Token()
-		if err != nil {
-			return err
-		}
-		key, ok := keyToken.(string)
-		if !ok {
-			return run.ErrValidation
-		}
-		if _, exists := keys[key]; exists {
-			return run.ErrValidation
-		}
-		keys[key] = struct{}{}
-		if err := consumeUniqueValue(decoder, depth+1); err != nil {
-			return err
-		}
-	}
-
-	return consumeEnd(decoder)
-}
-
-func consumeUniqueArray(decoder *json.Decoder, depth int) error {
-	for decoder.More() {
-		if err := consumeUniqueValue(decoder, depth+1); err != nil {
-			return err
-		}
-	}
-
-	return consumeEnd(decoder)
-}
-
-func consumeEnd(decoder *json.Decoder) error {
-	_, err := decoder.Token()
-
-	return err
-}
-
-func requireJSONEnd(decoder *json.Decoder) error {
-	if _, err := decoder.Token(); err != io.EOF {
-		return run.ErrValidation
-	}
-
-	return nil
 }
