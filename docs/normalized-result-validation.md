@@ -36,7 +36,7 @@ verdicts.
 
 A valid envelope does not establish that its source bytes were actually used,
 that the producer image ran, or that the normalized object matches its external
-checksum and size. A normalized-output collector must independently:
+checksum and size. `VerifiedNormalizedCollector` independently:
 
 1. obtain the output's immutable artifact reference from trusted execution
    state;
@@ -46,6 +46,17 @@ checksum and size. A normalized-output collector must independently:
    source references with the accepted analysis input; and
 5. return the reference only after every check succeeds.
 
+Output-reference discovery and provenance approval remain injected boundaries.
+The resolver must use trusted orchestration state rather than public request
+fields or object-store listing. The approver owns catalogue and image policy;
+the collector itself requires the parsed source references to equal the accepted
+analysis input as an order-independent set of complete artifact records.
+
+An absent publication or object after Kubernetes reports Job success remains a
+retryable `ErrAnalysisPending`, allowing for bounded storage visibility delay.
+An invalid reference, changed bytes, malformed envelope, source mismatch or
+rejected provenance becomes `ErrAnalysisFailed`. Conflicting classifications
+fail with validation rather than selecting a favorable interpretation.
+
 Scientific quality, SLO evaluation and regression decisions remain downstream
 analysis responsibilities.
-
