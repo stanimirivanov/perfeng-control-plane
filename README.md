@@ -189,7 +189,6 @@ identity-checked phase, and delegates successful output to a separate byte
 attestor. `Router` advances CREATED, selects every implemented stage, and
 quietly defers reporting until its component exists. Real approved
 resource/template resolvers, raw-manifest publication/provenance adapters,
-normalized artifact collectors,
 unbound-cancellation recovery, and production composition are still missing.
 The `reconcile` policy defines that connection's state decisions independently
 of I/O: pending Jobs wait, running Jobs enter RUNNING, terminal Jobs enter
@@ -222,8 +221,10 @@ remain unwired.
 The [normalized-result parsing boundary](docs/normalized-result-validation.md)
 preserves unavailable statistics without fabrication, validates metric and
 source consistency, and treats legacy thresholds as producer claims. A concrete
-normalized-output collector must still bind verified envelope bytes and
-provenance to the exact analysis input before registration.
+collector composition now verifies the trusted output reference and its bytes,
+parses the envelope, binds its complete source set to the exact analysis input,
+and requires provenance approval before registration. Kubernetes publication
+discovery and the real approval policy remain deployment-specific adapters.
 
 ## Contract provenance
 

@@ -196,6 +196,19 @@ consistency, result/v2 metric validation and unavailable-sample preservation.
 Parsing alone does not prove that the envelope used the registered analysis
 input or that its external artifact reference matches the stored bytes.
 
+`VerifiedNormalizedCollector` composes those missing checks. An injected
+resolver obtains the immutable output reference from trusted execution state,
+the object reader verifies its location, metadata, size and checksum, and the
+parser validates the verified bytes. The collector requires the envelope's
+complete source-artifact set to equal `AnalysisInput.Sources` independent of
+ordering, then delegates normalizer, workload and window policy to an injected
+approver. It returns only the already-verified immutable reference.
+
+Publication lag and an absent object remain `ErrAnalysisPending`; changed bytes,
+invalid envelopes, source mismatches and rejected provenance become
+`ErrAnalysisFailed`. Operational cancellation, deadlines and unavailability
+retain their identity, while contradictory error classifications fail closed.
+
 `ErrAnalysisPending` produces a bounded quiet retry. `ErrAnalysisFailed` advances
 to INFRASTRUCTURE_FAILURE with a fixed `ANALYSIS_ERROR` message; it never becomes
 a performance regression verdict. Context cancellation, deadlines, lease loss,
@@ -216,7 +229,8 @@ and asks an injected output collector to attest bytes only after Job success.
 Kubernetes completion by itself never creates an artifact reference.
 
 Approved analysis image configuration, object downloads/uploads, concrete
-template resolution and reporting decisions remain separate work.
+template resolution, output-publication resolution, provenance policy and
+reporting decisions remain separate work.
 
 ## Provisioning reconciliation
 
