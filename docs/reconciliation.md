@@ -190,6 +190,12 @@ object bytes, and attest a `normalized-result/v1` JSON object before returning i
 immutable reference. The public Run request cannot supply executable commands or
 artifact locations to this boundary.
 
+The `normalizedresult` parser provides the strict envelope boundary for that
+collector: exact JSON shape, common provenance and window rules, raw-source
+consistency, result/v2 metric validation and unavailable-sample preservation.
+Parsing alone does not prove that the envelope used the registered analysis
+input or that its external artifact reference matches the stored bytes.
+
 `ErrAnalysisPending` produces a bounded quiet retry. `ErrAnalysisFailed` advances
 to INFRASTRUCTURE_FAILURE with a fixed `ANALYSIS_ERROR` message; it never becomes
 a performance regression verdict. Context cancellation, deadlines, lease loss,

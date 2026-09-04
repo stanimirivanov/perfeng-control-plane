@@ -30,6 +30,7 @@ coordination, not load generation or statistical decisions.
 - AWS SDK for Go v2 adapter with safe S3 error classification.
 - Strict parsing and structural validation of raw-result manifests.
 - Composable verification of manifest provenance and every declared raw object.
+- Strict parsing and internal-consistency validation of normalized-result envelopes.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
@@ -92,6 +93,8 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/httpapi | HTTP parsing, auth/approval seams, status/response mapping |
 | internal/kubernetes | Deterministic Job dispatch, identity-checked observation, stop and Pod checks |
 | internal/objectstore | Approved S3 location policy and artifact-byte verification |
+| internal/jsondocument | Shared bounded, duplicate-safe contract JSON handling |
+| internal/normalizedresult | Untrusted normalized-result parsing and consistency validation |
 | internal/rawresult | Untrusted raw-result manifest parsing and structural validation |
 | internal/worker | Bounded claim scheduling, lease renewal and attempt cancellation |
 | internal/reconcile | Lifecycle policy and lease-fenced persisted-execution reconciliation |
@@ -216,6 +219,11 @@ composition accepts that approval and a trusted manifest publication reference
 through separate injected boundaries, then verifies the manifest and every
 declared object. Kubernetes publication discovery and a real provenance adapter
 remain unwired.
+The [normalized-result parsing boundary](docs/normalized-result-validation.md)
+preserves unavailable statistics without fabrication, validates metric and
+source consistency, and treats legacy thresholds as producer claims. A concrete
+normalized-output collector must still bind verified envelope bytes and
+provenance to the exact analysis input before registration.
 
 ## Contract provenance
 
