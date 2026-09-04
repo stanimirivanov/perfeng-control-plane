@@ -25,6 +25,7 @@ coordination, not load generation or statistical decisions.
 - Validated lifecycle entry and explicit routing for every active Run state.
 - Retry-safe registration of verified raw artifacts before analysis.
 - Restart-safe orchestration of normalization through an injected executor.
+- Restart-safe report generation and durable completion through an injected executor.
 - Duplicate-safe Kubernetes normalization Job creation and phase mapping.
 - Bounded verification of immutable objects from approved S3 locations.
 - AWS SDK for Go v2 adapter with safe S3 error classification.
@@ -37,8 +38,8 @@ This is a library foundation, **not a deployable service**. There is intentional
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
 administrative `cmd/migrate` command applies database migrations. Reconciliation
 stages are not wired into a process. Trusted resource/template resolvers,
-concrete publication/provenance adapters and the reporting stage are still
-missing, so no
+concrete publication/provenance adapters and concrete reporting execution are
+still missing, so no
 worker executes Jobs from accepted requests. Tests use synthetic contract
 fixtures, not approved deployable resources.
 
@@ -187,10 +188,14 @@ result, and advances to REPORTING. Existing normalized evidence is recovered
 without duplicate execution. `KubernetesAnalysisExecutor` resolves an approved
 template, creates or adopts the Run's deterministic `-analysis` Job, maps its
 identity-checked phase, and delegates successful output to a separate byte
-attestor. `Router` advances CREATED, selects every implemented stage, and
-quietly defers reporting until its component exists. Real approved
+attestor. `ReportingReconciler` rediscovers the normalized result, invokes an
+idempotent report boundary only when no durable report exists, registers the
+validated report reference, and advances to COMPLETED. A missing baseline or an
+inconclusive quality verdict belongs in a successful report and does not make the
+Run fail. `Router` advances CREATED and selects every active stage. Real approved
 resource/template resolvers, raw-manifest publication/provenance adapters,
-unbound-cancellation recovery, and production composition are still missing.
+report execution, unbound-cancellation recovery, and production composition are
+still missing.
 The `reconcile` policy defines that connection's state decisions independently
 of I/O: pending Jobs wait, running Jobs enter RUNNING, terminal Jobs enter
 COLLECTING, and unexpected disappearance/deletion is infrastructure failure.

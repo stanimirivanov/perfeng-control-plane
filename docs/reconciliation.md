@@ -53,10 +53,10 @@ stopped; durable leases become reclaimable after expiry. Reconciler implementati
 must honor context cancellation promptly. A terminal transition expires its lease
 inside the store, so a later release returning ErrLeaseLost is also normal.
 
-`Router` advances CREATED and selects validation, provisioning, bound execution
-raw-artifact collection or analysis from the claimed state. A registry-backed
-resolver, object-storage collector, normalization executor, reporting stage and
-production process wiring remain subsequent work.
+`Router` advances CREATED and selects validation, provisioning, bound execution,
+raw-artifact collection, analysis or reporting from the claimed state. Concrete
+registry-backed resolvers, artifact publication, normalization and report
+executors, and production process wiring remain subsequent work.
 
 ## Kubernetes lifecycle decisions
 
@@ -114,11 +114,10 @@ from storage:
 | WARMING_UP, RUNNING, CANCELLING | Bound-execution reconciler |
 | COLLECTING | Raw-artifact collection reconciler |
 | ANALYZING | Analysis reconciler |
-| REPORTING | Deferred with bounded retry |
+| REPORTING | Reporting reconciler |
 
-REPORTING is deliberately quiet rather than producing repeated worker errors
-while its component is absent. Terminal and unknown states are rejected; the
-storage contract must not claim terminal Runs.
+Terminal and unknown states are rejected; the storage contract must not claim
+terminal Runs.
 
 CANCELLING currently routes to bound-execution reconciliation and therefore
 requires a durable execution identity. Recovery for cancellation after an
@@ -231,6 +230,39 @@ Kubernetes completion by itself never creates an artifact reference.
 Approved analysis image configuration, object downloads/uploads, concrete
 template resolution, output-publication resolution, provenance policy and
 reporting decisions remain separate work.
+
+## Reporting reconciliation
+
+`ReportingReconciler` accepts only REPORTING claims. It lists the
+principal-owned artifacts, requires exactly one `normalized-result/v1` JSON
+candidate, and rejects malformed, cross-Run or ambiguous evidence. Raw evidence
+may remain alongside that candidate.
+
+The injected `ReportExecutor` starts, adopts or observes idempotent report
+generation. It owns accepted-policy resolution, selection of an approved
+reference where one exists, and attestation of the returned
+`analysis-result/v1` JSON artifact. Public requests cannot choose report commands,
+baselines or artifact locations through this boundary.
+
+`ErrReportPending` produces a bounded quiet retry. `ErrReportFailed` advances to
+INFRASTRUCTURE_FAILURE with a fixed `ANALYSIS_ERROR` message. Cancellation,
+deadlines, lease loss, storage unavailability and artifact conflicts remain
+operational errors and do not change lifecycle state. Contradictory error
+classifications fail closed.
+
+A quality, SLO or regression verdict—including an inconclusive verdict caused by
+the absence of an approved baseline—is report content, not report-process status.
+Once a valid report is produced, the reconciler registers its immutable reference
+and advances the Run to COMPLETED regardless of that verdict.
+
+The report reference is registered before the terminal transition. A retry after
+an uncertain write rediscovers the existing report, skips executor invocation and
+retries only completion. Multiple reports, identity collisions and unsupported
+artifact formats fail validation rather than overwriting evidence.
+
+This stage defines orchestration and persistence only. Concrete policy and
+baseline resolution, report execution, output-byte verification, publication and
+Kubernetes Job composition remain separate work.
 
 ## Provisioning reconciliation
 
