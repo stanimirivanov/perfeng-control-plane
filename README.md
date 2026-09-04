@@ -37,6 +37,7 @@ coordination, not load generation or statistical decisions.
 - Strict parsing and internal-consistency validation of analysis-result reports.
 - Composable verification of report output bytes, candidate binding and approval.
 - Versioned baseline candidates with revision-checked qualification, approval and retirement.
+- Principal-scoped PostgreSQL baseline storage backed by completed, registered evidence.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
@@ -264,9 +265,9 @@ HTTP behavior. A broader cross-language conformance suite can follow.
 
 The [baseline domain](docs/baseline-lifecycle.md) represents one immutable
 baseline version, its qualification evidence and its append-only review history.
-This slice establishes domain rules only. Durable storage, selection of the one
-approved baseline for a comparison context, and administrative HTTP operations
-remain separate follow-up work.
+PostgreSQL persists these records and serializes lifecycle decisions. Selection
+of the one approved baseline for a comparison context and administrative HTTP
+operations remain separate follow-up work.
 
 Relevant Go references: [HTTP server handlers](https://pkg.go.dev/net/http),
 [JSON decoding behavior](https://pkg.go.dev/encoding/json), and

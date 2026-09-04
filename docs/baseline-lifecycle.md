@@ -26,6 +26,20 @@ Copies do not share dataset, qualification or lifecycle storage with their
 source.
 
 This package does not decide whether evidence passes. That decision belongs to
-the analysis and policy boundary. It also does not persist records or select a
-baseline for a report. A later storage adapter must serialize mutations, enforce
-expected revisions transactionally, and preserve the append-only lifecycle.
+the analysis and policy boundary. It also does not select a baseline for a
+report.
+
+The PostgreSQL adapter stores baseline versions under the principal that owns
+their source Run. Creation requires that Run to be `COMPLETED` and requires the
+exact normalized artifact to be present in the immutable artifact registry.
+Missing and cross-principal evidence are indistinguishable. A duplicate
+`(principal, baseline ID, version)` returns `ErrConflict`; after an uncertain
+commit, callers resolve the outcome with `GetBaseline` rather than inventing a
+new version.
+
+Lifecycle mutations lock the current baseline row, read the database clock and
+apply the expected revision before updating the relational revision, state and
+JSON snapshot together. Database constraints also bind the snapshot to its
+principal-owned source Run and registered artifact. Selection of an approved,
+environment-compatible baseline and administrative HTTP authorization remain
+future boundaries.

@@ -336,6 +336,10 @@ func TestReconciliationMigrationUpgrade(t *testing.T) {
 	if replay := accepted(t, r, "upgrade", "request-key-upgrade"); replay != a {
 		t.Fatal("upgrade changed acceptance binding")
 	}
+	var baselines int
+	if err := r.db.QueryRow("SELECT count(*) FROM perfeng_control.baselines").Scan(&baselines); err != nil || baselines != 0 {
+		t.Fatal("upgrade fabricated a baseline", err)
+	}
 	got, err := r.GetArtifact(testContext, "upgrade", a.Run.ID, artifact.ID)
 	if err != nil || got != artifact {
 		t.Fatal("upgrade lost artifact", err)

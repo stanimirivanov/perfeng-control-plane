@@ -398,7 +398,7 @@ func TestConcurrentMigrationAndTerminalSnapshots(t *testing.T) {
 		return
 	}
 	var count int
-	if err := first.db.QueryRow("SELECT count(*) FROM perfeng_control.schema_migrations").Scan(&count); err != nil || count != 3 {
+	if err := first.db.QueryRow("SELECT count(*) FROM perfeng_control.schema_migrations").Scan(&count); err != nil || count != 4 {
 		t.Fatal("concurrent migration duplicated ledger", err)
 	}
 	a := accepted(t, first, "terminal", "request-key-terminal")
