@@ -82,8 +82,8 @@ func (manifest Manifest) Validate(expectedRunID, expectedContractsVersion string
 	if manifest.SchemaVersion != 1 || manifest.Kind != "RawResult" ||
 		manifest.ContractsVersion != expectedContractsVersion || manifest.RunID != expectedRunID ||
 		!ValidContractsVersion(manifest.ContractsVersion) || !contract.ValidID(manifest.RunID) ||
-		!resourceID.MatchString(manifest.TestID) ||
-		!validIdentity(manifest.Workload) || !validProducer(manifest.Producer) ||
+		!ValidResourceID(manifest.TestID) ||
+		manifest.Workload.Validate() != nil || manifest.Producer.Validate() != nil ||
 		len(manifest.Artifacts) == 0 {
 		return run.ErrValidation
 	}
@@ -120,14 +120,36 @@ func ValidContractsVersion(version string) bool {
 	return versionPattern.MatchString(version)
 }
 
-func validIdentity(identity Identity) bool {
-	return resourceID.MatchString(identity.ID) && versionPattern.MatchString(identity.Version) &&
-		hashPattern.MatchString(identity.SHA256)
+// ValidResourceID reports whether value has the shared contract identifier shape.
+func ValidResourceID(value string) bool {
+	return resourceID.MatchString(value)
 }
 
-func validProducer(producer Producer) bool {
-	return resourceID.MatchString(producer.Name) && versionPattern.MatchString(producer.Version) &&
-		imagePattern.MatchString(producer.Image)
+// Validate checks the shared immutable resource identity shape.
+func (identity Identity) Validate() error {
+	if !ValidResourceID(identity.ID) || !versionPattern.MatchString(identity.Version) ||
+		!hashPattern.MatchString(identity.SHA256) {
+		return run.ErrValidation
+	}
+
+	return nil
+}
+
+// Validate checks the shared producer identity and digest-pinned image shape.
+func (producer Producer) Validate() error {
+	if !ValidResourceID(producer.Name) || !versionPattern.MatchString(producer.Version) ||
+		!imagePattern.MatchString(producer.Image) {
+		return run.ErrValidation
+	}
+
+	return nil
+}
+
+// ValidTimestamp reports whether value is a timestamp accepted by the contracts.
+func ValidTimestamp(value string) bool {
+	_, valid := validTimestamp(value)
+
+	return valid
 }
 
 func hasExactFields(data []byte) bool {

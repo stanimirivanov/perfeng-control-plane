@@ -244,6 +244,14 @@ reference where one exists, and attestation of the returned
 `analysis-result/v1` JSON artifact. Public requests cannot choose report commands,
 baselines or artifact locations through this boundary.
 
+The `analysisresult` parser supplies the strict untrusted-document boundary for
+that attestation. It enforces bounded duplicate-safe JSON, the exact closed
+contract shape, artifact identity and uniqueness, report/policy/producer syntax,
+verdict requirements, finite evidence, reference binding, and the rule that
+unusable quality cannot yield a decisive SLO or regression outcome. Parsing does
+not authorize the policy or producer, verify artifact bytes, select a baseline,
+or recompute a verdict.
+
 `ErrReportPending` produces a bounded quiet retry. `ErrReportFailed` advances to
 INFRASTRUCTURE_FAILURE with a fixed `ANALYSIS_ERROR` message. Cancellation,
 deadlines, lease loss, storage unavailability and artifact conflicts remain
