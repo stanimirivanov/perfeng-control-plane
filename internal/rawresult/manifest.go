@@ -138,11 +138,16 @@ func (identity Identity) Validate() error {
 // Validate checks the shared producer identity and digest-pinned image shape.
 func (producer Producer) Validate() error {
 	if !ValidResourceID(producer.Name) || !versionPattern.MatchString(producer.Version) ||
-		!imagePattern.MatchString(producer.Image) {
+		!ValidImage(producer.Image) {
 		return run.ErrValidation
 	}
 
 	return nil
+}
+
+// ValidImage reports whether value is an immutable digest-pinned image reference.
+func ValidImage(value string) bool {
+	return imagePattern.MatchString(value)
 }
 
 // ValidTimestamp reports whether value is a timestamp accepted by the contracts.

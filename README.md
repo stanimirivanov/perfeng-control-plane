@@ -36,6 +36,7 @@ coordination, not load generation or statistical decisions.
 - Composable verification of normalized output bytes, sources and provenance.
 - Strict parsing and internal-consistency validation of analysis-result reports.
 - Composable verification of report output bytes, candidate binding and approval.
+- Versioned baseline candidates with revision-checked qualification, approval and retirement.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
@@ -102,6 +103,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/normalizedresult | Untrusted normalized-result parsing and consistency validation |
 | internal/analysisresult | Untrusted analysis-result parsing and consistency validation |
 | internal/rawresult | Untrusted raw-result manifest parsing and structural validation |
+| internal/baseline | Baseline identity, evidence and forward-only approval lifecycle |
 | internal/worker | Bounded claim scheduling, lease renewal and attempt cancellation |
 | internal/reconcile | Lifecycle policy and lease-fenced persisted-execution reconciliation |
 
@@ -257,6 +259,14 @@ patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.
 Tests cover all lifecycle state pairs, strict request boundaries and observable
 HTTP behavior. A broader cross-language conformance suite can follow.
+
+## Baseline lifecycle
+
+The [baseline domain](docs/baseline-lifecycle.md) represents one immutable
+baseline version, its qualification evidence and its append-only review history.
+This slice establishes domain rules only. Durable storage, selection of the one
+approved baseline for a comparison context, and administrative HTTP operations
+remain separate follow-up work.
 
 Relevant Go references: [HTTP server handlers](https://pkg.go.dev/net/http),
 [JSON decoding behavior](https://pkg.go.dev/encoding/json), and
