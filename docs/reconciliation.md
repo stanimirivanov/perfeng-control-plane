@@ -99,9 +99,11 @@ unavailability, cancellation and lease loss remain operational errors and do not
 change lifecycle state. A revision race requests immediate rediscovery.
 
 Validation does not persist a mutable Job template. Provisioning resolves the
-same immutable references again and rechecks ownership before dispatch. The real
-resolver must enforce identity, version and checksum immutability so both reads
-converge on the same plan.
+same immutable references again and rechecks ownership before dispatch.
+`registry.ReportPolicyRegistry` implements the resolver from immutable reviewed
+startup entries and returns an independent template copy on every call. The
+production loader must attest the entry sources so both reads converge on the
+same approved plan.
 
 `Router` has one explicit destination for every active state currently claimed
 from storage:
@@ -330,7 +332,11 @@ For an unbound Run, `JobResolver` receives the principal and an independent Run
 snapshot. The resolver must authorize the pinned resources, verify their published
 bytes and return an independently owned, reproducible Job template for that Run
 ID and immutable request. It must not accept arbitrary manifests, commands or
-credentials from API callers. This interface is not a registry implementation.
+credentials from API callers. `registry.ReportPolicyRegistry` provides the
+in-process implementation for already-reviewed startup entries. It resolves the
+exact principal and request context, reapplies candidate-image authorization and
+returns a deep copy of the approved reusable template. Entry-source verification
+and registry population remain production-composition responsibilities.
 
 After resolution, the reconciler renews the lease and checks the latest lifecycle
 state and revision. Observed cancellation or a revision change skips dispatch and

@@ -88,6 +88,21 @@ func NewDispatcher(jobs Jobs, namespace string) (*Dispatcher, error) {
 	return &Dispatcher{jobs: jobs, namespace: namespace}, nil
 }
 
+// ValidateReusableJobTemplate applies execution policy before the control plane
+// assigns a Run identity and namespace. Reusable templates must not carry an
+// identity from an earlier execution.
+func ValidateReusableJobTemplate(template *batchv1.Job) error {
+	if template == nil || template.Name != "" || template.GenerateName != "" ||
+		template.Namespace != "" || hasControlPlaneIdentity(template.Labels) ||
+		hasControlPlaneIdentity(template.Spec.Template.Labels) ||
+		template.Annotations[specAnnotation] != "" ||
+		template.Spec.Template.Annotations[specAnnotation] != "" {
+		return run.ErrValidation
+	}
+
+	return validateJob(template)
+}
+
 // ValidateJob applies the dispatcher's identity and execution policy without
 // contacting Kubernetes. The caller retains ownership of its template.
 func (dispatcher *Dispatcher) ValidateJob(runID string, template *batchv1.Job) error {
@@ -208,6 +223,10 @@ func validateJob(job *batchv1.Job) error {
 	}
 
 	return nil
+}
+
+func hasControlPlaneIdentity(values map[string]string) bool {
+	return values[runLabel] != "" || values[managedByLabel] != "" || values[stageLabel] != ""
 }
 
 func matchingJob(desired, existing *batchv1.Job) bool {

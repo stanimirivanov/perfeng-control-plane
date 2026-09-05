@@ -22,6 +22,7 @@ coordination, not load generation or statistical decisions.
 - Explicit lifecycle decisions for identity-checked Kubernetes Job observations.
 - Lease-fenced reconciliation of persisted executions and owned-Pod stop checks.
 - Bounded provisioning through an injected approved-template resolver.
+- Exact execution-template resolution from the immutable runtime registry.
 - Validated lifecycle entry and explicit routing for every active Run state.
 - Retry-safe registration of verified raw artifacts before analysis.
 - Restart-safe orchestration of normalization through an injected executor.
@@ -46,11 +47,11 @@ coordination, not load generation or statistical decisions.
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
 administrative `cmd/migrate` command applies database migrations. Reconciliation
-stages are not wired into a process. Catalogue, environment and
-execution-template resolvers, concrete publication and normalized-provenance
-adapters, registry population and concrete reporting execution are still
-missing, so no worker executes Jobs from accepted requests. Tests use synthetic
-contract fixtures, not approved deployable resources.
+stages are not wired into a process. Catalogue and environment publication
+verification, concrete publication and normalized-provenance adapters, registry
+population and concrete reporting execution are still missing, so no worker
+executes Jobs from accepted requests. Tests use synthetic contract fixtures,
+not approved deployable resources.
 
 The in-memory adapter loses runs and idempotency bindings on restart. It cannot
 meet the API's production durability guarantees for 201/202 responses. Do not
@@ -108,7 +109,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/normalizedresult | Untrusted normalized-result parsing and consistency validation |
 | internal/analysisresult | Untrusted analysis-result parsing and consistency validation |
 | internal/policy | Approved performance-policy parsing and report-verdict verification |
-| internal/registry | Run admission, raw provenance and report trust from immutable startup entries |
+| internal/registry | Run admission, execution resolution, raw provenance and report trust from immutable startup entries |
 | internal/rawresult | Untrusted raw-result manifest parsing and structural validation |
 | internal/baseline | Baseline identity, evidence and forward-only approval lifecycle |
 | internal/worker | Bounded claim scheduling, lease renewal and attempt cancellation |
@@ -212,10 +213,10 @@ inconclusive quality verdict belongs in a successful report and does not make th
 Run fail. `KubernetesReportExecutor` resolves an approved report template,
 creates or adopts the Run's deterministic `-report` Job, maps its
 identity-checked phase, and delegates successful output to a separate byte
-attestor. `Router` advances CREATED and selects every active stage. Real approved
-catalogue, environment and execution-template resolvers, raw-manifest
-publication adapters, report-output resolution and attestation,
-unbound-cancellation recovery, and production composition are still missing.
+attestor. `Router` advances CREATED and selects every active stage. Real
+catalogue and environment publication verification, raw-manifest publication
+adapters, report-output resolution and attestation, unbound-cancellation
+recovery, and production composition are still missing.
 The `reconcile` policy defines that connection's state decisions independently
 of I/O: pending Jobs wait, running Jobs enter RUNNING, terminal Jobs enter
 COLLECTING, and unexpected disappearance/deletion is infrastructure failure.

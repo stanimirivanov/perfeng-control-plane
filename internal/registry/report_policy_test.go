@@ -8,6 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/httpapi"
@@ -17,6 +20,28 @@ import (
 )
 
 var _ httpapi.Approve = (&ReportPolicyRegistry{}).ApproveRun
+
+func executionTemplate(image string) *batchv1.Job {
+	zero, one, deadline, automount := int32(0), int32(1), int64(900), false
+
+	return &batchv1.Job{
+		Spec: batchv1.JobSpec{
+			BackoffLimit:          &zero,
+			Completions:           &one,
+			Parallelism:           &one,
+			ActiveDeadlineSeconds: &deadline,
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					RestartPolicy:                corev1.RestartPolicyNever,
+					AutomountServiceAccountToken: &automount,
+					Containers: []corev1.Container{{
+						Name: "runner", Image: image, Args: []string{"run"},
+					}},
+				},
+			},
+		},
+	}
+}
 
 func reportPolicyFixture(t *testing.T) (ReportPolicyEntry, run.Run, reconcile.ReportingInput) {
 	t.Helper()
@@ -62,6 +87,7 @@ func reportPolicyFixture(t *testing.T) (ReportPolicyEntry, run.Run, reconcile.Re
 		},
 		Principals: []string{"alice"},
 	}
+	entry.ExecutionTemplate = executionTemplate(entry.RawProducer.Image)
 	current := run.Run{
 		ID: "perf-20260905-120000-12345678", State: run.StateReporting, Revision: 7,
 		Request: run.Request{
@@ -210,6 +236,104 @@ func TestReportPolicyRegistryApprovesRawManifestProvenance(t *testing.T) {
 		context.Background(), "alice", current, rawManifestFixture(entry, current),
 	); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestReportPolicyRegistryResolvesIsolatedExecutionTemplate(t *testing.T) {
+	entry, current, _ := reportPolicyFixture(t)
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry.ExecutionTemplate.Spec.Template.Spec.Containers[0].Args[0] = "changed-after-construction"
+
+	for _, state := range []run.State{run.StateValidating, run.StateProvisioning} {
+		current.State = state
+		template, err := registry.ResolveJob(context.Background(), "alice", current)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if template.Spec.Template.Spec.Containers[0].Args[0] != "run" {
+			t.Fatal("registry template changed through the constructor input")
+		}
+		template.Spec.Template.Spec.Containers[0].Args[0] = "changed-result"
+	}
+
+	current.State = run.StateProvisioning
+	template, err := registry.ResolveJob(context.Background(), "alice", current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if template.Spec.Template.Spec.Containers[0].Args[0] != "run" {
+		t.Fatal("registry template changed through a resolved copy")
+	}
+}
+
+func TestReportPolicyRegistryRejectsUnapprovedExecutionTemplateContext(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(*run.Run)
+	}{
+		{name: "context", mutate: func(current *run.Run) {
+			current.Request.Policy.Version = "2.0.0"
+		}},
+		{name: "candidate", mutate: func(current *run.Run) {
+			current.Request.Candidate.Image = "ghcr.io/example/search@sha256:" + strings.Repeat("3", 64)
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			entry, current, _ := reportPolicyFixture(t)
+			current.State = run.StateProvisioning
+			test.mutate(&current)
+			registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := registry.ResolveJob(
+				context.Background(), "alice", current,
+			); !errors.Is(err, run.ErrForbidden) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
+func TestReportPolicyRegistryValidatesExecutionTemplateContext(t *testing.T) {
+	entry, current, _ := reportPolicyFixture(t)
+	current.State = run.StateValidating
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name      string
+		principal string
+		state     run.State
+	}{
+		{name: "principal", state: run.StateValidating},
+		{name: "state", principal: "alice", state: run.StateRunning},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			candidate := current
+			candidate.State = test.state
+			if _, err := registry.ResolveJob(
+				context.Background(), test.principal, candidate,
+			); !errors.Is(err, run.ErrValidation) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := registry.ResolveJob(ctx, "alice", current); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancellation error = %v", err)
+	}
+	var nilRegistry *ReportPolicyRegistry
+	if _, err := nilRegistry.ResolveJob(
+		context.Background(), "alice", current,
+	); !errors.Is(err, run.ErrValidation) {
+		t.Fatalf("nil registry error = %v", err)
 	}
 }
 
@@ -421,6 +545,16 @@ func TestReportPolicyRegistryValidatesEntries(t *testing.T) {
 		}},
 		{name: "report producer", mutate: func(entry *ReportPolicyEntry) {
 			entry.ReportProducer.Image = "latest"
+		}},
+		{name: "execution template", mutate: func(entry *ReportPolicyEntry) {
+			entry.ExecutionTemplate = nil
+		}},
+		{name: "execution policy", mutate: func(entry *ReportPolicyEntry) {
+			*entry.ExecutionTemplate.Spec.BackoffLimit = 1
+		}},
+		{name: "execution producer", mutate: func(entry *ReportPolicyEntry) {
+			entry.ExecutionTemplate.Spec.Template.Spec.Containers[0].Image =
+				"ghcr.io/example/other@sha256:" + strings.Repeat("4", 64)
 		}},
 		{name: "workload", mutate: func(entry *ReportPolicyEntry) { entry.Workload.SHA256 = "invalid" }},
 		{name: "environment", mutate: func(entry *ReportPolicyEntry) {

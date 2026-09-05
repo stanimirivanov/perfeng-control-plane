@@ -214,6 +214,33 @@ func TestValidateJobHasNoKubernetesSideEffects(t *testing.T) {
 	}
 }
 
+func TestValidateReusableJobTemplateRejectsExecutionIdentity(t *testing.T) {
+	if err := ValidateReusableJobTemplate(jobTemplate()); err != nil {
+		t.Fatal(err)
+	}
+	for name, mutate := range map[string]func(*batchv1.Job){
+		"name":      func(job *batchv1.Job) { job.Name = testRunID },
+		"namespace": func(job *batchv1.Job) { job.Namespace = "perf-runs" },
+		"run label": func(job *batchv1.Job) {
+			job.Spec.Template.Labels = map[string]string{runLabel: testRunID}
+		},
+		"manager label": func(job *batchv1.Job) {
+			job.Labels = map[string]string{managedByLabel: managedByValue}
+		},
+		"stage label": func(job *batchv1.Job) {
+			job.Labels = map[string]string{stageLabel: analysisStage}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			template := jobTemplate()
+			mutate(template)
+			if err := ValidateReusableJobTemplate(template); !errors.Is(err, run.ErrValidation) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
 func addServerIdentity(job *batchv1.Job) {
 	job.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{
 		batchv1.ControllerUidLabel: "job-uid",
