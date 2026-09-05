@@ -115,8 +115,9 @@ that is currently `APPROVED`, then verifies the complete trusted test, workload,
 environment and dataset compatibility dimensions against the decoded snapshot.
 Missing, cross-principal, unapproved, retired and incompatible records all return
 an empty result. The storage interface does not list versions or promote the
-latest successful Run, so it cannot introduce baseline drift. HTTP administration
-remains a later interface with its own authorization rules.
+latest successful Run, so it cannot introduce baseline drift. The
+[HTTP administration boundary](baseline-administration.md) applies separate
+create, read and transition permissions without changing these storage rules.
 
 ## Prototype migration boundary
 
