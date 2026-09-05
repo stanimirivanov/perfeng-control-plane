@@ -38,25 +38,33 @@ A valid envelope does not establish that its source bytes were actually used,
 that the producer image ran, or that the normalized object matches its external
 checksum and size. `VerifiedNormalizedCollector` independently:
 
-1. obtain the output's immutable artifact reference from trusted execution
+1. obtains the output's immutable artifact reference from trusted execution
    state;
-2. verify its object bytes with the object-storage reader;
-3. parse those verified bytes;
-4. approve the normalizer and compare envelope provenance, window and exact
-   source references with the accepted analysis input; and
-5. return the reference only after every check succeeds.
+2. verifies its object bytes with the object-storage reader;
+3. parses those verified bytes;
+4. retrieves and verifies the already-registered raw-result manifest again;
+5. requires its exact source set, contracts version, test, workload and
+   measurement window to match the normalized envelope;
+6. rejects a normalized envelope created before that raw manifest;
+7. authorizes the normalizer and accepted execution context; and
+8. returns the reference only after every check succeeds.
 
-Output-reference discovery and provenance approval remain injected boundaries.
-The resolver must use trusted orchestration state rather than public request
-fields or object-store listing. The approver owns catalogue and image policy;
-the collector itself requires the parsed source references to equal the accepted
-analysis input as an order-independent set of complete artifact records.
+Output-reference discovery remains an injected boundary. The resolver must use
+trusted orchestration state rather than public request fields or object-store
+listing. `registry.ReportPolicyRegistry` supplies normalizer approval from
+reviewed startup entries. It requires the exact principal, accepted request,
+contracts version, test, workload, digest-pinned normalizer and complete source
+set. The collector itself binds dynamic provenance to the verified raw manifest
+as an order-independent set of complete artifact records.
 
 An absent publication or object after Kubernetes reports Job success remains a
 retryable `ErrAnalysisPending`, allowing for bounded storage visibility delay.
 An invalid reference, changed bytes, malformed envelope, source mismatch or
 rejected provenance becomes `ErrAnalysisFailed`. Conflicting classifications
-fail with validation rather than selecting a favorable interpretation.
+fail with validation rather than selecting a favorable interpretation. The raw
+manifest is different: it was already registered as durable evidence before
+ANALYZING, so its absence, changed bytes or invalid contents are definitive
+analysis failures rather than publication lag.
 
 Scientific quality, SLO evaluation and regression decisions remain downstream
 analysis responsibilities.

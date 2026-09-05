@@ -11,6 +11,7 @@ import (
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/kubernetes"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/normalizedresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/policy"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/rawresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/reconcile"
@@ -19,19 +20,20 @@ import (
 
 // ReportPolicyEntry binds approved runtime resources to one execution context.
 type ReportPolicyEntry struct {
-	PolicyBytes       []byte
-	TestID            string
-	ContractsVersion  string
-	Catalogue         run.Reference
-	Profile           string
-	RawProducer       rawresult.Producer
-	ReportProducer    rawresult.Producer
-	ExecutionTemplate *batchv1.Job
-	Workload          rawresult.Identity
-	Environment       baseline.Environment
-	Dataset           baseline.Dataset
-	CandidateImages   []string
-	Principals        []string
+	PolicyBytes        []byte
+	TestID             string
+	ContractsVersion   string
+	Catalogue          run.Reference
+	Profile            string
+	RawProducer        rawresult.Producer
+	NormalizerProducer rawresult.Producer
+	ReportProducer     rawresult.Producer
+	ExecutionTemplate  *batchv1.Job
+	Workload           rawresult.Identity
+	Environment        baseline.Environment
+	Dataset            baseline.Dataset
+	CandidateImages    []string
+	Principals         []string
 }
 
 // ReportPolicyRegistry authorizes Runs, resolves execution templates, approves
@@ -50,21 +52,23 @@ type reportPolicyKey struct {
 }
 
 type reportPolicyValue struct {
-	policyBytes       []byte
-	mode              string
-	contractsVersion  string
-	rawProducer       rawresult.Producer
-	reportProducer    rawresult.Producer
-	executionTemplate *batchv1.Job
-	workload          rawresult.Identity
-	baselines         []baseline.Selection
-	candidates        map[string]struct{}
+	policyBytes        []byte
+	mode               string
+	contractsVersion   string
+	rawProducer        rawresult.Producer
+	normalizerProducer rawresult.Producer
+	reportProducer     rawresult.Producer
+	executionTemplate  *batchv1.Job
+	workload           rawresult.Identity
+	baselines          []baseline.Selection
+	candidates         map[string]struct{}
 }
 
 var (
-	_ reconcile.JobResolver         = (*ReportPolicyRegistry)(nil)
-	_ reconcile.RawManifestApprover = (*ReportPolicyRegistry)(nil)
-	_ reconcile.ReportTrustResolver = (*ReportPolicyRegistry)(nil)
+	_ reconcile.JobResolver                = (*ReportPolicyRegistry)(nil)
+	_ reconcile.NormalizedManifestApprover = (*ReportPolicyRegistry)(nil)
+	_ reconcile.RawManifestApprover        = (*ReportPolicyRegistry)(nil)
+	_ reconcile.ReportTrustResolver        = (*ReportPolicyRegistry)(nil)
 )
 
 // NewReportPolicyRegistry validates and isolates every approved entry.
@@ -90,7 +94,8 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 	if err != nil || !rawresult.ValidResourceID(entry.TestID) ||
 		!rawresult.ValidContractsVersion(entry.ContractsVersion) ||
 		!validReference(entry.Catalogue) || !rawresult.ValidResourceID(entry.Profile) ||
-		entry.RawProducer.Validate() != nil || entry.ReportProducer.Validate() != nil ||
+		entry.RawProducer.Validate() != nil || entry.NormalizerProducer.Validate() != nil ||
+		entry.ReportProducer.Validate() != nil ||
 		kubernetes.ValidateReusableJobTemplate(entry.ExecutionTemplate) != nil ||
 		!jobUsesImage(entry.ExecutionTemplate, entry.RawProducer.Image) ||
 		entry.Workload.Validate() != nil || entry.Environment.Validate() != nil ||
@@ -146,13 +151,47 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 			return run.ErrValidation
 		}
 		registry.entries[key] = reportPolicyValue{
-			policyBytes: append([]byte(nil), entry.PolicyBytes...),
-			mode:        document.Spec.Mode, contractsVersion: entry.ContractsVersion,
-			rawProducer: entry.RawProducer, reportProducer: entry.ReportProducer,
-			executionTemplate: entry.ExecutionTemplate.DeepCopy(),
-			workload:          entry.Workload, baselines: cloneSelections(baselines),
-			candidates: cloneSet(candidates),
+			policyBytes:        append([]byte(nil), entry.PolicyBytes...),
+			mode:               document.Spec.Mode,
+			contractsVersion:   entry.ContractsVersion,
+			rawProducer:        entry.RawProducer,
+			normalizerProducer: entry.NormalizerProducer,
+			reportProducer:     entry.ReportProducer,
+			executionTemplate:  entry.ExecutionTemplate.DeepCopy(),
+			workload:           entry.Workload,
+			baselines:          cloneSelections(baselines),
+			candidates:         cloneSet(candidates),
 		}
+	}
+
+	return nil
+}
+
+// ApproveNormalizedManifest binds normalizer claims to approved raw evidence and Run context.
+func (registry *ReportPolicyRegistry) ApproveNormalizedManifest(
+	ctx context.Context,
+	principal string,
+	current run.Run,
+	input reconcile.AnalysisInput,
+	manifest normalizedresult.Manifest,
+) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	rawArtifacts := reconcile.RawArtifactSet{Manifest: input.Manifest, Artifacts: input.Sources}
+	if registry == nil || principal == "" || current.State != run.StateAnalyzing ||
+		current.Request.Validate() != nil ||
+		rawArtifacts.Validate(current.ID) != nil ||
+		manifest.Validate(current.ID, manifest.ContractsVersion) != nil {
+		return run.ErrValidation
+	}
+
+	entry, exists := registry.lookup(principal, current.Request)
+	if !exists || manifest.ContractsVersion != entry.contractsVersion ||
+		manifest.TestID != current.Request.TestSuite || manifest.Workload != entry.workload ||
+		manifest.Producer != entry.normalizerProducer ||
+		!sameArtifactSet(manifest.SourceArtifacts, input.Sources) {
+		return run.ErrForbidden
 	}
 
 	return nil
@@ -329,4 +368,22 @@ func jobUsesImage(template *batchv1.Job, image string) bool {
 	}
 
 	return false
+}
+
+func sameArtifactSet(actual, expected []run.Artifact) bool {
+	if len(actual) != len(expected) {
+		return false
+	}
+	remaining := make(map[run.Artifact]struct{}, len(expected))
+	for _, artifact := range expected {
+		remaining[artifact] = struct{}{}
+	}
+	for _, artifact := range actual {
+		if _, exists := remaining[artifact]; !exists {
+			return false
+		}
+		delete(remaining, artifact)
+	}
+
+	return len(remaining) == 0
 }

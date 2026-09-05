@@ -36,6 +36,7 @@ coordination, not load generation or statistical decisions.
 - Exact raw-manifest provenance approval from the immutable runtime registry.
 - Strict parsing and internal-consistency validation of normalized-result envelopes.
 - Composable verification of normalized output bytes, sources and provenance.
+- Exact normalized-result producer approval from the immutable runtime registry.
 - Strict parsing and internal-consistency validation of analysis-result reports.
 - Composable verification of report output bytes, candidate binding and approval.
 - Exact per-rule report binding to run-pinned policy bytes, authorized producer and approved baselines.
@@ -48,10 +49,10 @@ This is a library foundation, **not a deployable service**. There is intentional
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
 administrative `cmd/migrate` command applies database migrations. Reconciliation
 stages are not wired into a process. Catalogue and environment publication
-verification, concrete publication and normalized-provenance adapters, registry
-population and concrete reporting execution are still missing, so no worker
-executes Jobs from accepted requests. Tests use synthetic contract fixtures,
-not approved deployable resources.
+verification, concrete publication adapters, registry population and concrete
+reporting execution are still missing, so no worker executes Jobs from accepted
+requests. Tests use synthetic contract fixtures, not approved deployable
+resources.
 
 The in-memory adapter loses runs and idempotency bindings on restart. It cannot
 meet the API's production durability guarantees for 201/202 responses. Do not
@@ -109,7 +110,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/normalizedresult | Untrusted normalized-result parsing and consistency validation |
 | internal/analysisresult | Untrusted analysis-result parsing and consistency validation |
 | internal/policy | Approved performance-policy parsing and report-verdict verification |
-| internal/registry | Run admission, execution resolution, raw provenance and report trust from immutable startup entries |
+| internal/registry | Run admission, execution resolution, producer provenance and report trust from immutable startup entries |
 | internal/rawresult | Untrusted raw-result manifest parsing and structural validation |
 | internal/baseline | Baseline identity, evidence and forward-only approval lifecycle |
 | internal/worker | Bounded claim scheduling, lease renewal and attempt cancellation |
@@ -243,15 +244,17 @@ producer envelope's exact structure, identities, timestamps and artifact claims.
 Parsing does not approve provenance or attest remote bytes. A collector
 composition accepts that approval and a trusted manifest publication reference
 through separate injected boundaries, then verifies the manifest and every
-declared object. Kubernetes publication discovery and a real provenance adapter
-remain unwired.
+declared object. Kubernetes publication discovery remains unwired; the immutable
+runtime registry provides the concrete provenance approval.
 The [normalized-result parsing boundary](docs/normalized-result-validation.md)
 preserves unavailable statistics without fabrication, validates metric and
 source consistency, and treats legacy thresholds as producer claims. A concrete
 collector composition now verifies the trusted output reference and its bytes,
 parses the envelope, binds its complete source set to the exact analysis input,
 and requires provenance approval before registration. Kubernetes publication
-discovery and the real approval policy remain deployment-specific adapters.
+discovery remains a deployment-specific adapter. The collector binds normalized
+claims to the verified persisted raw manifest, while the immutable runtime
+registry authorizes the exact normalizer and accepted execution context.
 
 ## Contract provenance
 

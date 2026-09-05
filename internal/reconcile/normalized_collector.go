@@ -3,6 +3,7 @@ package reconcile
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/normalizedresult"
@@ -104,6 +105,13 @@ func (collector *VerifiedNormalizedCollector) CollectNormalizedArtifact(
 	if err != nil || !sameArtifacts(manifest.SourceArtifacts, input.Sources) {
 		return run.Artifact{}, ErrAnalysisFailed
 	}
+	rawManifest, err := collector.readRawManifest(ctx, current.ID, input)
+	if err != nil {
+		return run.Artifact{}, err
+	}
+	if !matchesRawProvenance(manifest, rawManifest) {
+		return run.Artifact{}, ErrAnalysisFailed
+	}
 
 	if err := collector.approver.ApproveNormalizedManifest(
 		ctx,
@@ -116,6 +124,36 @@ func (collector *VerifiedNormalizedCollector) CollectNormalizedArtifact(
 	}
 
 	return reference, nil
+}
+
+func (collector *VerifiedNormalizedCollector) readRawManifest(
+	ctx context.Context,
+	runID string,
+	input AnalysisInput,
+) (rawresult.Manifest, error) {
+	content, err := collector.reader.Read(ctx, input.Manifest)
+	if err != nil {
+		return rawresult.Manifest{}, classifyPersistedAnalysisInput(err)
+	}
+	manifest, err := rawresult.Parse(content, runID, collector.contractsVersion)
+	if err != nil || !sameArtifacts(manifest.Artifacts, input.Sources) {
+		return rawresult.Manifest{}, ErrAnalysisFailed
+	}
+
+	return manifest, nil
+}
+
+func matchesRawProvenance(
+	normalized normalizedresult.Manifest,
+	raw rawresult.Manifest,
+) bool {
+	rawCreated, rawTimeErr := time.Parse(time.RFC3339Nano, raw.CreatedAt)
+	normalizedCreated, normalizedTimeErr := time.Parse(time.RFC3339Nano, normalized.CreatedAt)
+	return rawTimeErr == nil && normalizedTimeErr == nil &&
+		!normalizedCreated.Before(rawCreated) &&
+		normalized.ContractsVersion == raw.ContractsVersion &&
+		normalized.TestID == raw.TestID && normalized.Workload == raw.Workload &&
+		normalized.MeasurementWindow == raw.MeasurementWindow
 }
 
 func sameArtifacts(actual, expected []run.Artifact) bool {
@@ -162,6 +200,20 @@ func classifyAnalysisApproval(err error) error {
 	}
 	if errors.Is(err, run.ErrValidation) || errors.Is(err, run.ErrForbidden) ||
 		errors.Is(err, ErrInvalidArtifacts) || errors.Is(err, ErrAnalysisFailed) {
+		return ErrAnalysisFailed
+	}
+
+	return err
+}
+
+func classifyPersistedAnalysisInput(err error) error {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) ||
+		errors.Is(err, run.ErrUnavailable) {
+		return err
+	}
+	if errors.Is(err, objectstore.ErrObjectNotFound) ||
+		errors.Is(err, objectstore.ErrObjectMismatch) ||
+		errors.Is(err, ErrInvalidArtifacts) || errors.Is(err, run.ErrValidation) {
 		return ErrAnalysisFailed
 	}
 

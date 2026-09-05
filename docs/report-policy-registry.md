@@ -1,7 +1,7 @@
 # Report-policy registry
 
 `internal/registry.ReportPolicyRegistry` is the concrete in-process authority
-for Run admission, execution templates, raw provenance and report trust. A
+for Run admission, execution templates, producer provenance and report trust. A
 service constructs it from reviewed startup entries before accepting work. The
 package intentionally defines no configuration file syntax, network protocol,
 mutable administration API or background refresh mechanism.
@@ -14,6 +14,7 @@ Each entry binds exact policy bytes to:
 - one environment definition ID, version and digest plus its observed fingerprint;
 - one workload identity and dataset identity;
 - one contracts bundle version and digest-pinned raw producer;
+- one digest-pinned normalizer producer;
 - one reusable execution Job template containing that raw-producer image;
 - one digest-pinned report producer;
 - one or more digest-pinned candidate images; and
@@ -63,6 +64,14 @@ principal and resource context, and requires the configured contracts version,
 test, workload and raw producer. A syntactically valid but different claim is
 forbidden. Malformed manifests and invalid reconciliation context are validation
 failures. The method does not locate or read the manifest or any declared object.
+
+`ApproveNormalizedManifest` implements
+`reconcile.NormalizedManifestApprover`. It accepts only ANALYZING Runs, validates
+the normalized envelope and raw evidence references, resolves the same exact
+principal and resource context, and requires the configured contracts version,
+test, workload, normalizer and complete source set. Dynamic measurement-window
+and creation-order binding is performed by `VerifiedNormalizedCollector` against
+the verified persisted raw manifest; the registry performs no object reads.
 
 The resolver derives baseline selections from the policy's distinct pinned
 regression references and combines them with the reviewed workload, environment
