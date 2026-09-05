@@ -1,9 +1,10 @@
 # Report-policy registry
 
-`internal/registry.ReportPolicyRegistry` is the concrete in-process resolver for
-report trust. A service constructs it from reviewed startup entries before
-accepting work. The package intentionally defines no configuration file syntax,
-network protocol, mutable administration API or background refresh mechanism.
+`internal/registry.ReportPolicyRegistry` is the concrete in-process authority
+for Run admission, execution templates, raw provenance and report trust. A
+service constructs it from reviewed startup entries before accepting work. The
+package intentionally defines no configuration file syntax, network protocol,
+mutable administration API or background refresh mechanism.
 
 Each entry binds exact policy bytes to:
 
@@ -13,6 +14,7 @@ Each entry binds exact policy bytes to:
 - one environment definition ID, version and digest plus its observed fingerprint;
 - one workload identity and dataset identity;
 - one contracts bundle version and digest-pinned raw producer;
+- one reusable execution Job template containing that raw-producer image;
 - one digest-pinned report producer;
 - one or more digest-pinned candidate images; and
 - one or more authorized principals.
@@ -22,11 +24,14 @@ that `PerformancePolicy.metadata.name` equals the selected test ID. The policy
 name, version and exact-byte digest form the policy reference, while the entry's
 test ID supplies the separately reviewed applicability decision.
 
-Construction strictly parses every policy and validates all entry identities.
+Construction strictly parses every policy, validates all entry identities and
+applies the restricted Kubernetes policy to each reusable Job template. A
+template carrying an execution name, namespace or control-plane identity is
+rejected. The configured raw-producer image must occur in the template.
 Duplicate principal/context bindings reject the complete registry. Policy bytes,
-baseline dataset seed pointers and returned selections are copied so callers
-cannot mutate registry state. Once constructed, the registry performs read-only
-map lookups and is safe for concurrent resolution.
+Job templates, baseline dataset seed pointers and returned selections are copied
+so callers cannot mutate registry state. Once constructed, the registry performs
+read-only map lookups and is safe for concurrent resolution.
 
 Resolution requires an exact match on principal, test, catalogue, profile,
 environment and policy. An unmatched valid context returns `run.ErrForbidden`
@@ -40,6 +45,12 @@ entry's allowlist. The candidate Git SHA remains part of the validated immutable
 Run request, but this registry does not claim to attest the relationship between
 that revision and the published image. An unmatched context or image is
 forbidden; malformed input is a validation failure.
+
+`ResolveJob` implements `reconcile.JobResolver` for VALIDATING and PROVISIONING
+Runs. It resolves the same exact principal and request context, requires the
+candidate image to remain authorized and returns a new deep copy of the reviewed
+template on every call. The dispatcher assigns Run identity and namespace after
+resolution. The registry does not accept a Job manifest from the Run API.
 
 Report trust resolution does not reapply the candidate-image allowlist. The
 candidate was authorized when the immutable Run was accepted; removing an image

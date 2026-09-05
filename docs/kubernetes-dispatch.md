@@ -88,10 +88,14 @@ Accepted Jobs have:
 - digest-pinned images for every init and ordinary container.
 
 These checks are the duplicate-safety boundary, not complete workload admission.
-The future resolver remains responsible for approved images, commands, target,
-resource limits, node placement, storage credentials and policy. The future
-worker must use its database lease for lifecycle writes, observe the returned
-Job UID, and handle cancellation without deleting unrelated Jobs.
+`registry.ReportPolicyRegistry` resolves a reusable template from an exact
+principal and accepted request context. Registry construction applies this Job
+policy, requires the approved raw-producer image to occur in the template and
+copies the template before storing or returning it. Production entry population
+remains responsible for reviewing commands, targets, resource limits, node
+placement, storage credentials and policy. The worker must use its database
+lease for lifecycle writes, observe the returned Job UID, and handle
+cancellation without deleting unrelated Jobs.
 
 ## Failure behavior
 
