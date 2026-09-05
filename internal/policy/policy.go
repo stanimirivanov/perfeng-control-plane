@@ -324,7 +324,6 @@ func (VerdictApprover) ApproveReportVerdicts(
 	}
 	digest := sha256.Sum256(policyBytes)
 	if manifest.Validate(manifest.RunID, manifest.ContractsVersion) != nil ||
-		manifest.TestID != document.Metadata.Name ||
 		manifest.Policy.ID != document.Metadata.Name ||
 		manifest.Policy.Version != document.Metadata.Version ||
 		manifest.Policy.SHA256 != hex.EncodeToString(digest[:]) ||

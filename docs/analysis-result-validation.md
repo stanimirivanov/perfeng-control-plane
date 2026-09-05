@@ -42,4 +42,6 @@ requires the resolved baseline set to match the policy's pinned references,
 binds every reported reference artifact to its regression rule, checks quality
 evidence and independently recomputes decisive SLO and regression arithmetic.
 The parser itself performs no network, database, Kubernetes or object-storage
-I/O. Concrete registry and publication resolvers remain external adapters.
+I/O. `registry.ReportPolicyRegistry` provides immutable startup resolution for
+reviewed report policies; registry population and publication resolution remain
+external composition concerns.
