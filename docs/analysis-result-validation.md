@@ -32,5 +32,11 @@ Structural validity is not trust. Before registration, composition must also:
 requires the parsed candidate to equal the normalized artifact handed to
 reporting, and returns the immutable report reference only after an injected
 approver accepts the remaining policy, reference, producer and verdict claims.
-The parser itself performs no network, database, Kubernetes or object-storage
-I/O. Concrete publication resolution and approval remain external adapters.
+`TrustedReportApprover` supplies that composition: it binds approved policy bytes
+and producer identity to the report, resolves policy-selected versions through
+the baseline repository and requires the report's reference artifacts to match
+the resulting approved evidence exactly. Verdict validation remains a separate
+injected boundary so policy rule coverage and arithmetic can be independently
+recomputed. The parser itself performs no network, database, Kubernetes or
+object-storage I/O. Concrete registry and publication resolvers remain external
+adapters.

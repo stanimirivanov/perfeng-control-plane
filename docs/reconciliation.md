@@ -286,9 +286,21 @@ changed bytes, invalid reports, candidate mismatches and rejected approval becom
 report failures. Operational cancellation, lease loss, conflicts and
 unavailability take precedence and do not become persisted analysis failures.
 
-Concrete policy and baseline resolution, report-template resolution,
-output-publication resolution, approval policy and production composition remain
-separate work.
+`TrustedReportApprover` implements the report approval composition. Its resolver
+supplies independently approved policy bytes, reporting producer identity and
+the baseline selections derived from the policy and trusted candidate context.
+The approver verifies the policy checksum against the immutable Run request,
+requires the report's policy and producer claims to match, and resolves every
+selection through `baseline.Repository`. The report's reference set must equal
+the exact artifacts of the approved compatible baseline versions. An absent,
+unapproved, retired or incompatible selection contributes no reference; the
+verdict checker must then require the policy's inconclusive missing-data result.
+Duplicate selections, unexpected references and changed policy bytes fail
+validation before verdict approval.
+
+Concrete policy-registry resolution, report-template resolution,
+output-publication resolution, verdict recomputation and production composition
+remain separate work.
 
 ## Provisioning reconciliation
 
