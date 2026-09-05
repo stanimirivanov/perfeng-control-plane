@@ -32,6 +32,7 @@ coordination, not load generation or statistical decisions.
 - AWS SDK for Go v2 adapter with safe S3 error classification.
 - Strict parsing and structural validation of raw-result manifests.
 - Composable verification of manifest provenance and every declared raw object.
+- Exact raw-manifest provenance approval from the immutable runtime registry.
 - Strict parsing and internal-consistency validation of normalized-result envelopes.
 - Composable verification of normalized output bytes, sources and provenance.
 - Strict parsing and internal-consistency validation of analysis-result reports.
@@ -45,11 +46,11 @@ coordination, not load generation or statistical decisions.
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
 administrative `cmd/migrate` command applies database migrations. Reconciliation
-stages are not wired into a process. Catalogue, environment and execution-template
-resolvers, concrete publication/provenance adapters, registry population and
-concrete reporting execution are still missing, so no worker executes Jobs from
-accepted requests. Tests use synthetic contract fixtures, not approved deployable
-resources.
+stages are not wired into a process. Catalogue, environment and
+execution-template resolvers, concrete publication and normalized-provenance
+adapters, registry population and concrete reporting execution are still
+missing, so no worker executes Jobs from accepted requests. Tests use synthetic
+contract fixtures, not approved deployable resources.
 
 The in-memory adapter loses runs and idempotency bindings on restart. It cannot
 meet the API's production durability guarantees for 201/202 responses. Do not
@@ -107,7 +108,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/normalizedresult | Untrusted normalized-result parsing and consistency validation |
 | internal/analysisresult | Untrusted analysis-result parsing and consistency validation |
 | internal/policy | Approved performance-policy parsing and report-verdict verification |
-| internal/registry | Immutable startup resolution of principal-scoped runtime trust |
+| internal/registry | Run admission, raw provenance and report trust from immutable startup entries |
 | internal/rawresult | Untrusted raw-result manifest parsing and structural validation |
 | internal/baseline | Baseline identity, evidence and forward-only approval lifecycle |
 | internal/worker | Bounded claim scheduling, lease renewal and attempt cancellation |
@@ -213,7 +214,7 @@ creates or adopts the Run's deterministic `-report` Job, maps its
 identity-checked phase, and delegates successful output to a separate byte
 attestor. `Router` advances CREATED and selects every active stage. Real approved
 catalogue, environment and execution-template resolvers, raw-manifest
-publication/provenance adapters, report-output resolution and attestation,
+publication adapters, report-output resolution and attestation,
 unbound-cancellation recovery, and production composition are still missing.
 The `reconcile` policy defines that connection's state decisions independently
 of I/O: pending Jobs wait, running Jobs enter RUNNING, terminal Jobs enter

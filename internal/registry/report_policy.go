@@ -14,21 +14,24 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
-// ReportPolicyEntry binds an approved policy to one exact execution context.
+// ReportPolicyEntry binds approved producers and policy to one execution context.
 type ReportPolicyEntry struct {
-	PolicyBytes     []byte
-	TestID          string
-	Catalogue       run.Reference
-	Profile         string
-	Producer        rawresult.Producer
-	Workload        rawresult.Identity
-	Environment     baseline.Environment
-	Dataset         baseline.Dataset
-	CandidateImages []string
-	Principals      []string
+	PolicyBytes      []byte
+	TestID           string
+	ContractsVersion string
+	Catalogue        run.Reference
+	Profile          string
+	RawProducer      rawresult.Producer
+	ReportProducer   rawresult.Producer
+	Workload         rawresult.Identity
+	Environment      baseline.Environment
+	Dataset          baseline.Dataset
+	CandidateImages  []string
+	Principals       []string
 }
 
-// ReportPolicyRegistry resolves report trust from an immutable reviewed entry set.
+// ReportPolicyRegistry approves execution evidence and resolves report trust
+// from an immutable reviewed entry set.
 type ReportPolicyRegistry struct {
 	entries map[reportPolicyKey]reportPolicyValue
 }
@@ -43,14 +46,20 @@ type reportPolicyKey struct {
 }
 
 type reportPolicyValue struct {
-	policyBytes []byte
-	mode        string
-	producer    rawresult.Producer
-	baselines   []baseline.Selection
-	candidates  map[string]struct{}
+	policyBytes      []byte
+	mode             string
+	contractsVersion string
+	rawProducer      rawresult.Producer
+	reportProducer   rawresult.Producer
+	workload         rawresult.Identity
+	baselines        []baseline.Selection
+	candidates       map[string]struct{}
 }
 
-var _ reconcile.ReportTrustResolver = (*ReportPolicyRegistry)(nil)
+var (
+	_ reconcile.RawManifestApprover = (*ReportPolicyRegistry)(nil)
+	_ reconcile.ReportTrustResolver = (*ReportPolicyRegistry)(nil)
+)
 
 // NewReportPolicyRegistry validates and isolates every approved entry.
 func NewReportPolicyRegistry(entries []ReportPolicyEntry) (*ReportPolicyRegistry, error) {
@@ -72,8 +81,10 @@ func NewReportPolicyRegistry(entries []ReportPolicyEntry) (*ReportPolicyRegistry
 
 func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 	document, err := policy.Parse(entry.PolicyBytes)
-	if err != nil || !rawresult.ValidResourceID(entry.TestID) || !validReference(entry.Catalogue) ||
-		!rawresult.ValidResourceID(entry.Profile) || entry.Producer.Validate() != nil ||
+	if err != nil || !rawresult.ValidResourceID(entry.TestID) ||
+		!rawresult.ValidContractsVersion(entry.ContractsVersion) ||
+		!validReference(entry.Catalogue) || !rawresult.ValidResourceID(entry.Profile) ||
+		entry.RawProducer.Validate() != nil || entry.ReportProducer.Validate() != nil ||
 		entry.Workload.Validate() != nil || entry.Environment.Validate() != nil ||
 		entry.Dataset.Validate() != nil || len(entry.CandidateImages) == 0 ||
 		len(entry.Principals) == 0 {
@@ -128,9 +139,37 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 		}
 		registry.entries[key] = reportPolicyValue{
 			policyBytes: append([]byte(nil), entry.PolicyBytes...),
-			mode:        document.Spec.Mode, producer: entry.Producer,
-			baselines: cloneSelections(baselines), candidates: cloneSet(candidates),
+			mode:        document.Spec.Mode, contractsVersion: entry.ContractsVersion,
+			rawProducer: entry.RawProducer, reportProducer: entry.ReportProducer,
+			workload: entry.Workload, baselines: cloneSelections(baselines),
+			candidates: cloneSet(candidates),
 		}
+	}
+
+	return nil
+}
+
+// ApproveRawManifest binds raw producer claims to the accepted execution context.
+func (registry *ReportPolicyRegistry) ApproveRawManifest(
+	ctx context.Context,
+	principal string,
+	current run.Run,
+	manifest rawresult.Manifest,
+) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if registry == nil || principal == "" || current.State != run.StateCollecting ||
+		current.Request.Validate() != nil ||
+		manifest.Validate(current.ID, manifest.ContractsVersion) != nil {
+		return run.ErrValidation
+	}
+
+	entry, exists := registry.lookup(principal, current.Request)
+	if !exists || manifest.ContractsVersion != entry.contractsVersion ||
+		manifest.TestID != current.Request.TestSuite || manifest.Workload != entry.workload ||
+		manifest.Producer != entry.rawProducer {
+		return run.ErrForbidden
 	}
 
 	return nil
@@ -182,7 +221,7 @@ func (registry *ReportPolicyRegistry) ResolveReportTrust(
 
 	return reconcile.ReportTrust{
 		PolicyBytes: append([]byte(nil), entry.policyBytes...),
-		PolicyMode:  entry.mode, Producer: entry.producer,
+		PolicyMode:  entry.mode, Producer: entry.reportProducer,
 		Baselines: cloneSelections(entry.baselines),
 	}, nil
 }

@@ -462,8 +462,10 @@ explicitly.
 
 Likewise, raw-artifact collection verifies durable evidence before returning
 references to `CollectionReconciler`. The composition still needs concrete
-manifest-publication and provenance adapters. It adds no measurement-window
-discovery, retry policy for load tests or analysis result.
+manifest-publication resolution. `registry.ReportPolicyRegistry` supplies
+raw-manifest provenance approval from the exact context accepted at Run
+creation. This adds no measurement-window discovery, retry policy for load
+tests or analysis result.
 
 ## Storage, migrations and tests
 

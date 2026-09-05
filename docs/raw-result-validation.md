@@ -51,6 +51,12 @@ manifests or assign their artifact IDs.
 reader without weakening that boundary. It receives a complete immutable
 manifest reference from an injected trusted resolver, verifies and parses the
 manifest, invokes an injected provenance approver, validates the manifest and
-source references as one set, and verifies every source object's bytes. The
-resolver and approver remain deployment-specific interfaces; the collector does
-not infer a reference from an object key or approve claims itself.
+source references as one set, and verifies every source object's bytes.
+
+`registry.ReportPolicyRegistry` is the concrete provenance approver. Its
+reviewed startup entry pins the contracts bundle, test, workload and
+digest-pinned raw producer to the same principal and resource context used at
+Run admission. It validates the manifest again at the adapter boundary and
+rejects any valid but unauthorized claim. Trusted manifest publication
+resolution remains an external adapter; the collector does not infer a reference
+from an object key.
