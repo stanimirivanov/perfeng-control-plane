@@ -10,6 +10,7 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 )
 
+// ErrArtifactConflict identifies an artifact ID already bound to different evidence.
 var ErrArtifactConflict = errors.New("artifact identity already bound to different evidence")
 
 // Artifact records a verified object reference, not object bytes or a claim
@@ -33,6 +34,7 @@ var (
 	artifactFormat = regexp.MustCompile(`^[a-z0-9][a-z0-9./_-]*$`)
 )
 
+// Validate checks the artifact/v1 shape and excludes mutable or credential-bearing URLs.
 func (a Artifact) Validate() error {
 	if !artifactID.MatchString(a.ID) || !contract.ValidID(a.RunID) ||
 		(a.Kind != "raw" && a.Kind != "normalized") || !artifactHash.MatchString(a.SHA256) ||
@@ -46,6 +48,7 @@ func (a Artifact) Validate() error {
 		u.Fragment != "" || strings.ContainsAny(a.URI, "\r\n\t") {
 		return ErrValidation
 	}
+
 	return nil
 }
 
@@ -57,7 +60,14 @@ func (a Artifact) Validate() error {
 // checksum, approved storage and ownership before registration. These methods
 // neither upload nor fetch objects.
 type ArtifactRepository interface {
+	// RegisterArtifact stores an already verified reference idempotently. A
+	// different binding for the same ID returns ErrArtifactConflict.
 	RegisterArtifact(ctx context.Context, principal string, artifact Artifact) error
+
+	// GetArtifact returns one reference belonging to a principal-visible Run.
 	GetArtifact(ctx context.Context, principal, runID, artifactID string) (Artifact, error)
+
+	// ListArtifacts returns a stable artifact-ID-ordered slice. An owned Run
+	// without evidence returns an empty slice; an invisible Run returns ErrNotFound.
 	ListArtifacts(ctx context.Context, principal, runID string) ([]Artifact, error)
 }

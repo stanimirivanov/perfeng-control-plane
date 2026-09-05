@@ -12,18 +12,23 @@ import (
 // ReportJobResolver resolves an approved, digest-pinned reporting Job. The
 // returned template must be reproducible from the immutable Run and candidate.
 type ReportJobResolver interface {
+	// ResolveReportJob returns an independently owned template for the principal,
+	// current Run and exact normalized candidate.
 	ResolveReportJob(context.Context, string, run.Run, ReportingInput) (*batchv1.Job, error)
 }
 
 // ReportJobController creates or adopts a deterministic reporting Job and
 // returns its identity-checked Kubernetes phase.
 type ReportJobController interface {
+	// EnsureReportJob creates or adopts the deterministic reporting Job and
+	// returns its identity-checked current phase.
 	EnsureReportJob(context.Context, string, *batchv1.Job) (kubernetes.Observation, error)
 }
 
 // ReportArtifactCollector verifies the completed Job's output bytes and
 // returns their immutable reference. Kubernetes success alone is insufficient.
 type ReportArtifactCollector interface {
+	// CollectReportArtifact verifies and returns the completed Job's exact report.
 	CollectReportArtifact(context.Context, string, run.Run, ReportingInput) (run.Artifact, error)
 }
 

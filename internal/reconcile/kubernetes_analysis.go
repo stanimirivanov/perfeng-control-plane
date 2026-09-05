@@ -12,18 +12,23 @@ import (
 // AnalysisJobResolver resolves an approved, digest-pinned normalization Job.
 // The returned template must be reproducible from the immutable Run and input.
 type AnalysisJobResolver interface {
+	// ResolveAnalysisJob returns an independently owned template for the principal,
+	// current Run and exact raw evidence set.
 	ResolveAnalysisJob(context.Context, string, run.Run, AnalysisInput) (*batchv1.Job, error)
 }
 
 // AnalysisJobController creates or adopts a deterministic normalization Job and
 // returns its identity-checked Kubernetes phase.
 type AnalysisJobController interface {
+	// EnsureAnalysisJob creates or adopts the deterministic normalization Job and
+	// returns its identity-checked current phase.
 	EnsureAnalysisJob(context.Context, string, *batchv1.Job) (kubernetes.Observation, error)
 }
 
 // NormalizedArtifactCollector verifies the completed Job's output bytes and
 // returns their immutable reference. Kubernetes success alone is insufficient.
 type NormalizedArtifactCollector interface {
+	// CollectNormalizedArtifact verifies and returns the completed Job's exact output.
 	CollectNormalizedArtifact(context.Context, string, run.Run, AnalysisInput) (run.Artifact, error)
 }
 

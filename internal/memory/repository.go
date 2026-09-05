@@ -17,6 +17,9 @@ type ownedRun struct {
 	run       run.Run
 }
 type bindingKey struct{ principal, key string }
+
+// Repository is a concurrency-safe process-local implementation of run.Repository.
+// It is intended only for bounded tests and development because it is not durable.
 type Repository struct {
 	mu        sync.Mutex
 	now       func() time.Time
@@ -42,6 +45,8 @@ func New(now func() time.Time) *Repository {
 	}
 }
 
+// Accept serializes all in-memory creates and preserves the original acceptance
+// snapshot for a live idempotency binding.
 func (m *Repository) Accept(ctx context.Context, principal, key string, request run.Request) (run.Accepted, error) {
 	if principal == "" || !run.ValidKey(key) || request.Validate() != nil {
 		return run.Accepted{}, run.ErrValidation
@@ -58,6 +63,7 @@ func (m *Repository) Accept(ctx context.Context, principal, key string, request 
 			return run.Accepted{}, run.ErrConflict
 		}
 		accepted.Run = accepted.Run.Clone()
+
 		return accepted, nil
 	}
 	var id string
@@ -75,6 +81,7 @@ func (m *Repository) Accept(ctx context.Context, principal, key string, request 
 	accepted := run.Accepted{Run: created, ExpiresAt: now.Add(24 * time.Hour)}
 	m.runs[id] = ownedRun{principal, created}
 	m.bindings[scope] = accepted
+
 	return accepted, nil
 }
 
@@ -83,9 +90,11 @@ func (m *Repository) visible(principal, id string) (run.Run, error) {
 	if !ok || principal == "" || record.principal != principal {
 		return run.Run{}, run.ErrNotFound
 	}
+
 	return record.run, nil
 }
 
+// Get returns an isolated snapshot while hiding Runs owned by other principals.
 func (m *Repository) Get(ctx context.Context, principal, id string) (run.Run, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -93,9 +102,11 @@ func (m *Repository) Get(ctx context.Context, principal, id string) (run.Run, er
 		return run.Run{}, err
 	}
 	r, err := m.visible(principal, id)
+
 	return r.Clone(), err
 }
 
+// Cancel serializes cancellation with worker transitions under the repository lock.
 func (m *Repository) Cancel(ctx context.Context, principal, id string) (run.Run, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -117,9 +128,11 @@ func (m *Repository) Cancel(ctx context.Context, principal, id string) (run.Run,
 		return run.Run{}, err
 	}
 	m.runs[id] = ownedRun{principal, next}
+
 	return next.Clone(), nil
 }
 
+// Advance applies a worker transition under the same lock used by Accept and Cancel.
 func (m *Repository) Advance(ctx context.Context, principal, id string, revision int64, change run.Change) (run.Run, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -135,5 +148,6 @@ func (m *Repository) Advance(ctx context.Context, principal, id string, revision
 		return run.Run{}, err
 	}
 	m.runs[id] = ownedRun{principal, next}
+
 	return next.Clone(), nil
 }

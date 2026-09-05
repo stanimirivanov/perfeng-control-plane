@@ -29,6 +29,8 @@ type RawArtifactSet struct {
 // It returns stable references only after checking storage ownership, checksum,
 // size, media type, format, run identity and approved producer provenance.
 type RawArtifactCollector interface {
+	// CollectRawArtifacts returns a complete verified set, ErrArtifactsNotReady
+	// during publication lag, or ErrInvalidArtifacts for definitive bad evidence.
 	CollectRawArtifacts(context.Context, string, run.Run) (RawArtifactSet, error)
 }
 
@@ -37,6 +39,7 @@ type RawArtifactCollector interface {
 // existing artifact ID bound to different evidence.
 type CollectionStore interface {
 	ClaimAdvancer
+	// RegisterArtifact preserves one verified reference idempotently.
 	RegisterArtifact(context.Context, string, run.Artifact) error
 }
 

@@ -17,17 +17,21 @@ var ErrExecutionNotBound = errors.New("run has no durable Kubernetes execution i
 // BoundExecutionStore is the lease-fenced storage required after dispatch.
 type BoundExecutionStore interface {
 	ClaimAdvancer
+	// GetExecution returns the immutable binding while the supplied lease is current.
 	GetExecution(context.Context, run.Lease) (kubernetes.Execution, bool, error)
 }
 
 // ExecutionController observes and stops an exact Kubernetes execution.
 type ExecutionController interface {
+	// ObserveJob returns an identity-checked observation of the exact execution.
 	ObserveJob(context.Context, kubernetes.Execution) (kubernetes.Observation, error)
+	// RequestJobStop submits an identity-preconditioned, idempotent stop request.
 	RequestJobStop(context.Context, kubernetes.Execution) error
 }
 
 // TerminationVerifier confirms that dependent execution Pods are gone.
 type TerminationVerifier interface {
+	// ConfirmExecutionStopped reports true only after every owned Pod is absent.
 	ConfirmExecutionStopped(context.Context, kubernetes.Execution) (bool, error)
 }
 

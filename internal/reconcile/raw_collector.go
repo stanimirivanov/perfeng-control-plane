@@ -14,18 +14,23 @@ import (
 // execution. The reference must come from trusted orchestration state, not from
 // a caller-supplied location or an object-store listing.
 type RawManifestResolver interface {
+	// ResolveRawManifest returns the trusted publication reference or an
+	// evidence-readiness error without listing arbitrary storage locations.
 	ResolveRawManifest(context.Context, string, run.Run) (run.Artifact, error)
 }
 
 // RawManifestApprover checks parsed producer, test and workload claims against
 // the accepted Run and its approved catalogue. It performs no object reads.
 type RawManifestApprover interface {
+	// ApproveRawManifest authorizes parsed producer and workload claims; it
+	// performs no object reads or registration.
 	ApproveRawManifest(context.Context, string, run.Run, rawresult.Manifest) error
 }
 
 // ArtifactByteReader returns bytes only after enforcing storage policy and
 // verifying the complete immutable artifact reference.
 type ArtifactByteReader interface {
+	// Read returns independently owned bytes only after complete reference verification.
 	Read(context.Context, run.Artifact) ([]byte, error)
 }
 

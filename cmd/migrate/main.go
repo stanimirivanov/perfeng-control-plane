@@ -34,5 +34,6 @@ func execute() error {
 		return err
 	}
 	fmt.Println("Control-plane schema is up to date.")
+
 	return nil
 }

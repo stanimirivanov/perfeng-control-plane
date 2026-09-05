@@ -10,6 +10,9 @@ import (
 	"strings"
 )
 
+// Files contains the reviewed run-management contract snapshot embedded into
+// the control-plane binary; callers must use paths below snapshot/.
+//
 //go:embed snapshot
 var Files embed.FS
 
@@ -119,6 +122,7 @@ func validateSupportedSchema(
 		if !ok {
 			return fmt.Errorf("unsupported reference")
 		}
+
 		return validateSchemaDefinition(name, all, visited)
 	}
 
@@ -144,8 +148,9 @@ func schemaReference(ref string) (string, bool) {
 	return name, ok && name != ""
 }
 
-// ValidateCreate checks only the object/string subset used by CreateRun.
-// This is not a general JSON Schema or response validator.
+// ValidateCreate checks a decoded value against the pinned CreateRun schema.
+// It supports only the object/string subset used by CreateRun and is not a
+// general JSON Schema or response validator.
 func ValidateCreate(value any) error { return validate(schemas["CreateRun"], value) }
 
 func validate(s schema, value any) error {
@@ -158,6 +163,7 @@ func validate(s schema, value any) error {
 		if !ok {
 			return fmt.Errorf("unknown reference")
 		}
+
 		return validate(resolved, value)
 	}
 	switch s.Type {
@@ -194,11 +200,17 @@ func validate(s schema, value any) error {
 	default:
 		return fmt.Errorf("unsupported schema type")
 	}
+
 	return nil
 }
 
-func ValidID(id string) bool             { return schemas["RunId"].pattern.MatchString(id) }
+// ValidID reports whether id has the pinned Run identifier syntax.
+func ValidID(id string) bool { return schemas["RunId"].pattern.MatchString(id) }
+
+// CanTransition reports whether the pinned lifecycle permits the directed edge.
 func CanTransition(from, to string) bool { return slices.Contains(transitions[from], to) }
+
+// Terminal reports whether the pinned lifecycle identifies state as terminal.
 func Terminal(state string) bool {
 	next, ok := transitions[state]
 	return ok && len(next) == 0

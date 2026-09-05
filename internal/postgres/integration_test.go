@@ -76,6 +76,7 @@ func testDatabase(t *testing.T) string {
 			t.Errorf("could not remove disposable database %s", name)
 		}
 	})
+
 	return connection.String()
 }
 
@@ -86,6 +87,7 @@ func openTest(t *testing.T, dsn string) *Repository {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { closeTest(t, r) })
+
 	return r
 }
 
@@ -106,6 +108,7 @@ func testRequest(t *testing.T) run.Request {
 	if err = json.Unmarshal(b, &request); err != nil {
 		t.Fatal(err)
 	}
+
 	return request
 }
 func accepted(t *testing.T, r *Repository, principal, key string) run.Accepted {
@@ -114,6 +117,7 @@ func accepted(t *testing.T, r *Repository, principal, key string) run.Accepted {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return a
 }
 func artifactFor(id string) run.Artifact {

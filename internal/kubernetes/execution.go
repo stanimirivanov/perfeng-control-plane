@@ -41,6 +41,10 @@ func (execution Execution) Valid() bool {
 // ExecutionStore persists immutable Job identities under reconciliation-lease
 // ownership. A missing binding is distinct from a storage or ownership failure.
 type ExecutionStore interface {
+	// BindExecution preserves the first identity while lease is current. An
+	// identical retry is a no-op; a different identity returns ErrExecutionConflict.
 	BindExecution(context.Context, run.Lease, Execution) error
+	// GetExecution returns the binding and true, or a zero value and false when
+	// no binding exists. Lease loss is an error, not an absent binding.
 	GetExecution(context.Context, run.Lease) (Execution, bool, error)
 }

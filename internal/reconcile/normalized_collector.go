@@ -15,12 +15,16 @@ import (
 // by a completed analysis execution. The reference must come from trusted
 // orchestration state, not from a caller or an object-store listing.
 type NormalizedManifestResolver interface {
+	// ResolveNormalizedManifest returns the trusted publication reference or an
+	// evidence-readiness error without listing arbitrary storage locations.
 	ResolveNormalizedManifest(context.Context, string, run.Run, AnalysisInput) (run.Artifact, error)
 }
 
 // NormalizedManifestApprover checks the parsed normalizer, workload, window and
 // source claims against the accepted Run, analysis input and approved catalogue.
 type NormalizedManifestApprover interface {
+	// ApproveNormalizedManifest authorizes parsed provenance and source claims;
+	// it performs no object reads or registration.
 	ApproveNormalizedManifest(
 		context.Context,
 		string,

@@ -16,6 +16,8 @@ import (
 
 const operationTimeout = 15 * time.Second
 
+// Repository is the bounded PostgreSQL implementation of the control-plane
+// storage interfaces. Opening it does not run migrations.
 type Repository struct{ db *sql.DB }
 
 var _ run.Repository = (*Repository)(nil)
@@ -38,6 +40,7 @@ func validSQLState(code string) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -61,9 +64,11 @@ func Open(ctx context.Context, dsn string) (*Repository, error) {
 		_ = db.Close()
 		return nil, storageError(err)
 	}
+
 	return &Repository{db: db}, nil
 }
 
+// Close releases the underlying connection pool.
 func (r *Repository) Close() error { return r.db.Close() }
 
 func (r *Repository) begin(ctx context.Context) (*sql.Tx, error) {
@@ -77,6 +82,7 @@ func (r *Repository) begin(ctx context.Context) (*sql.Tx, error) {
 		_ = tx.Rollback()
 		return nil, storageError(err)
 	}
+
 	return tx, nil
 }
 
@@ -104,6 +110,7 @@ func storageError(err error) error {
 			pg.Code == "40001" || pg.Code == "40P01" || pg.Code == "23505" {
 			return run.ErrUnavailable
 		}
+
 		return &postgresError{sqlState: pg.Code}
 	}
 	// Unclassified connection and ambiguous commit failures are retryable only with

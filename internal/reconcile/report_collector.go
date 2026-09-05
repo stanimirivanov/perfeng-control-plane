@@ -15,12 +15,16 @@ import (
 // completed reporting execution. It must use trusted orchestration state rather
 // than a caller-supplied location or object-store listing.
 type ReportManifestResolver interface {
+	// ResolveReportManifest returns the trusted publication reference or an
+	// evidence-readiness error without listing arbitrary storage locations.
 	ResolveReportManifest(context.Context, string, run.Run, ReportingInput) (run.Artifact, error)
 }
 
 // ReportManifestApprover authorizes the policy, selected references, producer
 // and verdict claims against the accepted Run and trusted registries.
 type ReportManifestApprover interface {
+	// ApproveReportManifest authorizes parsed policy, reference and verdict claims;
+	// it performs no object reads or registration.
 	ApproveReportManifest(
 		context.Context,
 		string,

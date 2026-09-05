@@ -17,6 +17,7 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
+// MaxBodyBytes is the hard limit applied before decoding an HTTP request body.
 const MaxBodyBytes = 65536
 
 // Identity must come from verified credentials, never request body/token bytes.
@@ -39,15 +40,19 @@ type Approve func(context.Context, string, run.Request) error
 // the HTTP API together with run mutation operations.
 type Repository interface {
 	run.Repository
+	// ListArtifacts follows run.ArtifactRepository visibility and ordering rules.
 	ListArtifacts(context.Context, string, string) ([]run.Artifact, error)
 }
 
+// Handler serves the authenticated run-management HTTP contract.
 type Handler struct {
 	repository   Repository
 	authenticate Authenticate
 	approve      Approve
 }
 
+// New constructs a Handler only when all mandatory authorization and storage
+// dependencies are present.
 func New(repository Repository, authenticate Authenticate, approve Approve) (*Handler, error) {
 	if repository == nil || authenticate == nil || approve == nil {
 		return nil, errors.New("repository, authentication and resource approval are required")
@@ -136,6 +141,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.create(w, r, identity.Principal)
+
 		return
 	}
 	h.serveRun(w, r, identity, path)

@@ -28,6 +28,7 @@ func request(t *testing.T) run.Request {
 	if err := json.Unmarshal(b, &r); err != nil {
 		t.Fatal(err)
 	}
+
 	return r
 }
 func create(t *testing.T, m *Repository) run.Accepted {
@@ -36,6 +37,7 @@ func create(t *testing.T, m *Repository) run.Accepted {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return a
 }
 func advance(t *testing.T, m *Repository, r run.Run, state run.State) run.Run {
@@ -44,6 +46,7 @@ func advance(t *testing.T, m *Repository, r run.Run, state run.State) run.Run {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return next
 }
 

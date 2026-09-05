@@ -17,10 +17,14 @@ var ErrCancellationObserved = errors.New("run cancellation observed during recon
 type Operation string
 
 const (
-	OperationClaim     Operation = "claim"
-	OperationRenew     Operation = "renew"
+	// OperationClaim identifies failure while discovering or leasing work.
+	OperationClaim Operation = "claim"
+	// OperationRenew identifies failure while extending lease ownership.
+	OperationRenew Operation = "renew"
+	// OperationReconcile identifies failure inside one bounded reconciliation attempt.
 	OperationReconcile Operation = "reconcile"
-	OperationRelease   Operation = "release"
+	// OperationRelease identifies failure while delaying or releasing work.
+	OperationRelease Operation = "release"
 )
 
 // Event reports an operational failure without exposing a lease capability.
@@ -38,6 +42,7 @@ type Result struct {
 // Reconciler performs one bounded attempt. It must stop promptly when ctx is
 // cancelled and must not retain or log the Claim's lease token.
 type Reconciler interface {
+	// Reconcile performs one attempt authorized by Claim and returns its retry delay.
 	Reconcile(context.Context, run.Claim) (Result, error)
 }
 
