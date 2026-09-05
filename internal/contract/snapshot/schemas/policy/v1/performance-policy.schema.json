@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://perfeng.dev/schemas/policy/v1/performance-policy.schema.json",
+  "title": "Versioned non-blocking performance policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "performance.perfeng.io/v1"
+    },
+    "kind": {
+      "const": "PerformancePolicy"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "owner"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "https://perfeng.dev/schemas/workload/v1/workload.schema.json#/$defs/id"
+        },
+        "version": {
+          "$ref": "https://perfeng.dev/schemas/workload/v1/workload.schema.json#/$defs/version"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "missingData",
+        "rules"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "observe",
+            "inform"
+          ]
+        },
+        "missingData": {
+          "const": "inconclusive"
+        },
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "metric"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "https://perfeng.dev/schemas/workload/v1/workload.schema.json#/$defs/id"
+              },
+              "metric": {
+                "$ref": "#/$defs/metricSelector"
+              },
+              "quality": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {
+                  "minSamples": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "maxCv": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                },
+                "minProperties": 1
+              },
+              "slo": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {
+                  "min": {
+                    "type": "number"
+                  },
+                  "max": {
+                    "type": "number"
+                  }
+                },
+                "minProperties": 1
+              },
+              "regression": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "direction",
+                  "practicalDifference",
+                  "reference"
+                ],
+                "properties": {
+                  "direction": {
+                    "enum": [
+                      "lower-is-better",
+                      "higher-is-better"
+                    ]
+                  },
+                  "practicalDifference": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "relative",
+                          "absolute"
+                        ]
+                      },
+                      "value": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      }
+                    }
+                  },
+                  "reference": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "baselineId",
+                      "version"
+                    ],
+                    "properties": {
+                      "baselineId": {
+                        "$ref": "https://perfeng.dev/schemas/workload/v1/workload.schema.json#/$defs/id"
+                      },
+                      "version": {
+                        "$ref": "https://perfeng.dev/schemas/workload/v1/workload.schema.json#/$defs/version"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "anyOf": [
+              {
+                "required": [
+                  "slo"
+                ]
+              },
+              {
+                "required": [
+                  "regression"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "metricSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "statistic",
+        "unit"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "https://perfeng.dev/schemas/result/v1/test-result.schema.json#/properties/metric/properties/name"
+        },
+        "statistic": {
+          "enum": [
+            "mean",
+            "median",
+            "p90",
+            "p95",
+            "p99",
+            "min",
+            "max"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    }
+  }
+}
