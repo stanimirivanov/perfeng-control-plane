@@ -1,0 +1,36 @@
+{
+  "id": "approved-search-browser",
+  "version": "2.0.0",
+  "testId": "search-browser",
+  "sourceRunId": "perf-20260904-130000-a1b2c3d6",
+  "artifact": {
+    "id": "77777777-7777-4777-8777-777777777777",
+    "runId": "perf-20260904-130000-a1b2c3d6",
+    "kind": "normalized",
+    "uri": "s3://perfeng-example/runs/perf-20260904-130000-a1b2c3d6/normalized/playwright.json",
+    "sha256": "a655b5d065089324417762682264de9e76ff97f4a28a972c284fc6bde0ad7f03",
+    "sizeBytes": 1510,
+    "mediaType": "application/json",
+    "format": "normalized-result/v1"
+  },
+  "software": {
+    "gitSha": "1111111111111111111111111111111111111111",
+    "image": "ghcr.io/example/search@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "version": "2026.9.4"
+  },
+  "workload": {
+    "id": "search-browser-smoke",
+    "version": "1.0.0",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "environment": {
+    "id": "local-kind",
+    "version": "1.0.0",
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "dataset": {
+    "kind": "none"
+  },
+  "reason": "Created from an explicitly selected completed run."
+}

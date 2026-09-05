@@ -1,1 +1,1826 @@
-{"openapi":"3.1.1","info":{"title":"Performance Run Management API","version":"0.2.0","description":"Candidate contract only. Run lifecycle is independent of measurement quality, SLO and regression verdicts. See docs/run-management-api.md."},"jsonSchemaDialect":"https://json-schema.org/draft/2020-12/schema","servers":[{"url":"/"}],"security":[{"bearerAuth":[]}],"tags":[{"name":"Runs","description":"Declarative, authenticated run lifecycle."}],"paths":{"/v1/runs":{"post":{"tags":["Runs"],"operationId":"createRun","summary":"Create a run idempotently","description":"Select approved, versioned catalogue/environment/policy resources. No caller-supplied commands, target URLs or credentials. Idempotency is scoped to authenticated principal and this operation.","parameters":[{"name":"Idempotency-Key","in":"header","required":true,"description":"Opaque client-generated key. Reuse for retries of the same parsed JSON request; use a new key for a new run.","schema":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"}}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/CreateRun"}}}},"responses":{"201":{"description":"Durably accepted run. An idempotent replay returns the original 201 snapshot and headers; GET returns current state.","content":{"application/json":{"schema":{"allOf":[{"$ref":"#/components/schemas/Run"},{"properties":{"state":{"const":"CREATED"}}}]}}},"headers":{"Location":{"required":true,"schema":{"type":"string","pattern":"^/v1/runs/perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$"},"description":"Relative URI of the accepted run."},"Idempotency-Key-Expires-At":{"required":true,"schema":{"type":"string","format":"date-time"},"description":"UTC expiration, at least 24 hours after original acceptance; unchanged on replay."}}},"400":{"$ref":"#/components/responses/BadRequest"},"401":{"$ref":"#/components/responses/Unauthenticated"},"403":{"$ref":"#/components/responses/Forbidden"},"409":{"$ref":"#/components/responses/IdempotencyConflict"},"413":{"description":"Request exceeds the 64 KiB UTF-8 body limit; code BAD_REQUEST.","content":{"application/json":{"schema":{"allOf":[{"$ref":"#/components/schemas/Error"},{"properties":{"code":{"const":"BAD_REQUEST"}}}]}}}},"415":{"description":"Only application/json is accepted; code BAD_REQUEST.","content":{"application/json":{"schema":{"allOf":[{"$ref":"#/components/schemas/Error"},{"properties":{"code":{"const":"BAD_REQUEST"}}}]}}}},"422":{"$ref":"#/components/responses/ValidationFailed"},"429":{"$ref":"#/components/responses/RateLimited"},"500":{"$ref":"#/components/responses/InternalError"},"503":{"$ref":"#/components/responses/Unavailable"}}}},"/v1/runs/{runId}":{"parameters":[{"name":"runId","in":"path","required":true,"schema":{"$ref":"#/components/schemas/RunId"},"description":"Server-generated run identity."}],"get":{"tags":["Runs"],"operationId":"getRun","summary":"Read the current run snapshot","responses":{"200":{"description":"Current consistent snapshot; revision increases on each persisted mutation.","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Run"}}}},"400":{"$ref":"#/components/responses/BadRequest"},"401":{"$ref":"#/components/responses/Unauthenticated"},"403":{"$ref":"#/components/responses/Forbidden"},"404":{"$ref":"#/components/responses/NotFound"},"429":{"$ref":"#/components/responses/RateLimited"},"500":{"$ref":"#/components/responses/InternalError"},"503":{"$ref":"#/components/responses/Unavailable"}}}},"/v1/runs/{runId}/artifacts":{"parameters":[{"name":"runId","in":"path","required":true,"schema":{"$ref":"#/components/schemas/RunId"},"description":"Server-generated run identity."}],"get":{"tags":["Runs"],"operationId":"listRunArtifacts","summary":"List immutable artifacts visible for a run","description":"Returns the current principal-scoped artifact-reference snapshot in ascending artifact-ID order. The collection can be empty or partial while the run is active. References are evidence metadata, not object bytes, credentials, signed URLs, lifecycle completion, or analysis verdicts.","responses":{"200":{"description":"Current artifact-reference snapshot for the visible run.","content":{"application/json":{"schema":{"$ref":"#/components/schemas/ArtifactCollection"}}}},"400":{"$ref":"#/components/responses/BadRequest"},"401":{"$ref":"#/components/responses/Unauthenticated"},"403":{"$ref":"#/components/responses/Forbidden"},"404":{"$ref":"#/components/responses/NotFound"},"429":{"$ref":"#/components/responses/RateLimited"},"500":{"$ref":"#/components/responses/InternalError"},"503":{"$ref":"#/components/responses/Unavailable"}}}},"/v1/runs/{runId}/cancel":{"parameters":[{"name":"runId","in":"path","required":true,"schema":{"$ref":"#/components/schemas/RunId"},"description":"Server-generated run identity."}],"post":{"tags":["Runs"],"operationId":"cancelRun","summary":"Request cancellation without deleting evidence","description":"No request body. Intrinsically idempotent: active or CANCELLING returns 202; already ABORTED returns 200; any other terminal state returns 409 RUN_TERMINAL. Stop/cleanup is asynchronous; 202 does not mean execution has stopped.","responses":{"200":{"description":"Already ABORTED; no mutation.","content":{"application/json":{"schema":{"allOf":[{"$ref":"#/components/schemas/Run"},{"properties":{"state":{"const":"ABORTED"}}}]}}}},"202":{"description":"Cancellation durably requested; response state CANCELLING.","content":{"application/json":{"schema":{"allOf":[{"$ref":"#/components/schemas/Run"},{"properties":{"state":{"const":"CANCELLING"}}}]}}}},"400":{"$ref":"#/components/responses/BadRequest"},"401":{"$ref":"#/components/responses/Unauthenticated"},"403":{"$ref":"#/components/responses/Forbidden"},"404":{"$ref":"#/components/responses/NotFound"},"409":{"$ref":"#/components/responses/RunTerminal"},"429":{"$ref":"#/components/responses/RateLimited"},"500":{"$ref":"#/components/responses/InternalError"},"503":{"$ref":"#/components/responses/Unavailable"}}}}},"components":{"securitySchemes":{"bearerAuth":{"type":"http","scheme":"bearer","description":"Opaque credential verified by the server; token issuance is outside this contract. TLS is required outside isolated development."}},"schemas":{"RunId":{"type":"string","pattern":"^perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$"},"Artifact":{"type":"object","additionalProperties":false,"required":["id","runId","kind","uri","sha256","sizeBytes","mediaType","format"],"properties":{"id":{"type":"string","format":"uuid","pattern":"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"},"runId":{"$ref":"#/components/schemas/RunId"},"kind":{"type":"string","enum":["raw","normalized"]},"uri":{"type":"string","format":"uri","pattern":"^(s3|https)://[^\\s?#]+$"},"sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},"sizeBytes":{"type":"integer","minimum":0},"mediaType":{"type":"string","pattern":"^[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*$"},"format":{"type":"string","pattern":"^[a-z0-9][a-z0-9./_-]*$"}}},"ArtifactCollection":{"type":"object","additionalProperties":false,"required":["artifacts"],"properties":{"artifacts":{"type":"array","items":{"$ref":"#/components/schemas/Artifact"}}}},"Reference":{"type":"object","additionalProperties":false,"required":["id","version","sha256"],"properties":{"id":{"type":"string","pattern":"^[a-z][a-z0-9-]{0,62}$"},"version":{"type":"string","pattern":"^[0-9]+\\.[0-9]+\\.[0-9]+$"},"sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}}},"Candidate":{"type":"object","additionalProperties":false,"required":["gitSha","image"],"properties":{"gitSha":{"type":"string","pattern":"^[a-f0-9]{40}$"},"image":{"type":"string","pattern":"^[a-z0-9]+(?:[.-][a-z0-9]+)*(?::[0-9]+)?(?:/[a-z0-9]+(?:[._-]+[a-z0-9]+)*)+@sha256:[a-f0-9]{64}$"}}},"CreateRun":{"type":"object","additionalProperties":false,"required":["testSuite","catalogue","profile","candidate","environment","policy"],"properties":{"testSuite":{"type":"string","pattern":"^[a-z][a-z0-9-]{0,62}$"},"catalogue":{"$ref":"#/components/schemas/Reference"},"profile":{"type":"string","enum":["smoke","average","regression","stress","capacity","soak"]},"candidate":{"$ref":"#/components/schemas/Candidate"},"environment":{"$ref":"#/components/schemas/Reference"},"policy":{"$ref":"#/components/schemas/Reference"}}},"RunState":{"type":"string","enum":["CREATED","VALIDATING","PROVISIONING","WARMING_UP","RUNNING","COLLECTING","ANALYZING","REPORTING","CANCELLING","COMPLETED","INVALID","ABORTED","INFRASTRUCTURE_FAILURE","TEST_FAILURE"]},"Failure":{"type":"object","additionalProperties":false,"required":["code","message"],"properties":{"code":{"type":"string","enum":["VALIDATION_FAILED","INFRASTRUCTURE_ERROR","PIPELINE_TIMEOUT","TOOL_ERROR","ANALYSIS_ERROR"]},"message":{"type":"string","minLength":1,"maxLength":1000}}},"Run":{"type":"object","additionalProperties":false,"required":["id","state","revision","request","createdAt","updatedAt"],"properties":{"id":{"$ref":"#/components/schemas/RunId"},"state":{"$ref":"#/components/schemas/RunState"},"revision":{"type":"integer","minimum":1,"maximum":9007199254740991},"request":{"$ref":"#/components/schemas/CreateRun"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"finishedAt":{"type":"string","format":"date-time"},"toolExitCode":{"type":"integer","minimum":0,"maximum":255},"failure":{"$ref":"#/components/schemas/Failure"}},"allOf":[{"if":{"properties":{"state":{"enum":["COMPLETED","INVALID","ABORTED","INFRASTRUCTURE_FAILURE","TEST_FAILURE"]}}},"then":{"required":["finishedAt"]},"else":{"not":{"required":["finishedAt"]}}},{"if":{"properties":{"state":{"enum":["INVALID","INFRASTRUCTURE_FAILURE","TEST_FAILURE"]}}},"then":{"required":["failure"]},"else":{"not":{"required":["failure"]}}}]},"Error":{"type":"object","additionalProperties":false,"required":["code","message","requestId"],"properties":{"code":{"type":"string","enum":["BAD_REQUEST","UNAUTHENTICATED","FORBIDDEN","NOT_FOUND","IDEMPOTENCY_CONFLICT","REQUEST_IN_PROGRESS","RUN_TERMINAL","VALIDATION_FAILED","RATE_LIMITED","INTERNAL_ERROR","UNAVAILABLE"]},"message":{"type":"string","minLength":1,"maxLength":1000},"requestId":{"type":"string","format":"uuid"},"details":{"type":"array","maxItems":100,"items":{"type":"object","additionalProperties":false,"required":["path","message"],"properties":{"path":{"type":"string","maxLength":512,"pattern":"^(?:/(?:[^~]|~[01])*)?$"},"message":{"type":"string","minLength":1,"maxLength":512}}}}}}},"responses":{"BadRequest":{"description":"Malformed JSON, duplicate object keys, invalid headers/path, or unsupported request body.","content":{"application/json":{"schema":{"allOf":[{"$ref":"#/components/schemas/Error"},{"properties":{"code":{"const":"BAD_REQUEST"}}}]}}}},"Unauthenticated":{"description":"Missing or invalid credentials.","content":{"application/json":{"schema":{"allOf":[{"$ref":"#/components/schemas/Error"},{"properties":{"code":{"const":"UNAUTHENTICATED"}}}]}}},"headers":{"WWW-Authenticate":{"required":true,"schema":{"type":"string"},"description":"Bearer authentication challenge."}}},"Forbidden":{"description":"Caller lacks permission for the requested operation or selected resources.","content":{"application/json":{"schema":{"allOf":[{"$ref":"#/components/schemas/Error"},{"properties":{"code":{"const":"FORBIDDEN"}}}]}}}},"NotFound":{"description":"Run is absent or not visible to this caller.","content":{"application/json":{"schema":{"allOf":[{"$ref":"#/components/schemas/Error"},{"properties":{"code":{"const":"NOT_FOUND"}}}]}}}},"ValidationFailed":{"description":"Request schema or synchronous resource validation failed; no run was created.","content":{"application/json":{"schema":{"allOf":[{"$ref":"#/components/schemas/Error"},{"properties":{"code":{"const":"VALIDATION_FAILED"}}}]}}}},"RateLimited":{"description":"Rate limited; retry after the indicated delay.","content":{"application/json":{"schema":{"allOf":[{"$ref":"#/components/schemas/Error"},{"properties":{"code":{"const":"RATE_LIMITED"}}}]}}},"headers":{"Retry-After":{"required":true,"schema":{"type":"integer","minimum":1},"description":"Retry delay in seconds."}}},"InternalError":{"description":"Unexpected server error; retry create only with the same idempotency key.","content":{"application/json":{"schema":{"allOf":[{"$ref":"#/components/schemas/Error"},{"properties":{"code":{"const":"INTERNAL_ERROR"}}}]}}}},"Unavailable":{"description":"Temporarily unavailable; retry after the indicated delay.","content":{"application/json":{"schema":{"allOf":[{"$ref":"#/components/schemas/Error"},{"properties":{"code":{"const":"UNAVAILABLE"}}}]}}},"headers":{"Retry-After":{"required":true,"schema":{"type":"integer","minimum":1},"description":"Retry delay in seconds."}}},"IdempotencyConflict":{"description":"Key conflicts with another request or the identical request is still in progress.","content":{"application/json":{"schema":{"allOf":[{"$ref":"#/components/schemas/Error"},{"properties":{"code":{"enum":["IDEMPOTENCY_CONFLICT","REQUEST_IN_PROGRESS"]}}}]}}},"headers":{"Retry-After":{"schema":{"type":"integer","minimum":1},"description":"Required for REQUEST_IN_PROGRESS, absent for a payload conflict."}}},"RunTerminal":{"description":"Cancellation lost the race to another terminal state.","content":{"application/json":{"schema":{"allOf":[{"$ref":"#/components/schemas/Error"},{"properties":{"code":{"const":"RUN_TERMINAL"}}}]}}}}}}}
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Performance Run and Baseline Management API",
+    "version": "0.3.0",
+    "description": "Candidate contract only. Run lifecycle and baseline administration remain independent of measurement quality, SLO and regression verdicts. See docs/run-management-api.md."
+  },
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Runs",
+      "description": "Declarative, authenticated run lifecycle."
+    },
+    {
+      "name": "Baselines",
+      "description": "Explicit, authenticated baseline creation and lifecycle administration."
+    }
+  ],
+  "paths": {
+    "/v1/runs": {
+      "post": {
+        "tags": [
+          "Runs"
+        ],
+        "operationId": "createRun",
+        "summary": "Create a run idempotently",
+        "description": "Select approved, versioned catalogue/environment/policy resources. No caller-supplied commands, target URLs or credentials. Idempotency is scoped to authenticated principal and this operation.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Opaque client-generated key. Reuse for retries of the same parsed JSON request; use a new key for a new run.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRun"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Durably accepted run. An idempotent replay returns the original 201 snapshot and headers; GET returns current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Run"
+                    },
+                    {
+                      "properties": {
+                        "state": {
+                          "const": "CREATED"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Location": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^/v1/runs/perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$"
+                },
+                "description": "Relative URI of the accepted run."
+              },
+              "Idempotency-Key-Expires-At": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "description": "UTC expiration, at least 24 hours after original acceptance; unchanged on replay."
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/IdempotencyConflict"
+          },
+          "413": {
+            "description": "Request exceeds the 64 KiB UTF-8 body limit; code BAD_REQUEST.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "const": "BAD_REQUEST"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Only application/json is accepted; code BAD_REQUEST.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "const": "BAD_REQUEST"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/runs/{runId}": {
+      "parameters": [
+        {
+          "name": "runId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/RunId"
+          },
+          "description": "Server-generated run identity."
+        }
+      ],
+      "get": {
+        "tags": [
+          "Runs"
+        ],
+        "operationId": "getRun",
+        "summary": "Read the current run snapshot",
+        "responses": {
+          "200": {
+            "description": "Current consistent snapshot; revision increases on each persisted mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/runs/{runId}/artifacts": {
+      "parameters": [
+        {
+          "name": "runId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/RunId"
+          },
+          "description": "Server-generated run identity."
+        }
+      ],
+      "get": {
+        "tags": [
+          "Runs"
+        ],
+        "operationId": "listRunArtifacts",
+        "summary": "List immutable artifacts visible for a run",
+        "description": "Returns the current principal-scoped artifact-reference snapshot in ascending artifact-ID order. The collection can be empty or partial while the run is active. References are evidence metadata, not object bytes, credentials, signed URLs, lifecycle completion, or analysis verdicts.",
+        "responses": {
+          "200": {
+            "description": "Current artifact-reference snapshot for the visible run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactCollection"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/runs/{runId}/cancel": {
+      "parameters": [
+        {
+          "name": "runId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/RunId"
+          },
+          "description": "Server-generated run identity."
+        }
+      ],
+      "post": {
+        "tags": [
+          "Runs"
+        ],
+        "operationId": "cancelRun",
+        "summary": "Request cancellation without deleting evidence",
+        "description": "No request body. Intrinsically idempotent: active or CANCELLING returns 202; already ABORTED returns 200; any other terminal state returns 409 RUN_TERMINAL. Stop/cleanup is asynchronous; 202 does not mean execution has stopped.",
+        "responses": {
+          "200": {
+            "description": "Already ABORTED; no mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Run"
+                    },
+                    {
+                      "properties": {
+                        "state": {
+                          "const": "ABORTED"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Cancellation durably requested; response state CANCELLING.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Run"
+                    },
+                    {
+                      "properties": {
+                        "state": {
+                          "const": "CANCELLING"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/RunTerminal"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/baselines": {
+      "post": {
+        "tags": [
+          "Baselines"
+        ],
+        "operationId": "createBaseline",
+        "summary": "Create a baseline candidate from completed evidence",
+        "description": "Creates one immutable baseline version in CANDIDATE. The authenticated actor is recorded by the server; it is never accepted from the body. A repeated ID/version returns 409 even when the body is identical; after an uncertain response, read the exact resource.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBaseline"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Baseline candidate created with revision one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Baseline"
+                    },
+                    {
+                      "properties": {
+                        "state": {
+                          "const": "CANDIDATE"
+                        },
+                        "revision": {
+                          "const": 1
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Location": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^/v1/baselines/[a-z][a-z0-9]*(?:-[a-z0-9]+)*/versions/(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+                },
+                "description": "Relative URI of the created baseline version."
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/BaselineExists"
+          },
+          "413": {
+            "$ref": "#/components/responses/RequestTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/baselines/{baselineId}/versions/{version}": {
+      "parameters": [
+        {
+          "name": "baselineId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ResourceId"
+          }
+        },
+        {
+          "name": "version",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Version"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Baselines"
+        ],
+        "operationId": "getBaseline",
+        "summary": "Read one exact baseline version",
+        "responses": {
+          "200": {
+            "description": "Current consistent baseline snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Baseline"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/baselines/{baselineId}/versions/{version}/transitions": {
+      "parameters": [
+        {
+          "name": "baselineId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ResourceId"
+          }
+        },
+        {
+          "name": "version",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Version"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Baselines"
+        ],
+        "operationId": "transitionBaseline",
+        "summary": "Apply one revision-checked baseline lifecycle decision",
+        "description": "The server records the authenticated actor. Clients provide the observed revision, target state, reason and qualification evidence only when the transition requires it. Retrying after an uncertain response starts with GET of this exact version.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BaselineTransition"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transition committed and lifecycle event appended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Baseline"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/BaselineTransitionConflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/RequestTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Opaque credential verified by the server; token issuance is outside this contract. TLS is required outside isolated development."
+      }
+    },
+    "schemas": {
+      "RunId": {
+        "type": "string",
+        "pattern": "^perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$"
+      },
+      "ResourceId": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+      },
+      "Version": {
+        "type": "string",
+        "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+      },
+      "Sha256": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "Timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$"
+      },
+      "Artifact": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "runId",
+          "kind",
+          "uri",
+          "sha256",
+          "sizeBytes",
+          "mediaType",
+          "format"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          },
+          "runId": {
+            "$ref": "#/components/schemas/RunId"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "raw",
+              "normalized"
+            ]
+          },
+          "uri": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^(s3|https)://[^\\s?#]+$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mediaType": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*$"
+          },
+          "format": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9./_-]*$"
+          }
+        }
+      },
+      "ArtifactCollection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifacts"
+        ],
+        "properties": {
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
+            }
+          }
+        }
+      },
+      "Reference": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "sha256"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,62}$"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      },
+      "Candidate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gitSha",
+          "image"
+        ],
+        "properties": {
+          "gitSha": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{40}$"
+          },
+          "image": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*(?::[0-9]+)?(?:/[a-z0-9]+(?:[._-]+[a-z0-9]+)*)+@sha256:[a-f0-9]{64}$"
+          }
+        }
+      },
+      "CreateRun": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "testSuite",
+          "catalogue",
+          "profile",
+          "candidate",
+          "environment",
+          "policy"
+        ],
+        "properties": {
+          "testSuite": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,62}$"
+          },
+          "catalogue": {
+            "$ref": "#/components/schemas/Reference"
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "smoke",
+              "average",
+              "regression",
+              "stress",
+              "capacity",
+              "soak"
+            ]
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/Candidate"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/Reference"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/Reference"
+          }
+        }
+      },
+      "RunState": {
+        "type": "string",
+        "enum": [
+          "CREATED",
+          "VALIDATING",
+          "PROVISIONING",
+          "WARMING_UP",
+          "RUNNING",
+          "COLLECTING",
+          "ANALYZING",
+          "REPORTING",
+          "CANCELLING",
+          "COMPLETED",
+          "INVALID",
+          "ABORTED",
+          "INFRASTRUCTURE_FAILURE",
+          "TEST_FAILURE"
+        ]
+      },
+      "Failure": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "VALIDATION_FAILED",
+              "INFRASTRUCTURE_ERROR",
+              "PIPELINE_TIMEOUT",
+              "TOOL_ERROR",
+              "ANALYSIS_ERROR"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        }
+      },
+      "Run": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "state",
+          "revision",
+          "request",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/RunId"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RunState"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "request": {
+            "$ref": "#/components/schemas/CreateRun"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "toolExitCode": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "failure": {
+            "$ref": "#/components/schemas/Failure"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "state": {
+                  "enum": [
+                    "COMPLETED",
+                    "INVALID",
+                    "ABORTED",
+                    "INFRASTRUCTURE_FAILURE",
+                    "TEST_FAILURE"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "finishedAt"
+              ]
+            },
+            "else": {
+              "not": {
+                "required": [
+                  "finishedAt"
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "state": {
+                  "enum": [
+                    "INVALID",
+                    "INFRASTRUCTURE_FAILURE",
+                    "TEST_FAILURE"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "failure"
+              ]
+            },
+            "else": {
+              "not": {
+                "required": [
+                  "failure"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "BaselineIdentity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "sha256"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          }
+        }
+      },
+      "BaselineSoftware": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gitSha",
+          "image"
+        ],
+        "properties": {
+          "gitSha": {
+            "type": "string",
+            "pattern": "^[A-Fa-f0-9]{40}$"
+          },
+          "image": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._:/-]*@sha256:[a-f0-9]{64}$"
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        }
+      },
+      "BaselineEnvironment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "sha256",
+          "fingerprint"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "fingerprint": {
+            "$ref": "#/components/schemas/Sha256"
+          }
+        }
+      },
+      "BaselineDataset": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "none"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "id",
+              "version",
+              "sha256",
+              "seed"
+            ],
+            "properties": {
+              "kind": {
+                "const": "versioned"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "version": {
+                "$ref": "#/components/schemas/Version"
+              },
+              "sha256": {
+                "$ref": "#/components/schemas/Sha256"
+              },
+              "seed": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        ]
+      },
+      "PendingQualification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "reasons"
+        ],
+        "properties": {
+          "status": {
+            "const": "PENDING"
+          },
+          "reasons": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          }
+        }
+      },
+      "PassedQualification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "reasons",
+          "sampleCount",
+          "maximumCv"
+        ],
+        "properties": {
+          "status": {
+            "const": "PASSED"
+          },
+          "reasons": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          },
+          "sampleCount": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "maximumCv": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "FailedQualification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "reasons"
+        ],
+        "properties": {
+          "status": {
+            "const": "FAILED"
+          },
+          "reasons": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          },
+          "sampleCount": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "maximumCv": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "BaselineQualification": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/PendingQualification"
+          },
+          {
+            "$ref": "#/components/schemas/PassedQualification"
+          },
+          {
+            "$ref": "#/components/schemas/FailedQualification"
+          }
+        ]
+      },
+      "BaselineState": {
+        "type": "string",
+        "enum": [
+          "CANDIDATE",
+          "QUALIFIED",
+          "APPROVED",
+          "RETIRED"
+        ]
+      },
+      "BaselineEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "at",
+          "actor",
+          "reason"
+        ],
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/BaselineState"
+          },
+          "at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "actor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "\\S"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "\\S"
+          }
+        }
+      },
+      "Baseline": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schemaVersion",
+          "kind",
+          "id",
+          "version",
+          "revision",
+          "state",
+          "testId",
+          "sourceRunId",
+          "artifact",
+          "software",
+          "workload",
+          "environment",
+          "dataset",
+          "qualification",
+          "createdAt",
+          "lifecycle"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          },
+          "kind": {
+            "const": "PerformanceBaseline"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "state": {
+            "$ref": "#/components/schemas/BaselineState"
+          },
+          "testId": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "sourceRunId": {
+            "$ref": "#/components/schemas/RunId"
+          },
+          "artifact": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Artifact"
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "normalized"
+                  },
+                  "mediaType": {
+                    "const": "application/json"
+                  },
+                  "format": {
+                    "const": "normalized-result/v1"
+                  }
+                }
+              }
+            ]
+          },
+          "software": {
+            "$ref": "#/components/schemas/BaselineSoftware"
+          },
+          "workload": {
+            "$ref": "#/components/schemas/BaselineIdentity"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/BaselineEnvironment"
+          },
+          "dataset": {
+            "$ref": "#/components/schemas/BaselineDataset"
+          },
+          "qualification": {
+            "$ref": "#/components/schemas/BaselineQualification"
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "lifecycle": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/BaselineEvent"
+            }
+          }
+        }
+      },
+      "CreateBaseline": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "testId",
+          "sourceRunId",
+          "artifact",
+          "software",
+          "workload",
+          "environment",
+          "dataset",
+          "reason"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "testId": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "sourceRunId": {
+            "$ref": "#/components/schemas/RunId"
+          },
+          "artifact": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Artifact"
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "normalized"
+                  },
+                  "mediaType": {
+                    "const": "application/json"
+                  },
+                  "format": {
+                    "const": "normalized-result/v1"
+                  }
+                }
+              }
+            ]
+          },
+          "software": {
+            "$ref": "#/components/schemas/BaselineSoftware"
+          },
+          "workload": {
+            "$ref": "#/components/schemas/BaselineIdentity"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/BaselineEnvironment"
+          },
+          "dataset": {
+            "$ref": "#/components/schemas/BaselineDataset"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "\\S"
+          }
+        }
+      },
+      "BaselineTransition": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "expectedRevision",
+              "state",
+              "qualification",
+              "reason"
+            ],
+            "properties": {
+              "expectedRevision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "state": {
+                "const": "QUALIFIED"
+              },
+              "qualification": {
+                "$ref": "#/components/schemas/PassedQualification"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024,
+                "pattern": "\\S"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "expectedRevision",
+              "state",
+              "reason"
+            ],
+            "properties": {
+              "expectedRevision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "state": {
+                "const": "APPROVED"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024,
+                "pattern": "\\S"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "expectedRevision",
+              "state",
+              "reason"
+            ],
+            "properties": {
+              "expectedRevision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "state": {
+                "const": "RETIRED"
+              },
+              "qualification": {
+                "$ref": "#/components/schemas/FailedQualification"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024,
+                "pattern": "\\S"
+              }
+            }
+          }
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message",
+          "requestId"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "BAD_REQUEST",
+              "UNAUTHENTICATED",
+              "FORBIDDEN",
+              "NOT_FOUND",
+              "IDEMPOTENCY_CONFLICT",
+              "REQUEST_IN_PROGRESS",
+              "RUN_TERMINAL",
+              "BASELINE_EXISTS",
+              "REVISION_CONFLICT",
+              "BASELINE_TRANSITION_CONFLICT",
+              "VALIDATION_FAILED",
+              "RATE_LIMITED",
+              "INTERNAL_ERROR",
+              "UNAVAILABLE"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "details": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "message"
+              ],
+              "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 512,
+                "pattern": "^(?:/(?:[^~]|~[01])*)?$"
+                },
+                "message": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Malformed JSON, duplicate object keys, invalid headers/path, or unsupported request body.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": "BAD_REQUEST"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "Unauthenticated": {
+        "description": "Missing or invalid credentials.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": "UNAUTHENTICATED"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "headers": {
+          "WWW-Authenticate": {
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Bearer authentication challenge."
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Caller lacks permission for the requested operation or selected resources.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": "FORBIDDEN"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource is absent or not visible to this caller.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": "NOT_FOUND"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "ValidationFailed": {
+        "description": "Request schema or synchronous resource validation failed; no mutation was committed.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": "VALIDATION_FAILED"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "RateLimited": {
+        "description": "Rate limited; retry after the indicated delay.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": "RATE_LIMITED"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Retry delay in seconds."
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Unexpected server error; recover an outcome-uncertain mutation using its documented read operation.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": "INTERNAL_ERROR"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "Unavailable": {
+        "description": "Temporarily unavailable; retry after the indicated delay.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": "UNAVAILABLE"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Retry delay in seconds."
+          }
+        }
+      },
+      "IdempotencyConflict": {
+        "description": "Key conflicts with another request or the identical request is still in progress.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "IDEMPOTENCY_CONFLICT",
+                        "REQUEST_IN_PROGRESS"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Required for REQUEST_IN_PROGRESS, absent for a payload conflict."
+          }
+        }
+      },
+      "RequestTooLarge": {
+        "description": "Request exceeds the 64 KiB UTF-8 body limit; code BAD_REQUEST.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": "BAD_REQUEST"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "UnsupportedMediaType": {
+        "description": "Only application/json is accepted; code BAD_REQUEST.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": "BAD_REQUEST"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "BaselineExists": {
+        "description": "The principal already owns this immutable baseline ID and version.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": "BASELINE_EXISTS"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "BaselineTransitionConflict": {
+        "description": "The observed revision is stale or the requested lifecycle edge is not allowed.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "REVISION_CONFLICT",
+                        "BASELINE_TRANSITION_CONFLICT"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "RunTerminal": {
+        "description": "Cancellation lost the race to another terminal state.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": "RUN_TERMINAL"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

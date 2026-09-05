@@ -5,9 +5,12 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // Files contains the reviewed run-management contract snapshot embedded into
@@ -17,13 +20,24 @@ import (
 var Files embed.FS
 
 type schema struct {
-	Ref        string            `json:"$ref"`
-	Type       string            `json:"type"`
-	Pattern    string            `json:"pattern"`
-	Enum       []string          `json:"enum"`
-	Required   []string          `json:"required"`
-	Properties map[string]schema `json:"properties"`
-	pattern    *regexp.Regexp
+	Ref                  string            `json:"$ref"`
+	Type                 string            `json:"type"`
+	Pattern              string            `json:"pattern"`
+	Enum                 []string          `json:"enum"`
+	Const                any               `json:"const"`
+	Required             []string          `json:"required"`
+	Properties           map[string]schema `json:"properties"`
+	AdditionalProperties *bool             `json:"additionalProperties"`
+	AllOf                []schema          `json:"allOf"`
+	OneOf                []schema          `json:"oneOf"`
+	Items                *schema           `json:"items"`
+	MinLength            *int              `json:"minLength"`
+	MaxLength            *int              `json:"maxLength"`
+	Minimum              *float64          `json:"minimum"`
+	Maximum              *float64          `json:"maximum"`
+	MinItems             *int              `json:"minItems"`
+	UniqueItems          bool              `json:"uniqueItems"`
+	pattern              *regexp.Regexp
 }
 
 var schemas map[string]schema
@@ -45,7 +59,10 @@ func init() {
 		}
 	}
 	read("openapi.json", &document)
-	prepared, err := prepareSchemas(document.Components.Schemas)
+	prepared, err := prepareSchemas(
+		document.Components.Schemas,
+		"CreateRun", "RunId", "CreateBaseline", "BaselineTransition", "ResourceId", "Version",
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -53,7 +70,7 @@ func init() {
 	read("transitions.json", &transitions)
 }
 
-func prepareSchemas(source map[string]schema) (map[string]schema, error) {
+func prepareSchemas(source map[string]schema, roots ...string) (map[string]schema, error) {
 	prepared := make(map[string]schema, len(source))
 	for name, definition := range source {
 		compiled, err := compilePatterns(definition)
@@ -63,7 +80,7 @@ func prepareSchemas(source map[string]schema) (map[string]schema, error) {
 		prepared[name] = compiled
 	}
 
-	for _, root := range []string{"CreateRun", "RunId"} {
+	for _, root := range roots {
 		if err := validateSchemaDefinition(root, prepared, make(map[string]bool)); err != nil {
 			return nil, err
 		}
@@ -90,6 +107,27 @@ func compilePatterns(definition schema) (schema, error) {
 		properties[name] = compiled
 	}
 	definition.Properties = properties
+	for index, child := range definition.AllOf {
+		compiled, err := compilePatterns(child)
+		if err != nil {
+			return schema{}, fmt.Errorf("allOf: %w", err)
+		}
+		definition.AllOf[index] = compiled
+	}
+	for index, child := range definition.OneOf {
+		compiled, err := compilePatterns(child)
+		if err != nil {
+			return schema{}, fmt.Errorf("oneOf: %w", err)
+		}
+		definition.OneOf[index] = compiled
+	}
+	if definition.Items != nil {
+		compiled, err := compilePatterns(*definition.Items)
+		if err != nil {
+			return schema{}, fmt.Errorf("items: %w", err)
+		}
+		definition.Items = &compiled
+	}
 
 	return definition, nil
 }
@@ -117,6 +155,16 @@ func validateSupportedSchema(
 	all map[string]schema,
 	visited map[string]bool,
 ) error {
+	for _, child := range append(definition.AllOf, definition.OneOf...) {
+		if err := validateSupportedSchema(child, all, visited); err != nil {
+			return err
+		}
+	}
+	if definition.Items != nil {
+		if err := validateSupportedSchema(*definition.Items, all, visited); err != nil {
+			return fmt.Errorf("items: %w", err)
+		}
+	}
 	if definition.Ref != "" {
 		name, ok := schemaReference(definition.Ref)
 		if !ok {
@@ -127,13 +175,20 @@ func validateSupportedSchema(
 	}
 
 	switch definition.Type {
-	case "object":
+	case "object", "":
+		if definition.Type == "" && len(definition.Properties) == 0 {
+			if definition.Const == nil && len(definition.AllOf) == 0 && len(definition.OneOf) == 0 {
+				return fmt.Errorf("unsupported empty schema")
+			}
+
+			return nil
+		}
 		for name, property := range definition.Properties {
 			if err := validateSupportedSchema(property, all, visited); err != nil {
 				return fmt.Errorf("property %s: %w", name, err)
 			}
 		}
-	case "string":
+	case "string", "integer", "number", "array":
 	default:
 		return fmt.Errorf("unsupported schema type %q", definition.Type)
 	}
@@ -149,11 +204,33 @@ func schemaReference(ref string) (string, bool) {
 }
 
 // ValidateCreate checks a decoded value against the pinned CreateRun schema.
-// It supports only the object/string subset used by CreateRun and is not a
-// general JSON Schema or response validator.
 func ValidateCreate(value any) error { return validate(schemas["CreateRun"], value) }
 
+// ValidateBaselineCreate checks a decoded value against CreateBaseline.
+func ValidateBaselineCreate(value any) error { return validate(schemas["CreateBaseline"], value) }
+
+// ValidateBaselineTransition checks a decoded value against BaselineTransition.
+func ValidateBaselineTransition(value any) error {
+	return validate(schemas["BaselineTransition"], value)
+}
+
 func validate(s schema, value any) error {
+	for _, child := range s.AllOf {
+		if err := validate(child, value); err != nil {
+			return err
+		}
+	}
+	if len(s.OneOf) > 0 {
+		matches := 0
+		for _, child := range s.OneOf {
+			if validate(child, value) == nil {
+				matches++
+			}
+		}
+		if matches != 1 {
+			return fmt.Errorf("expected exactly one matching schema")
+		}
+	}
 	if s.Ref != "" {
 		name, ok := schemaReference(s.Ref)
 		if !ok {
@@ -166,8 +243,14 @@ func validate(s schema, value any) error {
 
 		return validate(resolved, value)
 	}
+	if s.Const != nil && fmt.Sprint(value) != fmt.Sprint(s.Const) {
+		return fmt.Errorf("invalid value")
+	}
 	switch s.Type {
-	case "object":
+	case "object", "":
+		if s.Type == "" && len(s.Properties) == 0 {
+			return nil
+		}
 		object, ok := value.(map[string]any)
 		if !ok {
 			return fmt.Errorf("expected object")
@@ -180,7 +263,10 @@ func validate(s schema, value any) error {
 		for key, child := range object {
 			property, ok := s.Properties[key]
 			if !ok {
-				return fmt.Errorf("unknown property")
+				if s.AdditionalProperties != nil && !*s.AdditionalProperties {
+					return fmt.Errorf("unknown property")
+				}
+				continue
 			}
 			if err := validate(property, child); err != nil {
 				return err
@@ -197,6 +283,52 @@ func validate(s schema, value any) error {
 		if len(s.Enum) > 0 && !slices.Contains(s.Enum, str) {
 			return fmt.Errorf("invalid value")
 		}
+		length := utf8.RuneCountInString(str)
+		if s.MinLength != nil && length < *s.MinLength || s.MaxLength != nil && length > *s.MaxLength {
+			return fmt.Errorf("invalid string length")
+		}
+	case "integer":
+		number, ok := value.(json.Number)
+		if !ok {
+			return fmt.Errorf("expected integer")
+		}
+		integer, err := number.Int64()
+		if err != nil || !withinBounds(float64(integer), s) {
+			return fmt.Errorf("invalid integer")
+		}
+	case "number":
+		number, ok := value.(json.Number)
+		if !ok {
+			return fmt.Errorf("expected number")
+		}
+		decimal, err := strconv.ParseFloat(string(number), 64)
+		if err != nil || math.IsInf(decimal, 0) || math.IsNaN(decimal) || !withinBounds(decimal, s) {
+			return fmt.Errorf("invalid number")
+		}
+	case "array":
+		array, ok := value.([]any)
+		if !ok {
+			return fmt.Errorf("expected array")
+		}
+		if s.MinItems != nil && len(array) < *s.MinItems {
+			return fmt.Errorf("too few items")
+		}
+		seen := make(map[string]struct{}, len(array))
+		for _, item := range array {
+			if s.Items != nil {
+				if err := validate(*s.Items, item); err != nil {
+					return err
+				}
+			}
+			if s.UniqueItems {
+				encoded, _ := json.Marshal(item)
+				key := string(encoded)
+				if _, exists := seen[key]; exists {
+					return fmt.Errorf("duplicate item")
+				}
+				seen[key] = struct{}{}
+			}
+		}
 	default:
 		return fmt.Errorf("unsupported schema type")
 	}
@@ -204,8 +336,19 @@ func validate(s schema, value any) error {
 	return nil
 }
 
+func withinBounds(value float64, s schema) bool {
+	return (s.Minimum == nil || value >= *s.Minimum) &&
+		(s.Maximum == nil || value <= *s.Maximum)
+}
+
 // ValidID reports whether id has the pinned Run identifier syntax.
 func ValidID(id string) bool { return schemas["RunId"].pattern.MatchString(id) }
+
+// ValidResourceID reports whether id has the pinned resource identifier syntax.
+func ValidResourceID(id string) bool { return schemas["ResourceId"].pattern.MatchString(id) }
+
+// ValidVersion reports whether version has the pinned baseline version syntax.
+func ValidVersion(version string) bool { return schemas["Version"].pattern.MatchString(version) }
 
 // CanTransition reports whether the pinned lifecycle permits the directed edge.
 func CanTransition(from, to string) bool { return slices.Contains(transitions[from], to) }

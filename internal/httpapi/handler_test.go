@@ -36,13 +36,19 @@ func setup(t *testing.T) (*Handler, *memory.Repository) {
 	h, err := New(repo, func(_ context.Context, token string) (Identity, error) {
 		switch token {
 		case "alice-token", "rotated-token":
-			return Identity{"alice", true, true, true}, nil
+			return Identity{
+				Principal: "alice", CreateRun: true, ReadRun: true, CancelRun: true,
+				CreateBaseline: true, ReadBaseline: true, TransitionBaseline: true,
+			}, nil
 		case "bob-token":
-			return Identity{"bob", true, true, true}, nil
+			return Identity{
+				Principal: "bob", CreateRun: true, ReadRun: true, CancelRun: true,
+				CreateBaseline: true, ReadBaseline: true, TransitionBaseline: true,
+			}, nil
 		case "read-only":
-			return Identity{"alice", false, true, false}, nil
+			return Identity{Principal: "alice", ReadRun: true, ReadBaseline: true}, nil
 		case "create-only":
-			return Identity{"alice", true, false, false}, nil
+			return Identity{Principal: "alice", CreateRun: true}, nil
 		case "unavailable":
 			return Identity{}, run.ErrUnavailable
 		default:

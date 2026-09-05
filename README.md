@@ -245,16 +245,17 @@ discovery and the real approval policy remain deployment-specific adapters.
 ## Contract provenance
 
 The [snapshot lock](internal/contract/snapshot/lock.json) pins perfeng-contracts
-commit `82baa78c9a08851431688f647e69a09d66da42f1`, candidate bundle 0.6.0,
-API 0.2.0. The OpenAPI document, transitions, create fixture and artifact-list
-fixture were mechanically compacted as JSON with LF final newlines; lock hashes
-cover these local bytes.
+commit `305402970f286c5f84c8d2577e9f1ab3292c4b9c`, candidate bundle 0.8.0,
+API 0.3.0. The OpenAPI document, transitions, run fixtures and baseline request
+fixtures are copied byte-for-byte from that commit; lock hashes cover these
+local bytes.
 Tests verify checksums. There is no sibling-checkout or network dependency at
 build/test/runtime. Imported contract content is Apache-2.0, as in this repository.
 
 Review contract updates explicitly, regenerate the snapshot and checksums, and
-rerun tests. The request validator implements only the object/string/reference
-subset used by CreateRun, not arbitrary JSON Schema or full response validation.
+rerun tests. The request validator implements only the schema features reached
+by CreateRun, CreateBaseline and BaselineTransition, not arbitrary JSON Schema
+or full response validation.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.
@@ -267,7 +268,8 @@ The [baseline domain](docs/baseline-lifecycle.md) represents one immutable
 baseline version, its qualification evidence and its append-only review history.
 PostgreSQL persists these records, serializes lifecycle decisions and resolves
 only an explicitly pinned approved version whose trusted comparison dimensions
-match. Administrative HTTP operations remain separate follow-up work.
+match. The authenticated HTTP boundary creates candidates, reads exact versions
+and applies revision-checked qualification, approval and retirement decisions.
 
 Relevant Go references: [HTTP server handlers](https://pkg.go.dev/net/http),
 [JSON decoding behavior](https://pkg.go.dev/encoding/json), and

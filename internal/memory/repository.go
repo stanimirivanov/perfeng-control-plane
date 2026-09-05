@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
@@ -17,6 +18,7 @@ type ownedRun struct {
 	run       run.Run
 }
 type bindingKey struct{ principal, key string }
+type baselineKey struct{ principal, id, version string }
 
 // Repository is a concurrency-safe process-local implementation of run.Repository.
 // It is intended only for bounded tests and development because it is not durable.
@@ -26,9 +28,11 @@ type Repository struct {
 	runs      map[string]ownedRun
 	bindings  map[bindingKey]run.Accepted
 	artifacts map[string]run.Artifact
+	baselines map[baselineKey]baseline.Record
 }
 
 var _ run.Repository = (*Repository)(nil)
+var _ baseline.Repository = (*Repository)(nil)
 
 // New accepts an injectable clock. The adapter retains runs for its entire
 // lifetime and loses all state on restart; use only bounded development/tests.
@@ -42,6 +46,7 @@ func New(now func() time.Time) *Repository {
 		runs:      make(map[string]ownedRun),
 		bindings:  make(map[bindingKey]run.Accepted),
 		artifacts: make(map[string]run.Artifact),
+		baselines: make(map[baselineKey]baseline.Record),
 	}
 }
 
