@@ -38,17 +38,18 @@ coordination, not load generation or statistical decisions.
 - Composable verification of report output bytes, candidate binding and approval.
 - Exact per-rule report binding to run-pinned policy bytes, authorized producer and approved baselines.
 - Strict performance-policy parsing and independent report-verdict verification.
+- Principal-scoped immutable report-policy registry for exact runtime trust resolution.
 - Versioned baseline candidates with revision-checked qualification, approval and retirement.
 - Principal-scoped PostgreSQL baseline storage backed by completed, registered evidence.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
 administrative `cmd/migrate` command applies database migrations. Reconciliation
-stages are not wired into a process. Trusted resource/template resolvers,
-concrete publication/provenance adapters and concrete reporting execution are
-still missing, so no
-worker executes Jobs from accepted requests. Tests use synthetic contract
-fixtures, not approved deployable resources.
+stages are not wired into a process. Catalogue, environment and execution-template
+resolvers, concrete publication/provenance adapters, registry population and
+concrete reporting execution are still missing, so no worker executes Jobs from
+accepted requests. Tests use synthetic contract fixtures, not approved deployable
+resources.
 
 The in-memory adapter loses runs and idempotency bindings on restart. It cannot
 meet the API's production durability guarantees for 201/202 responses. Do not
@@ -106,6 +107,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/normalizedresult | Untrusted normalized-result parsing and consistency validation |
 | internal/analysisresult | Untrusted analysis-result parsing and consistency validation |
 | internal/policy | Approved performance-policy parsing and report-verdict verification |
+| internal/registry | Immutable startup resolution of principal-scoped runtime trust |
 | internal/rawresult | Untrusted raw-result manifest parsing and structural validation |
 | internal/baseline | Baseline identity, evidence and forward-only approval lifecycle |
 | internal/worker | Bounded claim scheduling, lease renewal and attempt cancellation |
@@ -207,9 +209,9 @@ Run fail. `KubernetesReportExecutor` resolves an approved report template,
 creates or adopts the Run's deterministic `-report` Job, maps its
 identity-checked phase, and delegates successful output to a separate byte
 attestor. `Router` advances CREATED and selects every active stage. Real approved
-resource/template resolvers, raw-manifest publication/provenance adapters,
-report-output resolution and attestation, unbound-cancellation recovery, and
-production composition are still missing.
+catalogue, environment and execution-template resolvers, raw-manifest
+publication/provenance adapters, report-output resolution and attestation,
+unbound-cancellation recovery, and production composition are still missing.
 The `reconcile` policy defines that connection's state decisions independently
 of I/O: pending Jobs wait, running Jobs enter RUNNING, terminal Jobs enter
 COLLECTING, and unexpected disappearance/deletion is infrastructure failure.

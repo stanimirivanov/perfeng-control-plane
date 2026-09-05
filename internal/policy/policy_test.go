@@ -280,9 +280,6 @@ func TestVerdictApproverRejectsContradictoryClaims(t *testing.T) {
 		name   string
 		mutate func(*analysisresult.Manifest)
 	}{
-		{name: "test", mutate: func(manifest *analysisresult.Manifest) {
-			manifest.TestID = "other-test"
-		}},
 		{name: "policy", mutate: func(manifest *analysisresult.Manifest) {
 			manifest.Policy.Mode = "observe"
 		}},
@@ -323,6 +320,17 @@ func TestVerdictApproverRejectsContradictoryClaims(t *testing.T) {
 				t.Fatalf("error = %v", err)
 			}
 		})
+	}
+}
+
+func TestVerdictApproverDoesNotInferTestIdentityFromPolicyName(t *testing.T) {
+	policyBytes := policyFixture(t)
+	manifest := reportFixture(t, policyBytes)
+	manifest.TestID = "other-test"
+	if err := (VerdictApprover{}).ApproveReportVerdicts(
+		context.Background(), policyBytes, reportBaselineResolutions(manifest), manifest,
+	); err != nil {
+		t.Fatal(err)
 	}
 }
 

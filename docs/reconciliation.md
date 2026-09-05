@@ -309,8 +309,15 @@ trusting the producer's reported effect. Unconfigured sections must be
 `NOT_EVALUATED`; a configured regression without approved baseline evidence
 must be `INCONCLUSIVE`.
 
-Concrete policy-registry resolution, report-template resolution,
-output-publication resolution and production composition remain separate work.
+`registry.ReportPolicyRegistry` provides a concrete in-process
+`ReportTrustResolver`. It matches principal, test, catalogue, profile,
+environment and policy references exactly, then returns isolated policy bytes,
+the approved report producer and policy-derived baseline selections. Test and
+policy identities remain distinct. Entries are validated and copied at startup;
+request-time fallback or latest-version selection is not supported.
+
+Registry population and refresh, report-template resolution, output-publication
+resolution and production composition remain separate work.
 
 ## Provisioning reconciliation
 

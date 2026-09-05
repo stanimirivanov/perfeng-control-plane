@@ -104,7 +104,7 @@ func newReportApprovalFixture(t *testing.T) reportApprovalFixture {
 	policyBytes := []byte(`{
 		"apiVersion":"performance.perfeng.io/v1",
 		"kind":"PerformancePolicy",
-		"metadata":{"name":"checkout-api","version":"1.0.0","owner":"checkout-team"},
+		"metadata":{"name":"checkout-policy","version":"1.0.0","owner":"checkout-team"},
 		"spec":{"mode":"inform","missingData":"inconclusive","rules":[{
 			"id":"checkout-latency",
 			"metric":{"name":"api.http.duration","statistic":"p95","unit":"ms"},
@@ -115,7 +115,7 @@ func newReportApprovalFixture(t *testing.T) reportApprovalFixture {
 	`)
 	digest := sha256.Sum256(policyBytes)
 	current.Request.Policy = run.Reference{
-		ID: "checkout-api", Version: "1.0.0", SHA256: hex.EncodeToString(digest[:]),
+		ID: "checkout-policy", Version: "1.0.0", SHA256: hex.EncodeToString(digest[:]),
 	}
 	manifest.Policy = analysisresult.Policy{
 		ID: current.Request.Policy.ID, Version: current.Request.Policy.Version,

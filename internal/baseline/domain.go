@@ -233,7 +233,7 @@ func (record Record) Validate() error {
 		record.Revision > maximumRevision ||
 		!rawresult.ValidResourceID(record.TestID) || !contract.ValidID(record.SourceRunID) ||
 		!validArtifact(record.Artifact, record.SourceRunID) || !record.Software.valid() ||
-		record.Workload.Validate() != nil || !record.Environment.valid() ||
+		record.Workload.Validate() != nil || record.Environment.Validate() != nil ||
 		record.Dataset.Validate() != nil || record.Qualification.Validate() != nil ||
 		!validTimestamp(record.CreatedAt) || len(record.Lifecycle) == 0 ||
 		record.Revision != int64(len(record.Lifecycle)) {
@@ -289,7 +289,7 @@ func (selection Selection) Validate() error {
 	if !rawresult.ValidResourceID(selection.ID) ||
 		!rawresult.ValidContractsVersion(selection.Version) ||
 		!rawresult.ValidResourceID(selection.TestID) ||
-		selection.Workload.Validate() != nil || !selection.Environment.valid() ||
+		selection.Workload.Validate() != nil || selection.Environment.Validate() != nil ||
 		selection.Dataset.Validate() != nil {
 		return run.ErrValidation
 	}
@@ -387,8 +387,13 @@ func (software Software) valid() bool {
 		(software.Version == "" || validText(software.Version))
 }
 
-func (environment Environment) valid() bool {
-	return environment.Identity.Validate() == nil && fingerprint.MatchString(environment.Fingerprint)
+// Validate checks the pinned definition identity and observed fingerprint.
+func (environment Environment) Validate() error {
+	if environment.Identity.Validate() != nil || !fingerprint.MatchString(environment.Fingerprint) {
+		return run.ErrValidation
+	}
+
+	return nil
 }
 
 func validArtifact(artifact run.Artifact, sourceRunID string) bool {
