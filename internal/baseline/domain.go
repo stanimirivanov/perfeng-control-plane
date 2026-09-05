@@ -131,6 +131,17 @@ type Change struct {
 	Reason        string
 }
 
+// Selection pins one policy reference and the trusted compatibility dimensions
+// of the candidate evidence. It never implies a latest-version lookup.
+type Selection struct {
+	ID          string
+	Version     string
+	TestID      string
+	Workload    rawresult.Identity
+	Environment Environment
+	Dataset     Dataset
+}
+
 // New creates revision one in CANDIDATE with pending qualification.
 func New(input Create, now time.Time) (Record, error) {
 	record := Record{
@@ -263,6 +274,29 @@ func (record Record) Clone() Record {
 	return record
 }
 
+// MatchesSelection reports whether an approved Record is the exact policy-selected
+// version and is compatible with the candidate evidence dimensions.
+func (record Record) MatchesSelection(selection Selection) bool {
+	return record.Validate() == nil && selection.Validate() == nil &&
+		record.State == StateApproved && record.ID == selection.ID &&
+		record.Version == selection.Version && record.TestID == selection.TestID &&
+		record.Workload == selection.Workload && record.Environment == selection.Environment &&
+		record.Dataset.equal(selection.Dataset)
+}
+
+// Validate checks the pinned identity and every required compatibility dimension.
+func (selection Selection) Validate() error {
+	if !rawresult.ValidResourceID(selection.ID) ||
+		!rawresult.ValidContractsVersion(selection.Version) ||
+		!rawresult.ValidResourceID(selection.TestID) ||
+		selection.Workload.Validate() != nil || !selection.Environment.valid() ||
+		selection.Dataset.Validate() != nil {
+		return run.ErrValidation
+	}
+
+	return nil
+}
+
 // Validate checks qualification status, reasons and observed evidence.
 func (qualification Qualification) Validate() error {
 	switch qualification.Status {
@@ -334,6 +368,18 @@ func (dataset Dataset) Validate() error {
 	}
 
 	return nil
+}
+
+func (dataset Dataset) equal(other Dataset) bool {
+	if dataset.Kind != other.Kind || dataset.ID != other.ID ||
+		dataset.Version != other.Version || dataset.SHA256 != other.SHA256 {
+		return false
+	}
+	if dataset.Seed == nil || other.Seed == nil {
+		return dataset.Seed == nil && other.Seed == nil
+	}
+
+	return *dataset.Seed == *other.Seed
 }
 
 func (software Software) valid() bool {

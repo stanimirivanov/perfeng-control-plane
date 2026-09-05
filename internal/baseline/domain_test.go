@@ -2,6 +2,7 @@ package baseline
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -205,6 +206,63 @@ func TestCloneDoesNotShareMutableEvidence(t *testing.T) {
 	}
 }
 
+func TestMatchesRequiresApprovalAndExactCompatibility(t *testing.T) {
+	t.Parallel()
+
+	record := mustNew(t)
+	selection := selectionFor(record)
+	if record.MatchesSelection(selection) {
+		t.Fatal("candidate matched an approved-baseline selection")
+	}
+
+	sampleCount := int64(5)
+	maximumCV := 0.04
+	qualified, err := record.Transition(record.Revision, Change{
+		State: StateQualified,
+		Qualification: &Qualification{
+			Status: QualificationPassed, Reasons: []string{},
+			SampleCount: &sampleCount, MaximumCV: &maximumCV,
+		},
+		Actor: "reviewer", Reason: "Evidence met the qualification policy.",
+	}, record.CreatedAt.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	approved, err := qualified.Transition(qualified.Revision, Change{
+		State: StateApproved, Actor: "approver", Reason: "Approved for comparison.",
+	}, qualified.CreatedAt.Add(2*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !approved.MatchesSelection(selection) {
+		t.Fatal("approved record did not match its exact compatibility dimensions")
+	}
+
+	tests := []struct {
+		name   string
+		mutate func(*Selection)
+	}{
+		{name: "baseline id", mutate: func(value *Selection) { value.ID = "other-baseline" }},
+		{name: "version", mutate: func(value *Selection) { value.Version = "2.0.1" }},
+		{name: "test", mutate: func(value *Selection) { value.TestID = "other-test" }},
+		{name: "workload", mutate: func(value *Selection) { value.Workload.Version = "1.0.1" }},
+		{name: "environment", mutate: func(value *Selection) { value.Environment.Fingerprint = strings.Repeat("a", 64) }},
+		{name: "dataset", mutate: func(value *Selection) { seed := int64(8); value.Dataset.Seed = &seed }},
+		{name: "invalid", mutate: func(value *Selection) { value.Version = "latest" }},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			changed := selection
+			test.mutate(&changed)
+			if approved.MatchesSelection(changed) {
+				t.Fatal("approved record matched changed selection")
+			}
+		})
+	}
+}
+
 func mustNew(t *testing.T) Record {
 	t.Helper()
 	record, err := New(validCreate(), time.Date(2026, 9, 4, 13, 5, 0, 0, time.UTC))
@@ -250,5 +308,12 @@ func validCreate() Create {
 			Seed:   &seed,
 		},
 		Actor: "perfeng-control-plane", Reason: "Created from selected normalized evidence.",
+	}
+}
+
+func selectionFor(record Record) Selection {
+	return Selection{
+		ID: record.ID, Version: record.Version, TestID: record.TestID,
+		Workload: record.Workload, Environment: record.Environment, Dataset: cloneDataset(record.Dataset),
 	}
 }

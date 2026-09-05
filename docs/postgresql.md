@@ -110,10 +110,13 @@ append-only lifecycle history commit in one update. Concurrent decisions from
 the same observed revision cannot both commit. `GetBaseline` uses the same
 principal visibility boundary as Run reads.
 
-This storage interface does not list or automatically select approved records.
-It cannot promote the latest successful Run and therefore does not introduce
-baseline drift. Approved-baseline resolution and HTTP administration are later
-interfaces with their own authorization rules.
+`ResolveApprovedBaseline` selects only a caller-supplied ID and semantic version
+that is currently `APPROVED`, then verifies the complete trusted test, workload,
+environment and dataset compatibility dimensions against the decoded snapshot.
+Missing, cross-principal, unapproved, retired and incompatible records all return
+an empty result. The storage interface does not list versions or promote the
+latest successful Run, so it cannot introduce baseline drift. HTTP administration
+remains a later interface with its own authorization rules.
 
 ## Prototype migration boundary
 

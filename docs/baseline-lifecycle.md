@@ -40,6 +40,12 @@ new version.
 Lifecycle mutations lock the current baseline row, read the database clock and
 apply the expected revision before updating the relational revision, state and
 JSON snapshot together. Database constraints also bind the snapshot to its
-principal-owned source Run and registered artifact. Selection of an approved,
-environment-compatible baseline and administrative HTTP authorization remain
-future boundaries.
+principal-owned source Run and registered artifact.
+
+`ResolveApprovedBaseline` reads only the policy-pinned ID and version. It returns
+a match only while that exact record is `APPROVED` and its test, workload,
+environment definition and fingerprint, and dataset all match trusted candidate
+dimensions. Missing, cross-principal, unapproved, retired and incompatible
+records share the same empty result, so resolution neither leaks lifecycle state
+nor invents a comparison anchor. There is no latest-version lookup or automatic
+promotion. Administrative HTTP authorization remains a future boundary.

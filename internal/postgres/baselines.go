@@ -149,6 +149,43 @@ func (r *Repository) GetBaseline(
 	return decodeBaseline(snapshot)
 }
 
+// ResolveApprovedBaseline reads only the pinned principal-owned version and
+// returns no match unless its current snapshot satisfies every compatibility dimension.
+func (r *Repository) ResolveApprovedBaseline(
+	ctx context.Context,
+	principal string,
+	selection baseline.Selection,
+) (baseline.Record, bool, error) {
+	if principal == "" || selection.Validate() != nil {
+		return baseline.Record{}, false, run.ErrValidation
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, operationTimeout)
+	defer cancel()
+
+	var snapshot []byte
+	err := r.db.QueryRowContext(ctx, `
+		SELECT snapshot FROM perfeng_control.baselines
+		WHERE principal=$1 AND baseline_id=$2 AND version=$3 AND state=$4`,
+		principal, selection.ID, selection.Version, baseline.StateApproved).Scan(&snapshot)
+	if errors.Is(err, sql.ErrNoRows) {
+		return baseline.Record{}, false, nil
+	}
+	if err != nil {
+		return baseline.Record{}, false, storageError(err)
+	}
+
+	record, err := decodeBaseline(snapshot)
+	if err != nil {
+		return baseline.Record{}, false, err
+	}
+	if !record.MatchesSelection(selection) {
+		return baseline.Record{}, false, nil
+	}
+
+	return record.Clone(), true, nil
+}
+
 // lockedBaseline locks one principal-owned baseline version until tx ends and
 // returns its validated current snapshot.
 func lockedBaseline(
