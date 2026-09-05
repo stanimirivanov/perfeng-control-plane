@@ -1,6 +1,7 @@
 package contract
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -21,8 +22,8 @@ func TestPinnedSnapshot(t *testing.T) {
 	if err := json.Unmarshal(b, &lock); err != nil {
 		t.Fatal(err)
 	}
-	if lock.Commit != "82baa78c9a08851431688f647e69a09d66da42f1" ||
-		lock.BundleVersion != "0.6.0" || lock.APIVersion != "0.2.0" || len(lock.SHA256) != 4 {
+	if lock.Commit != "305402970f286c5f84c8d2577e9f1ab3292c4b9c" ||
+		lock.BundleVersion != "0.8.0" || lock.APIVersion != "0.3.0" || len(lock.SHA256) != 6 {
 		t.Fatal("unexpected contract provenance")
 	}
 	for name, expected := range lock.SHA256 {
@@ -33,6 +34,34 @@ func TestPinnedSnapshot(t *testing.T) {
 		actual := sha256.Sum256(b)
 		if hex.EncodeToString(actual[:]) != expected {
 			t.Fatalf("snapshot checksum mismatch: %s", name)
+		}
+	}
+}
+
+func TestBaselineFixturesAndStrictSchemas(t *testing.T) {
+	for _, test := range []struct {
+		fixture  string
+		validate func(any) error
+	}{
+		{"baseline-create.json", ValidateBaselineCreate},
+		{"baseline-transition.json", ValidateBaselineTransition},
+	} {
+		b, err := Files.ReadFile("snapshot/examples/" + test.fixture)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var value map[string]any
+		decoder := json.NewDecoder(bytes.NewReader(b))
+		decoder.UseNumber()
+		if err := decoder.Decode(&value); err != nil {
+			t.Fatal(err)
+		}
+		if err := test.validate(value); err != nil {
+			t.Fatalf("%s: %v", test.fixture, err)
+		}
+		value["actor"] = "caller-controlled"
+		if test.validate(value) == nil {
+			t.Fatalf("%s accepted an unknown actor", test.fixture)
 		}
 	}
 }
@@ -85,7 +114,7 @@ func TestPrepareSchemas(t *testing.T) {
 		"Name":  {Type: "string", Pattern: "^[a-z]+$"},
 	}
 
-	prepared, err := prepareSchemas(valid)
+	prepared, err := prepareSchemas(valid, "CreateRun", "RunId")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,12 +134,12 @@ func TestPrepareSchemas(t *testing.T) {
 			"RunId":     valid["RunId"],
 		},
 		"unsupported-request-schema": {
-			"CreateRun": {Type: "array"},
+			"CreateRun": {Type: "boolean"},
 			"RunId":     valid["RunId"],
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := prepareSchemas(definitions); err == nil {
+			if _, err := prepareSchemas(definitions, "CreateRun", "RunId"); err == nil {
 				t.Fatal("invalid validation schema accepted")
 			}
 		})

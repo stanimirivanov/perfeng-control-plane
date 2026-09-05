@@ -1,4 +1,4 @@
-// Package httpapi implements the candidate run-management HTTP boundary.
+// Package httpapi implements the candidate run and baseline management HTTP boundary.
 package httpapi
 
 import (
@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
@@ -22,8 +23,13 @@ const MaxBodyBytes = 65536
 
 // Identity must come from verified credentials, never request body/token bytes.
 type Identity struct {
-	Principal            string
-	Create, Read, Cancel bool
+	Principal          string
+	CreateRun          bool
+	ReadRun            bool
+	CancelRun          bool
+	CreateBaseline     bool
+	ReadBaseline       bool
+	TransitionBaseline bool
 }
 
 // Authenticate verifies an opaque bearer token and returns stable identity and
@@ -40,11 +46,12 @@ type Approve func(context.Context, string, run.Request) error
 // the HTTP API together with run mutation operations.
 type Repository interface {
 	run.Repository
+	baseline.Repository
 	// ListArtifacts follows run.ArtifactRepository visibility and ordering rules.
 	ListArtifacts(context.Context, string, string) ([]run.Artifact, error)
 }
 
-// Handler serves the authenticated run-management HTTP contract.
+// Handler serves the authenticated run and baseline management HTTP contract.
 type Handler struct {
 	repository   Repository
 	authenticate Authenticate
@@ -136,11 +143,25 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	path := r.URL.Path
 	if path == "/v1/runs" && r.Method == http.MethodPost {
-		if !identity.Create {
+		if !identity.CreateRun {
 			fail(w, 403, "FORBIDDEN")
 			return
 		}
 		h.create(w, r, identity.Principal)
+
+		return
+	}
+	if path == "/v1/baselines" && r.Method == http.MethodPost {
+		if !identity.CreateBaseline {
+			fail(w, 403, "FORBIDDEN")
+			return
+		}
+		h.createBaseline(w, r, identity.Principal)
+
+		return
+	}
+	if strings.HasPrefix(path, "/v1/baselines/") {
+		h.serveBaseline(w, r, identity, path)
 
 		return
 	}
@@ -165,7 +186,7 @@ func (h *Handler) serveRun(
 		fail(w, 404, "NOT_FOUND")
 		return
 	}
-	if ((isGet || isArtifactList) && !identity.Read) || (isCancel && !identity.Cancel) {
+	if ((isGet || isArtifactList) && !identity.ReadRun) || (isCancel && !identity.CancelRun) {
 		fail(w, 403, "FORBIDDEN")
 		return
 	}
@@ -227,34 +248,8 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request, principal strin
 		fail(w, 400, "BAD_REQUEST")
 		return
 	}
-	types := r.Header.Values("Content-Type")
-	if len(types) != 1 {
-		fail(w, 415, "BAD_REQUEST")
-		return
-	}
-	media, parameters, err := mime.ParseMediaType(types[0])
-	if err != nil || media != "application/json" || (parameters["charset"] != "" && !strings.EqualFold(parameters["charset"], "utf-8")) {
-		fail(w, 415, "BAD_REQUEST")
-		return
-	}
-	encodings := r.Header.Values("Content-Encoding")
-	if len(encodings) > 1 || (len(encodings) == 1 && encodings[0] != "" && encodings[0] != "identity") {
-		fail(w, 415, "BAD_REQUEST")
-		return
-	}
-	b, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxBodyBytes))
-	var tooLarge *http.MaxBytesError
-	if errors.As(err, &tooLarge) {
-		fail(w, 413, "BAD_REQUEST")
-		return
-	}
-	if err != nil {
-		fail(w, 400, "BAD_REQUEST")
-		return
-	}
-	value, err := parseJSON(b)
-	if err != nil {
-		fail(w, 400, "BAD_REQUEST")
+	b, value, ok := readJSONBody(w, r)
+	if !ok {
 		return
 	}
 	if contract.ValidateCreate(value) != nil {
@@ -278,4 +273,41 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request, principal strin
 	w.Header().Set("Location", "/v1/runs/"+accepted.Run.ID)
 	w.Header().Set("Idempotency-Key-Expires-At", accepted.ExpiresAt.Format(time.RFC3339Nano))
 	writeJSON(w, 201, accepted.Run)
+}
+
+func readJSONBody(w http.ResponseWriter, r *http.Request) ([]byte, any, bool) {
+	types := r.Header.Values("Content-Type")
+	if len(types) != 1 {
+		fail(w, 415, "BAD_REQUEST")
+		return nil, nil, false
+	}
+	media, parameters, err := mime.ParseMediaType(types[0])
+	if err != nil || media != "application/json" ||
+		(parameters["charset"] != "" && !strings.EqualFold(parameters["charset"], "utf-8")) {
+		fail(w, 415, "BAD_REQUEST")
+		return nil, nil, false
+	}
+	encodings := r.Header.Values("Content-Encoding")
+	if len(encodings) > 1 ||
+		(len(encodings) == 1 && encodings[0] != "" && encodings[0] != "identity") {
+		fail(w, 415, "BAD_REQUEST")
+		return nil, nil, false
+	}
+	b, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxBodyBytes))
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		fail(w, 413, "BAD_REQUEST")
+		return nil, nil, false
+	}
+	if err != nil {
+		fail(w, 400, "BAD_REQUEST")
+		return nil, nil, false
+	}
+	value, err := parseJSON(b)
+	if err != nil {
+		fail(w, 400, "BAD_REQUEST")
+		return nil, nil, false
+	}
+
+	return b, value, true
 }

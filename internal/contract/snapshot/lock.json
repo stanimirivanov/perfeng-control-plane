@@ -1,13 +1,15 @@
 {
   "repository": "https://github.com/stanimirivanov/perfeng-contracts",
-  "commit": "82baa78c9a08851431688f647e69a09d66da42f1",
-  "bundleVersion": "0.6.0",
-  "apiVersion": "0.2.0",
-  "transformation": "JSON whitespace compacted; LF final newline. Hashes cover local snapshot bytes.",
+  "commit": "305402970f286c5f84c8d2577e9f1ab3292c4b9c",
+  "bundleVersion": "0.8.0",
+  "apiVersion": "0.3.0",
+  "transformation": "Files copied byte-for-byte from the reviewed contract commit. Hashes cover local snapshot bytes.",
   "sha256": {
-    "openapi.json": "0568c6cded49fffe78a1d5adf36be15ae8e0f2e3195e7f40b50ce5b078718f50",
-    "transitions.json": "66678c5be79b0e19446e8ae9d0047d43c3bab4981f9f75b9effa932dfed3ed5f",
-    "examples/create.json": "302c78fcd1ca535e53d4edd271bc39c71d7f69fd016df7ebea77d26d186e16d0",
-    "examples/artifacts.json": "0db3692246e7543589385cef3a0b8b46d8de2ffd101a63634294a295e1174824"
+    "openapi.json": "56697144a711c8a86edf0c1e5fbbf63007c96eaf2754b49690b3ea3a74750771",
+    "transitions.json": "2ad0067f40cb4ae686dd24a23e381eff00362ce63c3bcd2151353f6cc5e291a6",
+    "examples/create.json": "7aabe0afac9987cc48426a0831d16fd12e61796bb64c85f9d203758408329bc3",
+    "examples/artifacts.json": "707a03a22f235ee016f43c7760d7edb2fa07d679ac455e7036bd4606c8646417",
+    "examples/baseline-create.json": "c96b064ad3146e26b6c3f131712279492a110ac7a8307016967b6b5e4249f621",
+    "examples/baseline-transition.json": "a539e397ec34e23870052586362e9425b362049171761ec95596d257b9cedf3f"
   }
 }
