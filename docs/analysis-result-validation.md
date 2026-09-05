@@ -38,7 +38,8 @@ the baseline repository and requires the report's reference artifacts to match
 the resulting approved evidence exactly. Verdict validation remains a separate
 injected boundary. `policy.VerdictApprover` is the concrete implementation: it
 strictly parses the approved policy, requires exact rule and selector coverage,
-checks quality evidence and independently recomputes decisive SLO and regression
-arithmetic. The parser itself performs no network, database, Kubernetes or
-object-storage I/O. Concrete registry and publication resolvers remain external
-adapters.
+requires the resolved baseline set to match the policy's pinned references,
+binds every reported reference artifact to its regression rule, checks quality
+evidence and independently recomputes decisive SLO and regression arithmetic.
+The parser itself performs no network, database, Kubernetes or object-storage
+I/O. Concrete registry and publication resolvers remain external adapters.

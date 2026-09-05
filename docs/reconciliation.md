@@ -300,12 +300,14 @@ validation before verdict approval.
 
 `policy.VerdictApprover` supplies the independent verdict boundary. It parses
 the exact approved policy bytes, requires one matching evaluation per policy
-rule, checks selector and quality claims, and recomputes decisive SLO and
-regression outcomes from the report's finite evidence. Inclusive policy
-thresholds and the analysis contract's floating-point comparison tolerance are
-applied without trusting the producer's reported effect. Unconfigured sections
-must be `NOT_EVALUATED`; a configured regression without approved baseline
-evidence must be `INCONCLUSIVE`.
+rule, requires exact coverage of the policy's pinned baseline references, and
+binds each reported reference artifact to the baseline selected by that rule.
+It checks selector and quality claims and recomputes decisive SLO and regression
+outcomes from the report's finite evidence. Inclusive policy thresholds and the
+analysis contract's floating-point comparison tolerance are applied without
+trusting the producer's reported effect. Unconfigured sections must be
+`NOT_EVALUATED`; a configured regression without approved baseline evidence
+must be `INCONCLUSIVE`.
 
 Concrete policy-registry resolution, report-template resolution,
 output-publication resolution and production composition remain separate work.

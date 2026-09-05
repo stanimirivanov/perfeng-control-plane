@@ -204,11 +204,21 @@ func reportFixture(t *testing.T, policyBytes []byte) analysisresult.Manifest {
 	return manifest
 }
 
+func reportBaselineResolutions(manifest analysisresult.Manifest) []BaselineResolution {
+	resolution := BaselineResolution{ID: "approved-search-browser", Version: "1.0.0"}
+	if len(manifest.ReferenceArtifacts) > 0 {
+		artifact := manifest.ReferenceArtifacts[0]
+		resolution.Artifact = &artifact
+	}
+
+	return []BaselineResolution{resolution}
+}
+
 func TestVerdictApproverAcceptsConsistentReport(t *testing.T) {
 	policyBytes := policyFixture(t)
 	manifest := reportFixture(t, policyBytes)
 	if err := (VerdictApprover{}).ApproveReportVerdicts(
-		context.Background(), policyBytes, manifest,
+		context.Background(), policyBytes, reportBaselineResolutions(manifest), manifest,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -257,7 +267,7 @@ func TestVerdictApproverArithmeticVariants(t *testing.T) {
 			manifest := reportFixture(t, policyBytes)
 			test.mutateReport(&manifest)
 			if err := (VerdictApprover{}).ApproveReportVerdicts(
-				context.Background(), policyBytes, manifest,
+				context.Background(), policyBytes, reportBaselineResolutions(manifest), manifest,
 			); err != nil {
 				t.Fatal(err)
 			}
@@ -308,7 +318,7 @@ func TestVerdictApproverRejectsContradictoryClaims(t *testing.T) {
 			manifest := reportFixture(t, policyBytes)
 			test.mutate(&manifest)
 			if err := (VerdictApprover{}).ApproveReportVerdicts(
-				context.Background(), policyBytes, manifest,
+				context.Background(), policyBytes, reportBaselineResolutions(manifest), manifest,
 			); !errors.Is(err, run.ErrValidation) {
 				t.Fatalf("error = %v", err)
 			}
@@ -326,7 +336,7 @@ func TestVerdictApproverAcceptsMissingReferenceAsInconclusive(t *testing.T) {
 		CandidateValue: &candidate,
 	}
 	if err := (VerdictApprover{}).ApproveReportVerdicts(
-		context.Background(), policyBytes, manifest,
+		context.Background(), policyBytes, reportBaselineResolutions(manifest), manifest,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -341,7 +351,7 @@ func TestVerdictApproverHonorsUnconfiguredSections(t *testing.T) {
 		Status: "NOT_EVALUATED", Reasons: []string{"No SLO is configured."},
 	}
 	if err := (VerdictApprover{}).ApproveReportVerdicts(
-		context.Background(), policyBytes, manifest,
+		context.Background(), policyBytes, reportBaselineResolutions(manifest), manifest,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -351,8 +361,45 @@ func TestVerdictApproverHonorsCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if err := (VerdictApprover{}).ApproveReportVerdicts(
-		ctx, policyFixture(t), analysisresult.Manifest{},
+		ctx, policyFixture(t), nil, analysisresult.Manifest{},
 	); !errors.Is(err, context.Canceled) {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestVerdictApproverBindsRulesToResolvedBaselines(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func([]BaselineResolution)
+	}{
+		{name: "missing resolution", mutate: func(resolutions []BaselineResolution) {
+			resolutions[0] = BaselineResolution{}
+		}},
+		{name: "wrong baseline", mutate: func(resolutions []BaselineResolution) {
+			resolutions[0].ID = "other-baseline"
+		}},
+		{name: "wrong version", mutate: func(resolutions []BaselineResolution) {
+			resolutions[0].Version = "2.0.0"
+		}},
+		{name: "missing approved artifact", mutate: func(resolutions []BaselineResolution) {
+			resolutions[0].Artifact = nil
+		}},
+		{name: "wrong approved artifact", mutate: func(resolutions []BaselineResolution) {
+			artifact := *resolutions[0].Artifact
+			artifact.ID = "77777777-7777-4777-8777-777777777777"
+			resolutions[0].Artifact = &artifact
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			policyBytes := policyFixture(t)
+			manifest := reportFixture(t, policyBytes)
+			resolutions := reportBaselineResolutions(manifest)
+			test.mutate(resolutions)
+			if err := (VerdictApprover{}).ApproveReportVerdicts(
+				context.Background(), policyBytes, resolutions, manifest,
+			); !errors.Is(err, run.ErrValidation) {
+				t.Fatalf("error = %v", err)
+			}
+		})
 	}
 }

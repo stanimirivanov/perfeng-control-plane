@@ -15,8 +15,9 @@ both. Quality requirements are optional and must contain at least one bound.
 `VerdictApprover` compares an `analysis-result/v1` manifest with the exact policy
 bytes selected by the trusted report resolver. It requires matching policy
 identity, version, SHA-256 digest and mode, matching test identity, and exactly
-one report evaluation for every policy rule. Metric selectors must match all
-three policy fields.
+one report evaluation for every policy rule. The approved baseline-resolution
+set must exactly cover the distinct baseline IDs and versions named by regression
+rules. Metric selectors must match all three policy fields.
 
 For a decisive quality result, the reported sample count and coefficient of
 variation must satisfy the configured bounds. Decisive SLO results are
