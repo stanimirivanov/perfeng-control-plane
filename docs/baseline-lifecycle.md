@@ -48,4 +48,6 @@ environment definition and fingerprint, and dataset all match trusted candidate
 dimensions. Missing, cross-principal, unapproved, retired and incompatible
 records share the same empty result, so resolution neither leaks lifecycle state
 nor invents a comparison anchor. There is no latest-version lookup or automatic
-promotion. Administrative HTTP authorization remains a future boundary.
+promotion. The [administration API](baseline-administration.md) exposes
+exact-version creation, reads and revision-checked transitions with independent
+operation permissions.

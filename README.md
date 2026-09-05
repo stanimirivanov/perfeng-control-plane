@@ -6,7 +6,7 @@ coordination, not load generation or statistical decisions.
 
 ## Current scope
 
-- Authenticated create, get, cancel and artifact-list HTTP handlers.
+- Authenticated Run and exact-version baseline administration handlers.
 - Strict declarative request validation against the pinned contract.
 - Atomic, principal-scoped idempotent creation with 24-hour retention.
 - Original acceptance replay, current-state reads and asynchronous cancellation.
@@ -114,11 +114,12 @@ composition with an exact-fixture approval stub. That stub is not a production
 registry implementation.
 
 Authentication must verify the bearer credential and return a stable principal
-and create/read/cancel permissions. Token rotation must preserve the principal;
-do not use raw token bytes as identity. Missing/invalid credentials return 401;
-lacking operation permission returns 403. Runs belonging to other principals
-return 404. Resource approval runs on every create request, including retries,
-so revoked access is not bypassed by an idempotency key.
+with explicit Run and baseline operation permissions. Token rotation must
+preserve the principal; do not use raw token bytes as identity. Missing or
+invalid credentials return 401; lacking operation permission returns 403. Runs
+and baseline versions belonging to other principals return 404. Resource
+approval runs on every Run create request, including retries, so revoked access
+is not bypassed by an idempotency key.
 
 The approval adapter must resolve trusted catalogue, environment and policy
 entries, verify hashes over exact published bytes, check suite/profile support,
@@ -270,6 +271,8 @@ PostgreSQL persists these records, serializes lifecycle decisions and resolves
 only an explicitly pinned approved version whose trusted comparison dimensions
 match. The authenticated HTTP boundary creates candidates, reads exact versions
 and applies revision-checked qualification, approval and retirement decisions.
+See the [baseline administration guide](docs/baseline-administration.md) for
+permissions, request examples, conflict handling and uncertain-create recovery.
 
 Relevant Go references: [HTTP server handlers](https://pkg.go.dev/net/http),
 [JSON decoding behavior](https://pkg.go.dev/encoding/json), and
