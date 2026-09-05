@@ -36,7 +36,7 @@ coordination, not load generation or statistical decisions.
 - Composable verification of normalized output bytes, sources and provenance.
 - Strict parsing and internal-consistency validation of analysis-result reports.
 - Composable verification of report output bytes, candidate binding and approval.
-- Exact report binding to run-pinned policy bytes, authorized producer and approved baselines.
+- Exact per-rule report binding to run-pinned policy bytes, authorized producer and approved baselines.
 - Strict performance-policy parsing and independent report-verdict verification.
 - Versioned baseline candidates with revision-checked qualification, approval and retirement.
 - Principal-scoped PostgreSQL baseline storage backed by completed, registered evidence.

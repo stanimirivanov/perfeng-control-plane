@@ -12,6 +12,7 @@ import (
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/analysisresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/policy"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/rawresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
@@ -29,14 +30,22 @@ func (resolve reportTrustResolverFunc) ResolveReportTrust(
 	return resolve(ctx, principal, current, input)
 }
 
-type reportVerdictApproverFunc func(context.Context, []byte, analysisresult.Manifest) error
+type reportVerdictApproverFunc func(
+	context.Context,
+	[]byte,
+	[]policy.BaselineResolution,
+	analysisresult.Manifest,
+) error
+
+var _ ReportVerdictApprover = policy.VerdictApprover{}
 
 func (approve reportVerdictApproverFunc) ApproveReportVerdicts(
 	ctx context.Context,
-	policy []byte,
+	policyBytes []byte,
+	baselines []policy.BaselineResolution,
 	manifest analysisresult.Manifest,
 ) error {
-	return approve(ctx, policy, manifest)
+	return approve(ctx, policyBytes, baselines, manifest)
 }
 
 type baselineApprovalStore struct {
@@ -92,10 +101,21 @@ func newReportApprovalFixture(t *testing.T) reportApprovalFixture {
 	t.Helper()
 	current, input, _, manifest := reportCollectorFixture()
 	current.Request.TestSuite = manifest.TestID
-	policy := []byte(`{"kind":"approved-policy"}`)
-	digest := sha256.Sum256(policy)
+	policyBytes := []byte(`{
+		"apiVersion":"performance.perfeng.io/v1",
+		"kind":"PerformancePolicy",
+		"metadata":{"name":"checkout-api","version":"1.0.0","owner":"checkout-team"},
+		"spec":{"mode":"inform","missingData":"inconclusive","rules":[{
+			"id":"checkout-latency",
+			"metric":{"name":"api.http.duration","statistic":"p95","unit":"ms"},
+			"quality":{"minSamples":20},
+			"slo":{"max":200},
+			"regression":{"direction":"lower-is-better","practicalDifference":{"kind":"relative","value":0.1},"reference":{"baselineId":"checkout-known-good","version":"1.0.0"}}
+		}]}}
+	`)
+	digest := sha256.Sum256(policyBytes)
 	current.Request.Policy = run.Reference{
-		ID: "checkout-policy", Version: "1.0.0", SHA256: hex.EncodeToString(digest[:]),
+		ID: "checkout-api", Version: "1.0.0", SHA256: hex.EncodeToString(digest[:]),
 	}
 	manifest.Policy = analysisresult.Policy{
 		ID: current.Request.Policy.ID, Version: current.Request.Policy.Version,
@@ -154,7 +174,7 @@ func newReportApprovalFixture(t *testing.T) reportApprovalFixture {
 		Workload: record.Workload, Environment: record.Environment, Dataset: record.Dataset,
 	}
 	trust := ReportTrust{
-		PolicyBytes: policy, PolicyMode: manifest.Policy.Mode,
+		PolicyBytes: policyBytes, PolicyMode: manifest.Policy.Mode,
 		Producer: manifest.Producer, Baselines: []baseline.Selection{selection},
 	}
 
@@ -198,12 +218,16 @@ func TestTrustedReportApproverAuthorizesExactApprovedReferences(t *testing.T) {
 		}),
 		reportVerdictApproverFunc(func(
 			ctx context.Context,
-			policy []byte,
+			policyBytes []byte,
+			baselines []policy.BaselineResolution,
 			manifest analysisresult.Manifest,
 		) error {
 			verdictChecked = true
-			if ctx.Err() != nil || string(policy) != string(fixture.trust.PolicyBytes) ||
-				!reflect.DeepEqual(manifest, fixture.manifest) {
+			if ctx.Err() != nil || string(policyBytes) != string(fixture.trust.PolicyBytes) ||
+				!reflect.DeepEqual(manifest, fixture.manifest) || len(baselines) != 1 ||
+				baselines[0].ID != fixture.selection.ID ||
+				baselines[0].Version != fixture.selection.Version ||
+				baselines[0].Artifact == nil || *baselines[0].Artifact != fixture.record.Artifact {
 				t.Fatal("verdict approver received changed approved evidence")
 			}
 
@@ -252,16 +276,71 @@ func TestVerifiedReportCollectorUsesTrustedReportApproval(t *testing.T) {
 	}
 }
 
+func TestTrustedReportApproverComposesExactVerdictBinding(t *testing.T) {
+	fixture := newReportApprovalFixture(t)
+	candidate, reference, effect := 180.0, 150.0, 0.2
+	referenceID := fixture.record.Artifact.ID
+	fixture.manifest.Evaluations[0].Regression = analysisresult.Regression{
+		Status: "FAIL", Reasons: []string{"Practical threshold reached."},
+		CandidateValue: &candidate, ReferenceValue: &reference,
+		ReferenceArtifactID: &referenceID,
+		Effect:              &analysisresult.Effect{Kind: "relative", Value: effect},
+		Method: &analysisresult.Method{
+			Name: "point-estimate-comparison", Version: "1.0.0",
+		},
+	}
+	approver, err := NewTrustedReportApprover(
+		&baselineApprovalStore{resolve: func(
+			context.Context,
+			string,
+			baseline.Selection,
+		) (baseline.Record, bool, error) {
+			return fixture.record, true, nil
+		}},
+		reportTrustResolverFunc(func(
+			context.Context,
+			string,
+			run.Run,
+			ReportingInput,
+		) (ReportTrust, error) {
+			return fixture.trust, nil
+		}),
+		policy.VerdictApprover{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := approver.ApproveReportManifest(
+		context.Background(), "principal-a", fixture.current, fixture.input, fixture.manifest,
+	); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestTrustedReportApproverAllowsExplicitMissingBaseline(t *testing.T) {
 	fixture := newReportApprovalFixture(t)
 	fixture.manifest.ReferenceArtifacts = []run.Artifact{}
-	approver := newTrustedReportApprover(
-		t,
-		fixture.trust,
-		func(context.Context, string, baseline.Selection) (baseline.Record, bool, error) {
+	approver, err := NewTrustedReportApprover(
+		&baselineApprovalStore{resolve: func(
+			context.Context,
+			string,
+			baseline.Selection,
+		) (baseline.Record, bool, error) {
 			return baseline.Record{}, false, nil
-		},
+		}},
+		reportTrustResolverFunc(func(
+			context.Context,
+			string,
+			run.Run,
+			ReportingInput,
+		) (ReportTrust, error) {
+			return fixture.trust, nil
+		}),
+		policy.VerdictApprover{},
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := approver.ApproveReportManifest(
 		context.Background(), "principal-a", fixture.current, fixture.input, fixture.manifest,
 	); err != nil {
@@ -302,6 +381,18 @@ func TestTrustedReportApproverRejectsUntrustedClaims(t *testing.T) {
 			name: "duplicate selection",
 			mutate: func(fixture *reportApprovalFixture) {
 				fixture.trust.Baselines = append(fixture.trust.Baselines, fixture.selection)
+			},
+		},
+		{
+			name: "missing policy selection",
+			mutate: func(fixture *reportApprovalFixture) {
+				fixture.trust.Baselines = nil
+			},
+		},
+		{
+			name: "wrong policy selection",
+			mutate: func(fixture *reportApprovalFixture) {
+				fixture.trust.Baselines[0].ID = "other-baseline"
 			},
 		},
 	} {
@@ -352,7 +443,10 @@ func TestTrustedReportApproverPreservesBoundaryErrors(t *testing.T) {
 					return trust, resolveErr
 				}),
 				reportVerdictApproverFunc(func(
-					context.Context, []byte, analysisresult.Manifest,
+					context.Context,
+					[]byte,
+					[]policy.BaselineResolution,
+					analysisresult.Manifest,
 				) error {
 					return verdictErr
 				}),
@@ -421,7 +515,10 @@ func newTrustedReportApprover(
 			return trust, nil
 		}),
 		reportVerdictApproverFunc(func(
-			context.Context, []byte, analysisresult.Manifest,
+			context.Context,
+			[]byte,
+			[]policy.BaselineResolution,
+			analysisresult.Manifest,
 		) error {
 			return nil
 		}),

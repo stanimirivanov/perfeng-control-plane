@@ -7,6 +7,7 @@ import (
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/analysisresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/policy"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/rawresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
@@ -47,12 +48,18 @@ type ReportTrustResolver interface {
 	) (ReportTrust, error)
 }
 
-// ReportVerdictApprover validates or recomputes policy rule coverage and
-// verdict arithmetic against the exact approved policy bytes.
+// ReportVerdictApprover validates policy rule coverage, baseline-to-rule
+// bindings and verdict arithmetic against exact approved inputs.
 type ReportVerdictApprover interface {
 	// ApproveReportVerdicts accepts no report reference until its policy-driven
-	// evaluations have been checked independently of the report producer.
-	ApproveReportVerdicts(context.Context, []byte, analysisresult.Manifest) error
+	// evaluations and baseline bindings have been checked independently of the
+	// report producer.
+	ApproveReportVerdicts(
+		ctx context.Context,
+		policyBytes []byte,
+		baselines []policy.BaselineResolution,
+		manifest analysisresult.Manifest,
+	) error
 }
 
 // TrustedReportApprover binds report claims to approved policy, producer and
@@ -110,18 +117,26 @@ func (approver *TrustedReportApprover) ApproveReportManifest(
 	if !validReportTrust(current, manifest, trust) {
 		return run.ErrValidation
 	}
+	document, err := policy.Parse(trust.PolicyBytes)
+	if err != nil || document.Metadata.Name != current.Request.Policy.ID ||
+		document.Metadata.Version != current.Request.Policy.Version ||
+		document.Spec.Mode != trust.PolicyMode ||
+		!matchesPolicyReferences(document.BaselineReferences(), trust.Baselines, manifest.TestID) {
+		return run.ErrValidation
+	}
 
-	references, err := approver.resolveReferences(ctx, principal, manifest.TestID, trust.Baselines)
+	resolutions, err := approver.resolveReferences(ctx, principal, trust.Baselines)
 	if err != nil {
 		return err
 	}
-	if !sameArtifacts(manifest.ReferenceArtifacts, references) {
+	if !sameArtifacts(manifest.ReferenceArtifacts, resolvedArtifacts(resolutions)) {
 		return run.ErrValidation
 	}
 
 	return approver.verdicts.ApproveReportVerdicts(
 		ctx,
 		append([]byte(nil), trust.PolicyBytes...),
+		resolutions,
 		manifest,
 	)
 }
@@ -145,40 +160,73 @@ func validReportTrust(
 
 func (approver *TrustedReportApprover) resolveReferences(
 	ctx context.Context,
-	principal, testID string,
+	principal string,
 	selections []baseline.Selection,
-) ([]run.Artifact, error) {
-	seenSelections := make(map[string]struct{}, len(selections))
-	seenArtifacts := make(map[run.Artifact]struct{}, len(selections))
-	references := make([]run.Artifact, 0, len(selections))
+) ([]policy.BaselineResolution, error) {
+	resolutions := make([]policy.BaselineResolution, 0, len(selections))
 	for _, selection := range selections {
-		key := selection.ID + "\x00" + selection.Version
-		if selection.TestID != testID || selection.Validate() != nil {
-			return nil, run.ErrValidation
-		}
-		if _, exists := seenSelections[key]; exists {
-			return nil, run.ErrValidation
-		}
-		seenSelections[key] = struct{}{}
-
 		record, found, err := approver.baselines.ResolveApprovedBaseline(ctx, principal, selection)
 		if err != nil {
 			return nil, err
 		}
+		resolution := policy.BaselineResolution{ID: selection.ID, Version: selection.Version}
 		if !found {
+			resolutions = append(resolutions, resolution)
 			continue
 		}
 		if !record.MatchesSelection(selection) || !validReportReference(record.Artifact) {
 			return nil, run.ErrValidation
 		}
-		if _, exists := seenArtifacts[record.Artifact]; exists {
-			continue
-		}
-		seenArtifacts[record.Artifact] = struct{}{}
-		references = append(references, record.Artifact)
+		artifact := record.Artifact
+		resolution.Artifact = &artifact
+		resolutions = append(resolutions, resolution)
 	}
 
-	return references, nil
+	return resolutions, nil
+}
+
+func matchesPolicyReferences(
+	references []policy.Reference,
+	selections []baseline.Selection,
+	testID string,
+) bool {
+	if len(references) != len(selections) {
+		return false
+	}
+	expected := make(map[policy.Reference]struct{}, len(references))
+	for _, reference := range references {
+		expected[reference] = struct{}{}
+	}
+	for _, selection := range selections {
+		reference := policy.Reference{BaselineID: selection.ID, Version: selection.Version}
+		if selection.TestID != testID || selection.Validate() != nil {
+			return false
+		}
+		if _, exists := expected[reference]; !exists {
+			return false
+		}
+		delete(expected, reference)
+	}
+
+	return len(expected) == 0
+}
+
+func resolvedArtifacts(resolutions []policy.BaselineResolution) []run.Artifact {
+	artifacts := make([]run.Artifact, 0, len(resolutions))
+	seen := make(map[run.Artifact]struct{}, len(resolutions))
+	for _, resolution := range resolutions {
+		if resolution.Artifact == nil {
+			continue
+		}
+		artifact := *resolution.Artifact
+		if _, exists := seen[artifact]; exists {
+			continue
+		}
+		seen[artifact] = struct{}{}
+		artifacts = append(artifacts, artifact)
+	}
+
+	return artifacts
 }
 
 func validReportReference(artifact run.Artifact) bool {

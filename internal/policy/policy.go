@@ -91,6 +91,14 @@ type Reference struct {
 	Version    string `json:"version"`
 }
 
+// BaselineResolution binds one policy reference to approved evidence, or nil
+// when the exact baseline version is unavailable for the candidate context.
+type BaselineResolution struct {
+	ID       string
+	Version  string
+	Artifact *run.Artifact
+}
+
 // Parse validates one bounded, duplicate-safe policy document.
 func Parse(data []byte) (Document, error) {
 	if !jsondocument.Valid(data, maximumPolicyBytes) || !validShape(data) {
@@ -134,6 +142,25 @@ func (document Document) Validate() error {
 	}
 
 	return nil
+}
+
+// BaselineReferences returns each distinct pinned regression reference in rule order.
+func (document Document) BaselineReferences() []Reference {
+	references := make([]Reference, 0, len(document.Spec.Rules))
+	seen := make(map[Reference]struct{}, len(document.Spec.Rules))
+	for _, rule := range document.Spec.Rules {
+		if rule.Regression == nil {
+			continue
+		}
+		reference := rule.Regression.Reference
+		if _, exists := seen[reference]; exists {
+			continue
+		}
+		seen[reference] = struct{}{}
+		references = append(references, reference)
+	}
+
+	return references
 }
 
 func (rule Rule) validate() error {
@@ -285,6 +312,7 @@ type VerdictApprover struct{}
 func (VerdictApprover) ApproveReportVerdicts(
 	ctx context.Context,
 	policyBytes []byte,
+	baselines []BaselineResolution,
 	manifest analysisresult.Manifest,
 ) error {
 	if err := ctx.Err(); err != nil {
@@ -303,6 +331,10 @@ func (VerdictApprover) ApproveReportVerdicts(
 		manifest.Policy.Mode != document.Spec.Mode {
 		return run.ErrValidation
 	}
+	resolved, valid := document.resolvedBaselines(baselines)
+	if !valid {
+		return run.ErrValidation
+	}
 
 	evaluations := make(map[string]analysisresult.Evaluation, len(manifest.Evaluations))
 	for _, evaluation := range manifest.Evaluations {
@@ -313,7 +345,11 @@ func (VerdictApprover) ApproveReportVerdicts(
 	}
 	for _, rule := range document.Spec.Rules {
 		evaluation, exists := evaluations[rule.ID]
-		if !exists || !rule.approves(evaluation) {
+		var approvedReference *run.Artifact
+		if rule.Regression != nil {
+			approvedReference = resolved[rule.Regression.Reference]
+		}
+		if !exists || !rule.approves(evaluation, approvedReference) {
 			return run.ErrValidation
 		}
 	}
@@ -321,7 +357,48 @@ func (VerdictApprover) ApproveReportVerdicts(
 	return nil
 }
 
-func (rule Rule) approves(evaluation analysisresult.Evaluation) bool {
+func (document Document) resolvedBaselines(
+	resolutions []BaselineResolution,
+) (map[Reference]*run.Artifact, bool) {
+	expected := document.BaselineReferences()
+	if len(resolutions) != len(expected) {
+		return nil, false
+	}
+	wanted := make(map[Reference]struct{}, len(expected))
+	for _, reference := range expected {
+		wanted[reference] = struct{}{}
+	}
+	resolved := make(map[Reference]*run.Artifact, len(resolutions))
+	for _, resolution := range resolutions {
+		reference := Reference{BaselineID: resolution.ID, Version: resolution.Version}
+		if _, exists := resolved[reference]; exists {
+			return nil, false
+		}
+		if _, exists := wanted[reference]; !exists {
+			return nil, false
+		}
+		delete(wanted, reference)
+		if resolution.Artifact != nil &&
+			(resolution.Artifact.Validate() != nil || resolution.Artifact.Kind != "normalized" ||
+				resolution.Artifact.MediaType != "application/json" ||
+				resolution.Artifact.Format != "normalized-result/v1") {
+			return nil, false
+		}
+		if resolution.Artifact == nil {
+			resolved[reference] = nil
+			continue
+		}
+		artifact := *resolution.Artifact
+		resolved[reference] = &artifact
+	}
+
+	return resolved, len(wanted) == 0
+}
+
+func (rule Rule) approves(
+	evaluation analysisresult.Evaluation,
+	approvedReference *run.Artifact,
+) bool {
 	if evaluation.Metric.Name != rule.Metric.Name ||
 		evaluation.Metric.Statistic != rule.Metric.Statistic ||
 		evaluation.Metric.Unit != rule.Metric.Unit || !rule.approvesQuality(evaluation.Quality) {
@@ -339,7 +416,7 @@ func (rule Rule) approves(evaluation analysisresult.Evaluation) bool {
 	}
 
 	return evaluation.Regression.Status != "NOT_EVALUATED" &&
-		rule.Regression.approves(evaluation.Regression)
+		rule.Regression.approves(evaluation.Regression, approvedReference)
 }
 
 func (rule Rule) approvesQuality(quality analysisresult.Quality) bool {
@@ -364,11 +441,19 @@ func (requirement SLORequirement) approves(outcome analysisresult.SLO) bool {
 	return (outcome.Status == "PASS") == passes
 }
 
-func (regression Regression) approves(outcome analysisresult.Regression) bool {
+func (regression Regression) approves(
+	outcome analysisresult.Regression,
+	approvedReference *run.Artifact,
+) bool {
+	if outcome.ReferenceArtifactID != nil &&
+		(approvedReference == nil || *outcome.ReferenceArtifactID != approvedReference.ID) {
+		return false
+	}
 	if outcome.Status != "PASS" && outcome.Status != "FAIL" {
 		return outcome.Status == "INCONCLUSIVE"
 	}
-	if outcome.CandidateValue == nil || outcome.ReferenceValue == nil || outcome.Effect == nil {
+	if approvedReference == nil || outcome.ReferenceArtifactID == nil ||
+		outcome.CandidateValue == nil || outcome.ReferenceValue == nil || outcome.Effect == nil {
 		return false
 	}
 	if outcome.Effect.Kind != regression.PracticalDifference.Kind {
