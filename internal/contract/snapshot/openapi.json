@@ -2,7 +2,7 @@
   "openapi": "3.1.1",
   "info": {
     "title": "Performance Run and Baseline Management API",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "description": "Candidate contract only. Run lifecycle and baseline administration remain independent of measurement quality, SLO and regression verdicts. See docs/run-management-api.md."
   },
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
@@ -291,10 +291,10 @@
         ],
         "operationId": "cancelRun",
         "summary": "Request cancellation without deleting evidence",
-        "description": "No request body. Intrinsically idempotent: active or CANCELLING returns 202; already ABORTED returns 200; any other terminal state returns 409 RUN_TERMINAL. Stop/cleanup is asynchronous; 202 does not mean execution has stopped.",
+        "description": "No request body. CREATED or VALIDATING is aborted synchronously before dispatch and returns 200. PROVISIONING or a later active state enters CANCELLING and returns 202. Repeated CANCELLING returns 202 without mutation; already ABORTED returns 200 without mutation; any other terminal state returns 409 RUN_TERMINAL. Stop/cleanup after dispatch is asynchronous, so 202 does not mean execution has stopped.",
         "responses": {
           "200": {
-            "description": "Already ABORTED; no mutation.",
+            "description": "Cancellation completed before dispatch, or the Run was already ABORTED; response state ABORTED.",
             "content": {
               "application/json": {
                 "schema": {

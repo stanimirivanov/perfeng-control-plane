@@ -133,7 +133,7 @@ func checkError(t *testing.T, w *httptest.ResponseRecorder, status int, code str
 }
 
 func TestCreateGetCancelReplay(t *testing.T) {
-	h, repo := setup(t)
+	h, _ := setup(t)
 	first := call(h, "POST", "/v1/runs", "alice-token", fixture(t))
 	if first.Code != 201 {
 		t.Fatal(first.Body)
@@ -144,7 +144,8 @@ func TestCreateGetCancelReplay(t *testing.T) {
 		t.Fatal("missing acceptance headers")
 	}
 	cancel := call(h, "POST", location+"/cancel", "alice-token", nil)
-	if cancel.Code != 202 || decodeRun(t, cancel).Revision != 2 {
+	cancelled := decodeRun(t, cancel)
+	if cancel.Code != 200 || cancelled.State != run.StateAborted || cancelled.Revision != 2 {
 		t.Fatal(cancel.Body)
 	}
 	repeat := call(h, "POST", location+"/cancel", "alice-token", nil)
@@ -165,12 +166,8 @@ func TestCreateGetCancelReplay(t *testing.T) {
 		t.Fatal("replay not original acceptance")
 	}
 	current := call(h, "GET", location, "alice-token", nil)
-	if current.Code != 200 || decodeRun(t, current).State != "CANCELLING" {
+	if current.Code != 200 || decodeRun(t, current).State != "ABORTED" {
 		t.Fatal("replay reset current run")
-	}
-	_, err = repo.Advance(context.Background(), "alice", r.ID, 2, run.Change{State: "ABORTED"})
-	if err != nil {
-		t.Fatal(err)
 	}
 	aborted := call(h, "POST", location+"/cancel", "alice-token", nil)
 	if aborted.Code != 200 || decodeRun(t, aborted).State != "ABORTED" {
@@ -179,6 +176,44 @@ func TestCreateGetCancelReplay(t *testing.T) {
 	checkError(t, call(h, "GET", location, "bob-token", nil), 404, "NOT_FOUND")
 	checkError(t, call(h, "POST", location+"/cancel", "bob-token", nil), 404, "NOT_FOUND")
 	checkError(t, call(h, "POST", location+"/cancel", "alice-token", []byte("{}")), 400, "BAD_REQUEST")
+}
+
+func TestCancelAfterDispatchReturnsAccepted(t *testing.T) {
+	h, repo := setup(t)
+	var request run.Request
+	if err := json.Unmarshal(fixture(t), &request); err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := repo.Accept(context.Background(), "alice", "request-key-00000002", request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err := repo.Advance(
+		context.Background(),
+		"alice",
+		accepted.Run.ID,
+		accepted.Run.Revision,
+		run.Change{State: run.StateValidating},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err = repo.Advance(
+		context.Background(),
+		"alice",
+		current.ID,
+		current.Revision,
+		run.Change{State: run.StateProvisioning},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	response := call(h, "POST", "/v1/runs/"+current.ID+"/cancel", "alice-token", nil)
+	cancelled := decodeRun(t, response)
+	if response.Code != http.StatusAccepted || cancelled.State != run.StateCancelling || cancelled.Revision != 4 {
+		t.Fatal(response.Body)
+	}
 }
 
 func TestListArtifacts(t *testing.T) {

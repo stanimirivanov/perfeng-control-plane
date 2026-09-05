@@ -427,7 +427,14 @@ func TestConcurrentMigrationAndTerminalSnapshots(t *testing.T) {
 		t.Fatal("terminal resumed", err)
 	}
 	b := accepted(t, first, "abort", "request-key-aborted")
-	cancelling, err := first.Cancel(testContext, "abort", b.Run.ID)
+	current = b.Run
+	for _, state := range []run.State{run.StateValidating, run.StateProvisioning, run.StateRunning} {
+		current, err = first.Advance(testContext, "abort", current.ID, current.Revision, run.Change{State: state})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	cancelling, err := first.Cancel(testContext, "abort", current.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

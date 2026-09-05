@@ -9,7 +9,7 @@ coordination, not load generation or statistical decisions.
 - Authenticated Run and exact-version baseline administration handlers.
 - Strict declarative request validation against the pinned contract.
 - Atomic, principal-scoped idempotent creation with 24-hour retention.
-- Original acceptance replay, current-state reads and asynchronous cancellation.
+- Original acceptance replay, current-state reads and dispatch-aware cancellation.
 - Revision-checked worker transitions, terminal-state and failure-code rules.
 - In-memory repository for bounded tests/development, with concurrency tests.
 - PostgreSQL repository, transactional migrations and immutable artifact references.
@@ -156,9 +156,11 @@ in database transactions, not just process-local locks. Worker updates use an
 expected revision and cannot overwrite a concurrent cancellation. No generic
 HTTP endpoint exposes worker transitions.
 
-Each mutation increments revision. Repeated cancellation in CANCELLING/ABORTED
-does not mutate. Terminal states cannot resume. Tool exit 99 is an observed
-process result and does not prevent COMPLETED when evidence is usable. Quality,
+Each mutation increments revision. Cancellation in CREATED or VALIDATING moves
+directly to ABORTED; cancellation from PROVISIONING onward moves to CANCELLING
+for external cleanup. Repeated cancellation in CANCELLING/ABORTED does not
+mutate. Terminal states cannot resume. Tool exit 99 is an observed process
+result and does not prevent COMPLETED when evidence is usable. Quality,
 SLO and regression outcomes belong to perfeng-analysis; no measurement window
 or result is fabricated here. This API is not the legacy run/v1 schema (which
 cannot represent CANCELLING).
@@ -222,8 +224,9 @@ The `reconcile` policy defines that connection's state decisions independently
 of I/O: pending Jobs wait, running Jobs enter RUNNING, terminal Jobs enter
 COLLECTING, and unexpected disappearance/deletion is infrastructure failure.
 Kubernetes failure never directly means TEST_FAILURE; artifact and process
-evidence must be collected first. Cancellation reaches ABORTED only after the
-exact persisted execution is absent and no Pod owned by its Job UID remains.
+evidence must be collected first. After dispatch begins, cancellation reaches
+ABORTED only after the exact persisted execution is absent and no Pod owned by
+its Job UID remains. Pre-dispatch cancellation requires no cluster cleanup.
 API-server default normalization is covered by an isolated live integration test
 described in the dispatch documentation.
 The PostgreSQL adapter stores the accepted Job identity immutably so another
@@ -259,8 +262,8 @@ registry authorizes the exact normalizer and accepted execution context.
 ## Contract provenance
 
 The [snapshot lock](internal/contract/snapshot/lock.json) pins perfeng-contracts
-commit `305402970f286c5f84c8d2577e9f1ab3292c4b9c`, candidate bundle 0.8.0,
-API 0.3.0. The OpenAPI document, transitions, run fixtures and baseline request
+commit `20bf128ab3f38cdd66a167ccfc5d76be045db3ea`, candidate bundle 0.9.0,
+API 0.4.0. The OpenAPI document, transitions, run fixtures and baseline request
 fixtures, plus the performance-policy schema and browser example, are copied
 byte-for-byte from that commit; lock hashes cover these local bytes.
 Tests verify checksums. There is no sibling-checkout or network dependency at

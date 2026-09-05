@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
-	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
@@ -122,13 +121,7 @@ func (m *Repository) Cancel(ctx context.Context, principal, id string) (run.Run,
 	if err != nil {
 		return run.Run{}, err
 	}
-	if r.State == run.StateCancelling || r.State == run.StateAborted {
-		return r.Clone(), nil
-	}
-	if contract.Terminal(string(r.State)) {
-		return run.Run{}, run.ErrTerminal
-	}
-	next, err := r.Transition(r.Revision, run.Change{State: run.StateCancelling}, m.now())
+	next, err := r.RequestCancellation(m.now())
 	if err != nil {
 		return run.Run{}, err
 	}

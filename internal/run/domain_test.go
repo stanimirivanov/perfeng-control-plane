@@ -172,6 +172,57 @@ func TestFailureAndRevisionValidation(t *testing.T) {
 	}
 }
 
+func TestRequestCancellation(t *testing.T) {
+	now := time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
+	for _, test := range []struct {
+		state State
+		want  State
+	}{
+		{StateCreated, StateAborted},
+		{StateValidating, StateAborted},
+		{StateProvisioning, StateCancelling},
+		{StateWarmingUp, StateCancelling},
+		{StateRunning, StateCancelling},
+		{StateCollecting, StateCancelling},
+		{StateAnalyzing, StateCancelling},
+		{StateReporting, StateCancelling},
+	} {
+		t.Run(string(test.state), func(t *testing.T) {
+			current := Run{State: test.state, Revision: 3, CreatedAt: now, UpdatedAt: now}
+			next, err := current.RequestCancellation(now.Add(time.Second))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if next.State != test.want || next.Revision != 4 {
+				t.Fatalf("cancellation = %s revision %d", next.State, next.Revision)
+			}
+			if (next.FinishedAt != nil) != (test.want == StateAborted) {
+				t.Fatal("cancellation completion timestamp does not match target state")
+			}
+		})
+	}
+
+	for _, state := range []State{StateCancelling, StateAborted} {
+		current := Run{State: state, Revision: 3, CreatedAt: now, UpdatedAt: now}
+		next, err := current.RequestCancellation(now.Add(time.Second))
+		if err != nil || next.Revision != current.Revision || next.UpdatedAt != current.UpdatedAt {
+			t.Fatalf("repeated cancellation changed %s: %+v %v", state, next, err)
+		}
+	}
+
+	for _, state := range []State{
+		StateCompleted,
+		StateInvalid,
+		StateInfrastructureFailure,
+		StateTestFailure,
+	} {
+		current := Run{State: state, Revision: 3, CreatedAt: now, UpdatedAt: now}
+		if _, err := current.RequestCancellation(now); !errors.Is(err, ErrTerminal) {
+			t.Fatalf("terminal cancellation for %s = %v", state, err)
+		}
+	}
+}
+
 func TestTool99DoesNotBecomeVerdict(t *testing.T) {
 	r := Run{State: "RUNNING", Revision: 5, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	code := 99

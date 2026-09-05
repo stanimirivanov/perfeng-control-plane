@@ -97,7 +97,7 @@ func TestReplayScopeExpiryAndIsolation(t *testing.T) {
 	}
 }
 
-func TestConcurrentAcceptAndCancel(t *testing.T) {
+func TestConcurrentAcceptAndPreDispatchCancel(t *testing.T) {
 	m := New(nil)
 	req := request(t)
 	var wg sync.WaitGroup
@@ -124,7 +124,7 @@ func TestConcurrentAcceptAndCancel(t *testing.T) {
 	for range 64 {
 		wg.Go(func() {
 			r, err := m.Cancel(ctx, "alice", id)
-			if err != nil || r.State != "CANCELLING" || r.Revision != 2 {
+			if err != nil || r.State != "ABORTED" || r.Revision != 2 {
 				t.Errorf("non-idempotent cancel: %+v %v", r, err)
 			}
 		})
@@ -134,7 +134,6 @@ func TestConcurrentAcceptAndCancel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r = advance(t, m, r, "ABORTED")
 	again, err := m.Cancel(ctx, "alice", id)
 	if err != nil || again.Revision != r.Revision || again.State != "ABORTED" {
 		t.Fatal("ABORTED cancel changed state")

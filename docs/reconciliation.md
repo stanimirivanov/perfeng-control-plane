@@ -422,11 +422,14 @@ work, before or after reassignment. Errors return ErrLeaseLost without changing
 the new owner's lease. Owner, principal, run ID and token must all match.
 
 AdvanceClaim also checks the expected Run revision. Cancellation does not wait
-for lease expiry: it updates the run under the shared row lock. A worker holding
-an older revision cannot overwrite CANCELLING; RenewClaim returns the latest
-snapshot so the worker can react to it. Cancellation bypasses release/backoff
-delays but does not steal a still-live lease. Terminal runs are never discovered,
-and a terminal AdvanceClaim expires the lease in the same transaction.
+for lease expiry: it updates the run under the shared row lock. CREATED and
+VALIDATING become ABORTED immediately because dispatch has not started. A worker
+holding their older revision loses its lease authority against the terminal Run.
+From PROVISIONING onward, cancellation enters CANCELLING; RenewClaim returns that
+latest snapshot so the worker can react to it. CANCELLING bypasses
+release/backoff delays but does not steal a still-live lease. Terminal runs are
+never discovered, and a terminal AdvanceClaim expires the lease in the same
+transaction.
 
 Claim, renewal and release change only coordination metadata, not Run revisions
 or the original idempotent acceptance response. Existing records need no queue
