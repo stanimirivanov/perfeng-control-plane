@@ -12,7 +12,8 @@ Each entry binds exact policy bytes to:
 - one profile;
 - one environment definition ID, version and digest plus its observed fingerprint;
 - one workload identity and dataset identity;
-- one digest-pinned report producer; and
+- one digest-pinned report producer;
+- one or more digest-pinned candidate images; and
 - one or more authorized principals.
 
 Policy identity and test identity are independent. The resolver never assumes
@@ -31,6 +32,18 @@ environment and policy. An unmatched valid context returns `run.ErrForbidden`
 without revealing whether another principal has an entry. Invalid Runs,
 non-REPORTING states and malformed candidate artifacts return
 `run.ErrValidation`; context cancellation retains its identity.
+
+`ApproveRun` has the `httpapi.Approve` signature and uses the same exact lookup.
+It additionally requires the request's candidate image digest to appear in the
+entry's allowlist. The candidate Git SHA remains part of the validated immutable
+Run request, but this registry does not claim to attest the relationship between
+that revision and the published image. An unmatched context or image is
+forbidden; malformed input is a validation failure.
+
+Report trust resolution does not reapply the candidate-image allowlist. The
+candidate was authorized when the immutable Run was accepted; removing an image
+from admission policy must not prevent that Run from completing reporting.
+Principal and exact resource-context authorization are still resolved again.
 
 The resolver derives baseline selections from the policy's distinct pinned
 regression references and combines them with the reviewed workload, environment

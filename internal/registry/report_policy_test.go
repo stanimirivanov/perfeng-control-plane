@@ -10,10 +10,13 @@ import (
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/httpapi"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/rawresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/reconcile"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
+
+var _ httpapi.Approve = (&ReportPolicyRegistry{}).ApproveRun
 
 func reportPolicyFixture(t *testing.T) (ReportPolicyEntry, run.Run, reconcile.ReportingInput) {
 	t.Helper()
@@ -50,6 +53,9 @@ func reportPolicyFixture(t *testing.T) (ReportPolicyEntry, run.Run, reconcile.Re
 			Kind: "versioned", ID: "search-data", Version: "1.0.0",
 			SHA256: strings.Repeat("c", 64), Seed: &seed,
 		},
+		CandidateImages: []string{
+			"ghcr.io/example/search@sha256:" + strings.Repeat("2", 64),
+		},
 		Principals: []string{"alice"},
 	}
 	current := run.Run{
@@ -82,6 +88,92 @@ func reportPolicyFixture(t *testing.T) (ReportPolicyEntry, run.Run, reconcile.Re
 	return entry, current, input
 }
 
+func TestReportPolicyRegistryApprovesExactRunRequest(t *testing.T) {
+	entry, current, _ := reportPolicyFixture(t)
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.ApproveRun(context.Background(), "alice", current.Request); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestReportPolicyRegistryRejectsUnapprovedRunRequest(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		principal string
+		mutate    func(*run.Request)
+	}{
+		{name: "principal", principal: "bob"},
+		{name: "test", principal: "alice", mutate: func(request *run.Request) {
+			request.TestSuite = "other-test"
+		}},
+		{name: "catalogue", principal: "alice", mutate: func(request *run.Request) {
+			request.Catalogue.Version = "2.0.0"
+		}},
+		{name: "profile", principal: "alice", mutate: func(request *run.Request) {
+			request.Profile = "regression"
+		}},
+		{name: "environment", principal: "alice", mutate: func(request *run.Request) {
+			request.Environment.SHA256 = strings.Repeat("6", 64)
+		}},
+		{name: "policy", principal: "alice", mutate: func(request *run.Request) {
+			request.Policy.SHA256 = strings.Repeat("7", 64)
+		}},
+		{name: "candidate", principal: "alice", mutate: func(request *run.Request) {
+			request.Candidate.Image = "ghcr.io/example/search@sha256:" + strings.Repeat("8", 64)
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			entry, current, _ := reportPolicyFixture(t)
+			registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.mutate != nil {
+				test.mutate(&current.Request)
+			}
+			if err := registry.ApproveRun(
+				context.Background(), test.principal, current.Request,
+			); !errors.Is(err, run.ErrForbidden) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
+func TestReportPolicyRegistryValidatesRunApprovalContext(t *testing.T) {
+	entry, current, _ := reportPolicyFixture(t)
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.ApproveRun(
+		context.Background(), "", current.Request,
+	); !errors.Is(err, run.ErrValidation) {
+		t.Fatalf("principal error = %v", err)
+	}
+	invalid := current.Request
+	invalid.Candidate.Image = "latest"
+	if err := registry.ApproveRun(
+		context.Background(), "alice", invalid,
+	); !errors.Is(err, run.ErrValidation) {
+		t.Fatalf("request error = %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := registry.ApproveRun(ctx, "alice", current.Request); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancellation error = %v", err)
+	}
+	var nilRegistry *ReportPolicyRegistry
+	if err := nilRegistry.ApproveRun(
+		context.Background(), "alice", current.Request,
+	); !errors.Is(err, run.ErrValidation) {
+		t.Fatalf("nil registry error = %v", err)
+	}
+}
+
 func TestReportPolicyRegistryResolvesExactTrust(t *testing.T) {
 	entry, current, input := reportPolicyFixture(t)
 	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
@@ -103,6 +195,20 @@ func TestReportPolicyRegistryResolvesExactTrust(t *testing.T) {
 		selection.Environment != entry.Environment || selection.Validate() != nil ||
 		selection.Dataset.Seed == nil || *selection.Dataset.Seed != 42 {
 		t.Fatalf("selection = %#v", selection)
+	}
+}
+
+func TestReportPolicyRegistryDoesNotReapplyCandidateAdmission(t *testing.T) {
+	entry, current, input := reportPolicyFixture(t)
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	current.Request.Candidate.Image = "ghcr.io/example/search@sha256:" + strings.Repeat("9", 64)
+	if _, err := registry.ResolveReportTrust(
+		context.Background(), "alice", current, input,
+	); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -191,6 +297,15 @@ func TestReportPolicyRegistryValidatesEntries(t *testing.T) {
 			entry.Environment.Fingerprint = "invalid"
 		}},
 		{name: "dataset", mutate: func(entry *ReportPolicyEntry) { *entry.Dataset.Seed = -1 }},
+		{name: "candidate images", mutate: func(entry *ReportPolicyEntry) {
+			entry.CandidateImages = nil
+		}},
+		{name: "candidate image", mutate: func(entry *ReportPolicyEntry) {
+			entry.CandidateImages = []string{"latest"}
+		}},
+		{name: "duplicate candidate image", mutate: func(entry *ReportPolicyEntry) {
+			entry.CandidateImages = append(entry.CandidateImages, entry.CandidateImages[0])
+		}},
 		{name: "principals", mutate: func(entry *ReportPolicyEntry) { entry.Principals = nil }},
 		{name: "blank principal", mutate: func(entry *ReportPolicyEntry) {
 			entry.Principals = []string{" "}

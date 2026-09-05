@@ -38,7 +38,7 @@ coordination, not load generation or statistical decisions.
 - Composable verification of report output bytes, candidate binding and approval.
 - Exact per-rule report binding to run-pinned policy bytes, authorized producer and approved baselines.
 - Strict performance-policy parsing and independent report-verdict verification.
-- Principal-scoped immutable report-policy registry for exact runtime trust resolution.
+- Principal-scoped immutable registry for Run admission and report trust resolution.
 - Versioned baseline candidates with revision-checked qualification, approval and retirement.
 - Principal-scoped PostgreSQL baseline storage backed by completed, registered evidence.
 
@@ -115,8 +115,9 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 
 `httpapi.New(repository, authenticate, approve)` returns an `http.Handler`.
 All dependencies are mandatory and must be concurrency-safe. HTTP tests show
-composition with an exact-fixture approval stub. That stub is not a production
-registry implementation.
+composition with an exact-fixture approval stub.
+`registry.ReportPolicyRegistry.ApproveRun` is the concrete immutable admission
+adapter; production composition must populate it from reviewed, attested entries.
 
 Authentication must verify the bearer credential and return a stable principal
 with explicit Run and baseline operation permissions. Token rotation must
@@ -126,13 +127,15 @@ and baseline versions belonging to other principals return 404. Resource
 approval runs on every Run create request, including retries, so revoked access
 is not bypassed by an idempotency key.
 
-The approval adapter must resolve trusted catalogue, environment and policy
+An approval adapter must resolve trusted catalogue, environment and policy
 entries, verify hashes over exact published bytes, check suite/profile support,
 candidate-image authorization, environment access and observe/inform policy
 mode. Request-shape validation alone does not authorize execution. The handler
 does not fetch caller URLs, accept commands, or treat synthetic fixture hashes
-as approved resources. The eventual adapter owns resource-registry I/O and its
-error classification; safe sentinel errors map to 422, 403 or 503.
+as approved resources. `ReportPolicyRegistry` performs exact allowlist matching
+and candidate-image authorization after its startup entries have been attested.
+Registry loading owns external I/O, byte verification and error classification;
+safe sentinel errors map to 422, 403 or 503.
 
 A service composition must wire verified identity/resource adapters and the
 PostgreSQL adapter, TLS outside isolated development, bounded HTTP server timeouts,
