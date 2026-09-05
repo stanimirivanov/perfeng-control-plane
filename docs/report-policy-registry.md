@@ -12,6 +12,7 @@ Each entry binds exact policy bytes to:
 - one profile;
 - one environment definition ID, version and digest plus its observed fingerprint;
 - one workload identity and dataset identity;
+- one contracts bundle version and digest-pinned raw producer;
 - one digest-pinned report producer;
 - one or more digest-pinned candidate images; and
 - one or more authorized principals.
@@ -44,6 +45,13 @@ Report trust resolution does not reapply the candidate-image allowlist. The
 candidate was authorized when the immutable Run was accepted; removing an image
 from admission policy must not prevent that Run from completing reporting.
 Principal and exact resource-context authorization are still resolved again.
+
+`ApproveRawManifest` implements `reconcile.RawManifestApprover`. It accepts only
+COLLECTING Runs, validates the complete raw manifest, resolves the same exact
+principal and resource context, and requires the configured contracts version,
+test, workload and raw producer. A syntactically valid but different claim is
+forbidden. Malformed manifests and invalid reconciliation context are validation
+failures. The method does not locate or read the manifest or any declared object.
 
 The resolver derives baseline selections from the policy's distinct pinned
 regression references and combines them with the reviewed workload, environment

@@ -39,9 +39,13 @@ func reportPolicyFixture(t *testing.T) (ReportPolicyEntry, run.Run, reconcile.Re
 	}
 	seed := int64(42)
 	entry := ReportPolicyEntry{
-		PolicyBytes: policyBytes, TestID: "search-browser",
+		PolicyBytes: policyBytes, TestID: "search-browser", ContractsVersion: "0.8.0",
 		Catalogue: catalogue, Profile: "smoke",
-		Producer: rawresult.Producer{
+		RawProducer: rawresult.Producer{
+			Name: "perfeng-k6", Version: "1.0.0",
+			Image: "ghcr.io/example/perfeng-k6@sha256:" + strings.Repeat("0", 64),
+		},
+		ReportProducer: rawresult.Producer{
 			Name: "perfeng-analysis", Version: "1.0.0",
 			Image: "ghcr.io/example/perfeng-analysis@sha256:" + strings.Repeat("f", 64),
 		},
@@ -174,6 +178,124 @@ func TestReportPolicyRegistryValidatesRunApprovalContext(t *testing.T) {
 	}
 }
 
+func rawManifestFixture(
+	entry ReportPolicyEntry,
+	current run.Run,
+) rawresult.Manifest {
+	return rawresult.Manifest{
+		SchemaVersion: 1, Kind: "RawResult", ContractsVersion: entry.ContractsVersion,
+		RunID: current.ID, TestID: current.Request.TestSuite, Workload: entry.Workload,
+		Producer: entry.RawProducer,
+		MeasurementWindow: rawresult.Window{
+			Start: "2026-09-05T12:00:00Z", End: "2026-09-05T12:01:00Z",
+		},
+		CreatedAt: "2026-09-05T12:01:01Z",
+		Artifacts: []run.Artifact{{
+			ID: "22222222-2222-4222-8222-222222222222", RunID: current.ID,
+			Kind: "raw", URI: "s3://perfeng/runs/" + current.ID + "/summary.json",
+			SHA256: strings.Repeat("a", 64), SizeBytes: 100,
+			MediaType: "application/json", Format: "k6-summary/v1",
+		}},
+	}
+}
+
+func TestReportPolicyRegistryApprovesRawManifestProvenance(t *testing.T) {
+	entry, current, _ := reportPolicyFixture(t)
+	current.State = run.StateCollecting
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.ApproveRawManifest(
+		context.Background(), "alice", current, rawManifestFixture(entry, current),
+	); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestReportPolicyRegistryRejectsUnapprovedRawManifest(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(*run.Run, *rawresult.Manifest)
+	}{
+		{name: "context", mutate: func(current *run.Run, _ *rawresult.Manifest) {
+			current.Request.Policy.Version = "2.0.0"
+		}},
+		{name: "contracts", mutate: func(_ *run.Run, manifest *rawresult.Manifest) {
+			manifest.ContractsVersion = "0.9.0"
+		}},
+		{name: "test", mutate: func(_ *run.Run, manifest *rawresult.Manifest) {
+			manifest.TestID = "other-test"
+		}},
+		{name: "workload", mutate: func(_ *run.Run, manifest *rawresult.Manifest) {
+			manifest.Workload.ID = "other-workload"
+		}},
+		{name: "producer", mutate: func(_ *run.Run, manifest *rawresult.Manifest) {
+			manifest.Producer.Name = "other-runner"
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			entry, current, _ := reportPolicyFixture(t)
+			current.State = run.StateCollecting
+			manifest := rawManifestFixture(entry, current)
+			test.mutate(&current, &manifest)
+			registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := registry.ApproveRawManifest(
+				context.Background(), "alice", current, manifest,
+			); !errors.Is(err, run.ErrForbidden) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
+func TestReportPolicyRegistryValidatesRawManifestContext(t *testing.T) {
+	entry, current, _ := reportPolicyFixture(t)
+	current.State = run.StateCollecting
+	manifest := rawManifestFixture(entry, current)
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name      string
+		principal string
+		state     run.State
+		manifest  rawresult.Manifest
+	}{
+		{name: "principal", state: run.StateCollecting, manifest: manifest},
+		{name: "state", principal: "alice", state: run.StateRunning, manifest: manifest},
+		{name: "manifest", principal: "alice", state: run.StateCollecting},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			candidate := current
+			candidate.State = test.state
+			if err := registry.ApproveRawManifest(
+				context.Background(), test.principal, candidate, test.manifest,
+			); !errors.Is(err, run.ErrValidation) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := registry.ApproveRawManifest(
+		ctx, "alice", current, manifest,
+	); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancellation error = %v", err)
+	}
+	var nilRegistry *ReportPolicyRegistry
+	if err := nilRegistry.ApproveRawManifest(
+		context.Background(), "alice", current, manifest,
+	); !errors.Is(err, run.ErrValidation) {
+		t.Fatalf("nil registry error = %v", err)
+	}
+}
+
 func TestReportPolicyRegistryResolvesExactTrust(t *testing.T) {
 	entry, current, input := reportPolicyFixture(t)
 	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
@@ -186,7 +308,7 @@ func TestReportPolicyRegistryResolvesExactTrust(t *testing.T) {
 		t.Fatal(err)
 	}
 	if string(trust.PolicyBytes) != string(entry.PolicyBytes) || trust.PolicyMode != "inform" ||
-		trust.Producer != entry.Producer || len(trust.Baselines) != 1 {
+		trust.Producer != entry.ReportProducer || len(trust.Baselines) != 1 {
 		t.Fatalf("trust = %#v", trust)
 	}
 	selection := trust.Baselines[0]
@@ -291,7 +413,15 @@ func TestReportPolicyRegistryValidatesEntries(t *testing.T) {
 			entry.Catalogue.SHA256 = "invalid"
 		}},
 		{name: "profile", mutate: func(entry *ReportPolicyEntry) { entry.Profile = "Invalid" }},
-		{name: "producer", mutate: func(entry *ReportPolicyEntry) { entry.Producer.Image = "latest" }},
+		{name: "contracts", mutate: func(entry *ReportPolicyEntry) {
+			entry.ContractsVersion = "latest"
+		}},
+		{name: "raw producer", mutate: func(entry *ReportPolicyEntry) {
+			entry.RawProducer.Image = "latest"
+		}},
+		{name: "report producer", mutate: func(entry *ReportPolicyEntry) {
+			entry.ReportProducer.Image = "latest"
+		}},
 		{name: "workload", mutate: func(entry *ReportPolicyEntry) { entry.Workload.SHA256 = "invalid" }},
 		{name: "environment", mutate: func(entry *ReportPolicyEntry) {
 			entry.Environment.Fingerprint = "invalid"
