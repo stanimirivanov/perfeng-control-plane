@@ -95,6 +95,87 @@ func TestBaselinePersistence(t *testing.T) {
 	}
 }
 
+func TestApprovedBaselineResolution(t *testing.T) {
+	dsn := testDatabase(t)
+	first := openTest(t, dsn)
+	if err := first.Migrate(testContext); err != nil {
+		t.Fatal(err)
+	}
+	second := openTest(t, dsn)
+
+	source, artifact := completedBaselineSource(t, first, "alice", "request-key-resolution")
+	created, err := first.CreateBaseline(testContext, "alice", baselineInput(source, artifact))
+	if err != nil {
+		t.Fatal(err)
+	}
+	selection := baselineSelection(created)
+	if _, found, err := second.ResolveApprovedBaseline(testContext, "alice", selection); err != nil || found {
+		t.Fatal("candidate resolved as approved", err)
+	}
+
+	sampleCount := int64(8)
+	maximumCV := 0.03
+	qualified, err := first.TransitionBaseline(
+		testContext, "alice", created.ID, created.Version, created.Revision,
+		baseline.Change{
+			State: baseline.StateQualified,
+			Qualification: &baseline.Qualification{
+				Status: baseline.QualificationPassed, Reasons: []string{},
+				SampleCount: &sampleCount, MaximumCV: &maximumCV,
+			},
+			Actor: "reviewer", Reason: "Evidence met the reviewed policy.",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	approved, err := first.TransitionBaseline(
+		testContext, "alice", qualified.ID, qualified.Version, qualified.Revision,
+		baseline.Change{
+			State: baseline.StateApproved, Actor: "approver", Reason: "Approved as an anchor.",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resolved, found, err := second.ResolveApprovedBaseline(testContext, "alice", selection)
+	if err != nil || !found || !reflect.DeepEqual(resolved, approved) {
+		t.Fatal("approved baseline did not resolve", err)
+	}
+	if _, found, err = second.ResolveApprovedBaseline(testContext, "bob", selection); err != nil || found {
+		t.Fatal("cross-principal baseline resolved", err)
+	}
+	mismatched := selection
+	mismatched.Environment.Fingerprint = strings.Repeat("d", 64)
+	if _, found, err = second.ResolveApprovedBaseline(testContext, "alice", mismatched); err != nil || found {
+		t.Fatal("incompatible baseline resolved", err)
+	}
+	missing := selection
+	missing.Version = "2.0.1"
+	if _, found, err = second.ResolveApprovedBaseline(testContext, "alice", missing); err != nil || found {
+		t.Fatal("missing baseline resolved", err)
+	}
+	invalid := selection
+	invalid.Version = "latest"
+	if _, _, err = second.ResolveApprovedBaseline(testContext, "alice", invalid); !errors.Is(err, run.ErrValidation) {
+		t.Fatal("invalid selection was not rejected", err)
+	}
+
+	retired, err := first.TransitionBaseline(
+		testContext, "alice", approved.ID, approved.Version, approved.Revision,
+		baseline.Change{
+			State: baseline.StateRetired, Actor: "approver", Reason: "Anchor retired.",
+		},
+	)
+	if err != nil || retired.State != baseline.StateRetired {
+		t.Fatal("could not retire approved baseline", err)
+	}
+	if _, found, err = second.ResolveApprovedBaseline(testContext, "alice", selection); err != nil || found {
+		t.Fatal("retired baseline resolved", err)
+	}
+}
+
 func approveBaselineConcurrently(
 	t *testing.T,
 	first, second *Repository,
@@ -191,5 +272,12 @@ func baselineInput(source run.Run, artifact run.Artifact) baseline.Create {
 		},
 		Dataset: baseline.Dataset{Kind: "none"},
 		Actor:   "performance-team", Reason: "Selected completed normalized evidence.",
+	}
+}
+
+func baselineSelection(record baseline.Record) baseline.Selection {
+	return baseline.Selection{
+		ID: record.ID, Version: record.Version, TestID: record.TestID,
+		Workload: record.Workload, Environment: record.Environment, Dataset: record.Dataset,
 	}
 }

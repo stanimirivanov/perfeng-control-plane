@@ -265,9 +265,9 @@ HTTP behavior. A broader cross-language conformance suite can follow.
 
 The [baseline domain](docs/baseline-lifecycle.md) represents one immutable
 baseline version, its qualification evidence and its append-only review history.
-PostgreSQL persists these records and serializes lifecycle decisions. Selection
-of the one approved baseline for a comparison context and administrative HTTP
-operations remain separate follow-up work.
+PostgreSQL persists these records, serializes lifecycle decisions and resolves
+only an explicitly pinned approved version whose trusted comparison dimensions
+match. Administrative HTTP operations remain separate follow-up work.
 
 Relevant Go references: [HTTP server handlers](https://pkg.go.dev/net/http),
 [JSON decoding behavior](https://pkg.go.dev/encoding/json), and
