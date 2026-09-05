@@ -16,15 +16,16 @@ import (
 
 // ReportPolicyEntry binds an approved policy to one exact execution context.
 type ReportPolicyEntry struct {
-	PolicyBytes []byte
-	TestID      string
-	Catalogue   run.Reference
-	Profile     string
-	Producer    rawresult.Producer
-	Workload    rawresult.Identity
-	Environment baseline.Environment
-	Dataset     baseline.Dataset
-	Principals  []string
+	PolicyBytes     []byte
+	TestID          string
+	Catalogue       run.Reference
+	Profile         string
+	Producer        rawresult.Producer
+	Workload        rawresult.Identity
+	Environment     baseline.Environment
+	Dataset         baseline.Dataset
+	CandidateImages []string
+	Principals      []string
 }
 
 // ReportPolicyRegistry resolves report trust from an immutable reviewed entry set.
@@ -46,6 +47,7 @@ type reportPolicyValue struct {
 	mode        string
 	producer    rawresult.Producer
 	baselines   []baseline.Selection
+	candidates  map[string]struct{}
 }
 
 var _ reconcile.ReportTrustResolver = (*ReportPolicyRegistry)(nil)
@@ -73,8 +75,19 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 	if err != nil || !rawresult.ValidResourceID(entry.TestID) || !validReference(entry.Catalogue) ||
 		!rawresult.ValidResourceID(entry.Profile) || entry.Producer.Validate() != nil ||
 		entry.Workload.Validate() != nil || entry.Environment.Validate() != nil ||
-		entry.Dataset.Validate() != nil || len(entry.Principals) == 0 {
+		entry.Dataset.Validate() != nil || len(entry.CandidateImages) == 0 ||
+		len(entry.Principals) == 0 {
 		return run.ErrValidation
+	}
+	candidates := make(map[string]struct{}, len(entry.CandidateImages))
+	for _, image := range entry.CandidateImages {
+		if !rawresult.ValidImage(image) {
+			return run.ErrValidation
+		}
+		if _, exists := candidates[image]; exists {
+			return run.ErrValidation
+		}
+		candidates[image] = struct{}{}
 	}
 
 	digest := sha256.Sum256(entry.PolicyBytes)
@@ -116,8 +129,32 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 		registry.entries[key] = reportPolicyValue{
 			policyBytes: append([]byte(nil), entry.PolicyBytes...),
 			mode:        document.Spec.Mode, producer: entry.Producer,
-			baselines: cloneSelections(baselines),
+			baselines: cloneSelections(baselines), candidates: cloneSet(candidates),
 		}
+	}
+
+	return nil
+}
+
+// ApproveRun authorizes one exact request context and candidate image.
+func (registry *ReportPolicyRegistry) ApproveRun(
+	ctx context.Context,
+	principal string,
+	request run.Request,
+) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if registry == nil || principal == "" || request.Validate() != nil {
+		return run.ErrValidation
+	}
+
+	entry, exists := registry.lookup(principal, request)
+	if !exists {
+		return run.ErrForbidden
+	}
+	if _, approved := entry.candidates[request.Candidate.Image]; !approved {
+		return run.ErrForbidden
 	}
 
 	return nil
@@ -138,12 +175,7 @@ func (registry *ReportPolicyRegistry) ResolveReportTrust(
 		return reconcile.ReportTrust{}, run.ErrValidation
 	}
 
-	key := reportPolicyKey{
-		principal: principal, testID: current.Request.TestSuite,
-		catalogue: current.Request.Catalogue, profile: current.Request.Profile,
-		environment: current.Request.Environment, policy: current.Request.Policy,
-	}
-	entry, exists := registry.entries[key]
+	entry, exists := registry.lookup(principal, current.Request)
 	if !exists {
 		return reconcile.ReportTrust{}, run.ErrForbidden
 	}
@@ -153,6 +185,19 @@ func (registry *ReportPolicyRegistry) ResolveReportTrust(
 		PolicyMode:  entry.mode, Producer: entry.producer,
 		Baselines: cloneSelections(entry.baselines),
 	}, nil
+}
+
+func (registry *ReportPolicyRegistry) lookup(
+	principal string,
+	request run.Request,
+) (reportPolicyValue, bool) {
+	entry, exists := registry.entries[reportPolicyKey{
+		principal: principal, testID: request.TestSuite,
+		catalogue: request.Catalogue, profile: request.Profile,
+		environment: request.Environment, policy: request.Policy,
+	}]
+
+	return entry, exists
 }
 
 func validReference(reference run.Reference) bool {
@@ -183,4 +228,13 @@ func cloneDataset(dataset baseline.Dataset) baseline.Dataset {
 	}
 
 	return dataset
+}
+
+func cloneSet(values map[string]struct{}) map[string]struct{} {
+	clone := make(map[string]struct{}, len(values))
+	for value := range values {
+		clone[value] = struct{}{}
+	}
+
+	return clone
 }
