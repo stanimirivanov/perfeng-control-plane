@@ -36,7 +36,9 @@ approver accepts the remaining policy, reference, producer and verdict claims.
 and producer identity to the report, resolves policy-selected versions through
 the baseline repository and requires the report's reference artifacts to match
 the resulting approved evidence exactly. Verdict validation remains a separate
-injected boundary so policy rule coverage and arithmetic can be independently
-recomputed. The parser itself performs no network, database, Kubernetes or
+injected boundary. `policy.VerdictApprover` is the concrete implementation: it
+strictly parses the approved policy, requires exact rule and selector coverage,
+checks quality evidence and independently recomputes decisive SLO and regression
+arithmetic. The parser itself performs no network, database, Kubernetes or
 object-storage I/O. Concrete registry and publication resolvers remain external
 adapters.

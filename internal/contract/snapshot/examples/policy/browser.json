@@ -1,0 +1,40 @@
+{
+  "apiVersion": "performance.perfeng.io/v1",
+  "kind": "PerformancePolicy",
+  "metadata": {
+    "name": "search-browser",
+    "version": "1.0.0",
+    "owner": "search-team"
+  },
+  "spec": {
+    "mode": "inform",
+    "missingData": "inconclusive",
+    "rules": [
+      {
+        "id": "search-latency",
+        "metric": {
+          "name": "ui.search.action_to_visible_ms",
+          "statistic": "mean",
+          "unit": "ms"
+        },
+        "quality": {
+          "minSamples": 2
+        },
+        "slo": {
+          "max": 200
+        },
+        "regression": {
+          "direction": "lower-is-better",
+          "practicalDifference": {
+            "kind": "relative",
+            "value": 0.1
+          },
+          "reference": {
+            "baselineId": "approved-search-browser",
+            "version": "1.0.0"
+          }
+        }
+      }
+    ]
+  }
+}

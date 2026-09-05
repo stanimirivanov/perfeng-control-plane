@@ -23,7 +23,7 @@ func TestPinnedSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	if lock.Commit != "305402970f286c5f84c8d2577e9f1ab3292c4b9c" ||
-		lock.BundleVersion != "0.8.0" || lock.APIVersion != "0.3.0" || len(lock.SHA256) != 6 {
+		lock.BundleVersion != "0.8.0" || lock.APIVersion != "0.3.0" || len(lock.SHA256) != 8 {
 		t.Fatal("unexpected contract provenance")
 	}
 	for name, expected := range lock.SHA256 {

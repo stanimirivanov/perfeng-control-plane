@@ -37,6 +37,7 @@ coordination, not load generation or statistical decisions.
 - Strict parsing and internal-consistency validation of analysis-result reports.
 - Composable verification of report output bytes, candidate binding and approval.
 - Exact report binding to run-pinned policy bytes, authorized producer and approved baselines.
+- Strict performance-policy parsing and independent report-verdict verification.
 - Versioned baseline candidates with revision-checked qualification, approval and retirement.
 - Principal-scoped PostgreSQL baseline storage backed by completed, registered evidence.
 
@@ -104,6 +105,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/jsondocument | Shared bounded, duplicate-safe contract JSON handling |
 | internal/normalizedresult | Untrusted normalized-result parsing and consistency validation |
 | internal/analysisresult | Untrusted analysis-result parsing and consistency validation |
+| internal/policy | Approved performance-policy parsing and report-verdict verification |
 | internal/rawresult | Untrusted raw-result manifest parsing and structural validation |
 | internal/baseline | Baseline identity, evidence and forward-only approval lifecycle |
 | internal/worker | Bounded claim scheduling, lease renewal and attempt cancellation |
@@ -249,8 +251,8 @@ discovery and the real approval policy remain deployment-specific adapters.
 The [snapshot lock](internal/contract/snapshot/lock.json) pins perfeng-contracts
 commit `305402970f286c5f84c8d2577e9f1ab3292c4b9c`, candidate bundle 0.8.0,
 API 0.3.0. The OpenAPI document, transitions, run fixtures and baseline request
-fixtures are copied byte-for-byte from that commit; lock hashes cover these
-local bytes.
+fixtures, plus the performance-policy schema and browser example, are copied
+byte-for-byte from that commit; lock hashes cover these local bytes.
 Tests verify checksums. There is no sibling-checkout or network dependency at
 build/test/runtime. Imported contract content is Apache-2.0, as in this repository.
 

@@ -10,6 +10,8 @@
     "examples/create.json": "7aabe0afac9987cc48426a0831d16fd12e61796bb64c85f9d203758408329bc3",
     "examples/artifacts.json": "707a03a22f235ee016f43c7760d7edb2fa07d679ac455e7036bd4606c8646417",
     "examples/baseline-create.json": "c96b064ad3146e26b6c3f131712279492a110ac7a8307016967b6b5e4249f621",
-    "examples/baseline-transition.json": "a539e397ec34e23870052586362e9425b362049171761ec95596d257b9cedf3f"
+    "examples/baseline-transition.json": "a539e397ec34e23870052586362e9425b362049171761ec95596d257b9cedf3f",
+    "schemas/policy/v1/performance-policy.schema.json": "942e445736bd770db0721faa40e9c9dec61e6a4620550f2806e05a59f4ef0de2",
+    "examples/policy/browser.json": "566a9d13e277db0b492c4a7b55294a2e479c9d449768317c072f0f4dda988646"
   }
 }
