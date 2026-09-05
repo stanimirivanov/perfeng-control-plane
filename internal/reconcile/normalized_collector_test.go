@@ -40,6 +40,22 @@ func (approve approveNormalizedManifestFunc) ApproveNormalizedManifest(
 	return approve(ctx, principal, current, input, manifest)
 }
 
+type normalizedCollectorReader struct {
+	t        testing.TB
+	delegate ArtifactByteReader
+}
+
+func (reader normalizedCollectorReader) Read(
+	ctx context.Context,
+	artifact run.Artifact,
+) ([]byte, error) {
+	if artifact.Format == "raw-result/v1" {
+		return encodeRawManifest(reader.t, normalizedRawManifest(artifact.RunID)), nil
+	}
+
+	return reader.delegate.Read(ctx, artifact)
+}
+
 func TestVerifiedNormalizedCollectorReturnsApprovedVerifiedReference(t *testing.T) {
 	t.Parallel()
 
@@ -227,6 +243,93 @@ func TestVerifiedNormalizedCollectorBindsExactSourceSet(t *testing.T) {
 	}
 }
 
+func TestVerifiedNormalizedCollectorBindsRawManifestProvenance(t *testing.T) {
+	t.Parallel()
+
+	current, input, reference, manifest := normalizedCollectorFixture()
+	tests := map[string]func(*normalizedresult.Manifest){
+		"test":     func(value *normalizedresult.Manifest) { value.TestID = "other-test" },
+		"workload": func(value *normalizedresult.Manifest) { value.Workload.ID = "other-workload" },
+		"window": func(value *normalizedresult.Manifest) {
+			value.MeasurementWindow.Start = "2026-09-03T12:00:01Z"
+		},
+		"creation order": func(value *normalizedresult.Manifest) {
+			value.CreatedAt = "2026-09-03T12:01:00.250Z"
+		},
+	}
+	for name, mutate := range tests {
+		mutate := mutate
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			changed := manifest
+			mutate(&changed)
+			collector := newVerifiedNormalizedCollector(
+				t,
+				fixedNormalizedResolver(reference),
+				readArtifactFunc(func(context.Context, run.Artifact) ([]byte, error) {
+					return encodeNormalizedManifest(t, changed), nil
+				}),
+				acceptingNormalizedApprover(),
+			)
+			if _, err := collector.CollectNormalizedArtifact(
+				context.Background(), "worker-a", current, input,
+			); !errors.Is(err, ErrAnalysisFailed) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
+func TestVerifiedNormalizedCollectorRejectsChangedPersistedRawManifest(t *testing.T) {
+	t.Parallel()
+
+	current, input, reference, manifest := normalizedCollectorFixture()
+	changedSource := normalizedRawManifest(current.ID)
+	changedSource.Artifacts[0].SHA256 = strings.Repeat("f", 64)
+	tests := []struct {
+		name       string
+		rawContent []byte
+		rawErr     error
+		want       error
+	}{
+		{name: "missing", rawErr: objectstore.ErrObjectNotFound, want: ErrAnalysisFailed},
+		{name: "changed bytes", rawErr: objectstore.ErrObjectMismatch, want: ErrAnalysisFailed},
+		{name: "unavailable", rawErr: run.ErrUnavailable, want: run.ErrUnavailable},
+		{name: "invalid", rawContent: []byte(`{}`), want: ErrAnalysisFailed},
+		{name: "changed source", rawContent: encodeRawManifest(t, changedSource), want: ErrAnalysisFailed},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			collector, err := NewVerifiedNormalizedCollector(
+				fixedNormalizedResolver(reference),
+				readArtifactFunc(func(_ context.Context, artifact run.Artifact) ([]byte, error) {
+					if artifact == input.Manifest {
+						content := test.rawContent
+						if content == nil {
+							content = encodeRawManifest(t, normalizedRawManifest(current.ID))
+						}
+						return content, test.rawErr
+					}
+
+					return encodeNormalizedManifest(t, manifest), nil
+				}),
+				acceptingNormalizedApprover(),
+				normalizedContractsVersion,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := collector.CollectNormalizedArtifact(
+				context.Background(), "worker-a", current, input,
+			); !errors.Is(err, test.want) {
+				t.Fatalf("error = %v, want %v", err, test.want)
+			}
+		})
+	}
+}
+
 func TestVerifiedNormalizedCollectorClassifiesApprovalFailures(t *testing.T) {
 	t.Parallel()
 
@@ -362,6 +465,28 @@ func normalizedCollectorFixture() (
 	return current, input, reference, manifest
 }
 
+func normalizedRawManifest(runID string) rawresult.Manifest {
+	return rawresult.Manifest{
+		SchemaVersion:    1,
+		Kind:             "RawResult",
+		ContractsVersion: normalizedContractsVersion,
+		RunID:            runID,
+		TestID:           "checkout-api",
+		Workload: rawresult.Identity{
+			ID: "checkout-smoke", Version: "1.0.0", SHA256: strings.Repeat("a", 64),
+		},
+		Producer: rawresult.Producer{
+			Name: "k6", Version: "2.2.0",
+			Image: "ghcr.io/stanimirivanov/perfeng-k6@sha256:" + strings.Repeat("b", 64),
+		},
+		MeasurementWindow: rawresult.Window{
+			Start: "2026-09-03T12:00:00Z", End: "2026-09-03T12:01:00Z",
+		},
+		CreatedAt: "2026-09-03T12:01:00.500Z",
+		Artifacts: append([]run.Artifact(nil), rawArtifacts(runID)...),
+	}
+}
+
 func encodeNormalizedManifest(t testing.TB, manifest normalizedresult.Manifest) []byte {
 	t.Helper()
 	data, err := json.Marshal(manifest)
@@ -380,7 +505,10 @@ func newVerifiedNormalizedCollector(
 ) *VerifiedNormalizedCollector {
 	t.Helper()
 	collector, err := NewVerifiedNormalizedCollector(
-		resolver, reader, approver, normalizedContractsVersion,
+		resolver,
+		normalizedCollectorReader{t: t, delegate: reader},
+		approver,
+		normalizedContractsVersion,
 	)
 	if err != nil {
 		t.Fatal(err)

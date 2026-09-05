@@ -14,6 +14,7 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/httpapi"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/normalizedresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/rawresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/reconcile"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
@@ -69,6 +70,10 @@ func reportPolicyFixture(t *testing.T) (ReportPolicyEntry, run.Run, reconcile.Re
 		RawProducer: rawresult.Producer{
 			Name: "perfeng-k6", Version: "1.0.0",
 			Image: "ghcr.io/example/perfeng-k6@sha256:" + strings.Repeat("0", 64),
+		},
+		NormalizerProducer: rawresult.Producer{
+			Name: "perfeng-analysis", Version: "1.0.0",
+			Image: "ghcr.io/example/perfeng-analysis@sha256:" + strings.Repeat("f", 64),
 		},
 		ReportProducer: rawresult.Producer{
 			Name: "perfeng-analysis", Version: "1.0.0",
@@ -225,6 +230,38 @@ func rawManifestFixture(
 	}
 }
 
+func normalizedManifestFixture(
+	entry ReportPolicyEntry,
+	current run.Run,
+) (reconcile.AnalysisInput, normalizedresult.Manifest) {
+	rawManifest := rawManifestFixture(entry, current)
+	input := reconcile.AnalysisInput{
+		Manifest: run.Artifact{
+			ID: "33333333-3333-4333-8333-333333333333", RunID: current.ID,
+			Kind: "raw", URI: "s3://perfeng/runs/" + current.ID + "/raw-result.json",
+			SHA256: strings.Repeat("b", 64), SizeBytes: 200,
+			MediaType: "application/json", Format: "raw-result/v1",
+		},
+		Sources: append([]run.Artifact(nil), rawManifest.Artifacts...),
+	}
+	manifest := normalizedresult.Manifest{
+		SchemaVersion: 1, Kind: "NormalizedResult", ContractsVersion: entry.ContractsVersion,
+		RunID: current.ID, TestID: current.Request.TestSuite, Workload: entry.Workload,
+		Producer: entry.NormalizerProducer, MeasurementWindow: rawManifest.MeasurementWindow,
+		CreatedAt:       "2026-09-05T12:01:02Z",
+		SourceArtifacts: append([]run.Artifact(nil), input.Sources...),
+		Results: []normalizedresult.Result{{
+			SchemaVersion: 2, RunID: current.ID,
+			Metric: normalizedresult.Metric{
+				Name: "http.request.duration", Direction: "lower-is-better",
+			},
+			Distribution: normalizedresult.Distribution{},
+		}},
+	}
+
+	return input, manifest
+}
+
 func TestReportPolicyRegistryApprovesRawManifestProvenance(t *testing.T) {
 	entry, current, _ := reportPolicyFixture(t)
 	current.State = run.StateCollecting
@@ -236,6 +273,109 @@ func TestReportPolicyRegistryApprovesRawManifestProvenance(t *testing.T) {
 		context.Background(), "alice", current, rawManifestFixture(entry, current),
 	); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestReportPolicyRegistryApprovesNormalizedManifestProvenance(t *testing.T) {
+	entry, current, _ := reportPolicyFixture(t)
+	current.State = run.StateAnalyzing
+	input, manifest := normalizedManifestFixture(entry, current)
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.ApproveNormalizedManifest(
+		context.Background(), "alice", current, input, manifest,
+	); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestReportPolicyRegistryRejectsUnapprovedNormalizedManifest(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(*run.Run, *reconcile.AnalysisInput, *normalizedresult.Manifest)
+	}{
+		{name: "context", mutate: func(current *run.Run, _ *reconcile.AnalysisInput, _ *normalizedresult.Manifest) {
+			current.Request.Policy.Version = "2.0.0"
+		}},
+		{name: "contracts", mutate: func(_ *run.Run, _ *reconcile.AnalysisInput, manifest *normalizedresult.Manifest) {
+			manifest.ContractsVersion = "0.9.0"
+		}},
+		{name: "test", mutate: func(_ *run.Run, _ *reconcile.AnalysisInput, manifest *normalizedresult.Manifest) {
+			manifest.TestID = "other-test"
+		}},
+		{name: "workload", mutate: func(_ *run.Run, _ *reconcile.AnalysisInput, manifest *normalizedresult.Manifest) {
+			manifest.Workload.ID = "other-workload"
+		}},
+		{name: "producer", mutate: func(_ *run.Run, _ *reconcile.AnalysisInput, manifest *normalizedresult.Manifest) {
+			manifest.Producer.Name = "other-normalizer"
+		}},
+		{name: "sources", mutate: func(_ *run.Run, _ *reconcile.AnalysisInput, manifest *normalizedresult.Manifest) {
+			manifest.SourceArtifacts[0].SHA256 = strings.Repeat("f", 64)
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			entry, current, _ := reportPolicyFixture(t)
+			current.State = run.StateAnalyzing
+			input, manifest := normalizedManifestFixture(entry, current)
+			test.mutate(&current, &input, &manifest)
+			registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := registry.ApproveNormalizedManifest(
+				context.Background(), "alice", current, input, manifest,
+			); !errors.Is(err, run.ErrForbidden) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
+func TestReportPolicyRegistryValidatesNormalizedManifestContext(t *testing.T) {
+	entry, current, _ := reportPolicyFixture(t)
+	current.State = run.StateAnalyzing
+	input, manifest := normalizedManifestFixture(entry, current)
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name      string
+		principal string
+		state     run.State
+		input     reconcile.AnalysisInput
+		manifest  normalizedresult.Manifest
+	}{
+		{name: "principal", state: run.StateAnalyzing, input: input, manifest: manifest},
+		{name: "state", principal: "alice", state: run.StateRunning, input: input, manifest: manifest},
+		{name: "input", principal: "alice", state: run.StateAnalyzing, manifest: manifest},
+		{name: "manifest", principal: "alice", state: run.StateAnalyzing, input: input},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			candidate := current
+			candidate.State = test.state
+			if err := registry.ApproveNormalizedManifest(
+				context.Background(), test.principal, candidate, test.input, test.manifest,
+			); !errors.Is(err, run.ErrValidation) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := registry.ApproveNormalizedManifest(
+		ctx, "alice", current, input, manifest,
+	); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancellation error = %v", err)
+	}
+	var nilRegistry *ReportPolicyRegistry
+	if err := nilRegistry.ApproveNormalizedManifest(
+		context.Background(), "alice", current, input, manifest,
+	); !errors.Is(err, run.ErrValidation) {
+		t.Fatalf("nil registry error = %v", err)
 	}
 }
 
@@ -542,6 +682,9 @@ func TestReportPolicyRegistryValidatesEntries(t *testing.T) {
 		}},
 		{name: "raw producer", mutate: func(entry *ReportPolicyEntry) {
 			entry.RawProducer.Image = "latest"
+		}},
+		{name: "normalizer producer", mutate: func(entry *ReportPolicyEntry) {
+			entry.NormalizerProducer.Image = "latest"
 		}},
 		{name: "report producer", mutate: func(entry *ReportPolicyEntry) {
 			entry.ReportProducer.Image = "latest"
