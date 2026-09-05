@@ -81,6 +81,13 @@ func TestExecutionCanBeBoundAfterCancellation(t *testing.T) {
 	repository, _ := claimsDB(t)
 	acceptedRun := accepted(t, repository, "cancelled-execution", "request-key-cancelled-execution")
 	claim := oneClaim(t, repository, "cancelled-execution-worker")
+	current, err := repository.AdvanceClaim(testContext, claim.Lease, claim.Run.Revision, run.Change{State: run.StateValidating})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = repository.AdvanceClaim(testContext, claim.Lease, current.Revision, run.Change{State: run.StateProvisioning}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := repository.Cancel(testContext, "cancelled-execution", acceptedRun.Run.ID); err != nil {
 		t.Fatal(err)
 	}

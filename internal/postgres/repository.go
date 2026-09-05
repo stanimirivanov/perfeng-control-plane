@@ -11,7 +11,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
@@ -173,14 +172,7 @@ func (r *Repository) mutate(ctx context.Context, principal, id string, change fu
 // Cancel applies the repository cancellation contract under the Run row lock.
 func (r *Repository) Cancel(ctx context.Context, principal, id string) (run.Run, error) {
 	return r.mutate(ctx, principal, id, func(current run.Run, now time.Time) (run.Run, error) {
-		if current.State == run.StateCancelling || current.State == run.StateAborted {
-			return current, nil
-		}
-		if contract.Terminal(string(current.State)) {
-			return run.Run{}, run.ErrTerminal
-		}
-
-		return current.Transition(current.Revision, run.Change{State: run.StateCancelling}, now)
+		return current.RequestCancellation(now)
 	})
 }
 

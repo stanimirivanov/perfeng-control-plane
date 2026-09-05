@@ -83,19 +83,11 @@ func TestClaimsLifecycle(t *testing.T) {
 		t.Fatal("worker claim changed acceptance replay")
 	}
 	cancelled, err := other.Cancel(testContext, "alice", a.Run.ID)
-	if err != nil || cancelled.State != "CANCELLING" {
+	if err != nil || cancelled.State != "ABORTED" || cancelled.FinishedAt == nil {
 		t.Fatal(err)
 	}
-	if _, err := r.AdvanceClaim(testContext, renewed.Lease, 2, run.Change{State: "PROVISIONING"}); !errors.Is(err, run.ErrRevision) {
+	if _, err := r.AdvanceClaim(testContext, renewed.Lease, 2, run.Change{State: "PROVISIONING"}); !errors.Is(err, run.ErrLeaseLost) {
 		t.Fatal("stale worker overwrote cancellation", err)
-	}
-	renewed, err = r.RenewClaim(testContext, renewed.Lease, time.Minute)
-	if err != nil || renewed.Run.State != "CANCELLING" {
-		t.Fatal("renew did not observe cancellation", err)
-	}
-	aborted, err := r.AdvanceClaim(testContext, renewed.Lease, renewed.Run.Revision, run.Change{State: "ABORTED"})
-	if err != nil || aborted.FinishedAt == nil {
-		t.Fatal(err)
 	}
 	if _, err := other.RenewClaim(testContext, renewed.Lease, time.Minute); !errors.Is(err, run.ErrLeaseLost) {
 		t.Fatal("terminal lease renewed", err)
@@ -109,6 +101,14 @@ func TestClaimExpiryReleaseAndCancellation(t *testing.T) {
 	r, _ := claimsDB(t)
 	a := accepted(t, r, "alice", "request-key-expire")
 	old := oneClaim(t, r, "same-worker")
+	current, err := r.AdvanceClaim(testContext, old.Lease, old.Run.Revision, run.Change{State: run.StateValidating})
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err = r.AdvanceClaim(testContext, old.Lease, current.Revision, run.Change{State: run.StateProvisioning})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := r.ReleaseClaim(testContext, old.Lease, time.Minute); err != nil {
 		t.Fatal(err)
 	}

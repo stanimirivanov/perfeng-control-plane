@@ -30,7 +30,9 @@ acquiring the lock; expiry is not calculated from a stale transaction-start time
 Replays return the original CREATED snapshot and expiration, even after the run
 has progressed. Expired keys may bind to new runs without deleting old evidence.
 Cancellation and worker transitions lock the current run row; worker writes also
-check the expected revision. No-op cancellation does not update revision.
+check the expected revision. CREATED and VALIDATING cancellation commits ABORTED
+without external cleanup. Later active states commit CANCELLING. No-op
+cancellation does not update revision.
 
 Write transactions set synchronous_commit=on. Production still requires server
 fsync, reliable persistent storage, backup/restore testing and any required

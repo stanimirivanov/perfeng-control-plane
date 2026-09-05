@@ -1,13 +1,13 @@
 {
   "CREATED": [
     "VALIDATING",
-    "CANCELLING"
+    "ABORTED"
   ],
   "VALIDATING": [
     "PROVISIONING",
     "INVALID",
     "INFRASTRUCTURE_FAILURE",
-    "CANCELLING"
+    "ABORTED"
   ],
   "PROVISIONING": [
     "WARMING_UP",

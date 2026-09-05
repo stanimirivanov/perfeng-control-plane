@@ -235,6 +235,24 @@ func (r Run) Transition(expected int64, change Change, now time.Time) (Run, erro
 	return next.Clone(), nil
 }
 
+// RequestCancellation applies the lifecycle cancellation edge for the current
+// state. Pre-dispatch Runs become ABORTED; later active Runs become CANCELLING.
+// Repeated requests for CANCELLING or ABORTED Runs do not create a new revision.
+func (r Run) RequestCancellation(now time.Time) (Run, error) {
+	switch r.State {
+	case StateCancelling, StateAborted:
+		return r.Clone(), nil
+	case StateCreated, StateValidating:
+		return r.Transition(r.Revision, Change{State: StateAborted}, now)
+	default:
+		if contract.Terminal(string(r.State)) {
+			return Run{}, ErrTerminal
+		}
+
+		return r.Transition(r.Revision, Change{State: StateCancelling}, now)
+	}
+}
+
 // Accepted contains the immutable create response and idempotency-binding expiry.
 type Accepted struct {
 	Run       Run
@@ -256,8 +274,9 @@ type Repository interface {
 	// absent and cross-principal Runs.
 	Get(ctx context.Context, principal, id string) (Run, error)
 
-	// Cancel moves a nonterminal Run toward CANCELLING. Repeated cancellation of
-	// CANCELLING or ABORTED is a no-op; other terminal states return ErrTerminal.
+	// Cancel immediately aborts a CREATED or VALIDATING Run and moves a later
+	// nonterminal Run to CANCELLING. Repeated cancellation of CANCELLING or
+	// ABORTED is a no-op; other terminal states return ErrTerminal.
 	Cancel(ctx context.Context, principal, id string) (Run, error)
 
 	// Advance serializes a worker-only lifecycle mutation and applies Change

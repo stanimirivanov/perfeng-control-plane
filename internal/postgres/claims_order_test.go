@@ -112,6 +112,11 @@ func TestReconciliationStatementOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	trace.expect(t, "begin", "configure", "run-lock", "owner", "clock", "run-update", "commit")
+	current, err = r.AdvanceClaim(testContext, renewed.Lease, current.Revision, run.Change{State: "PROVISIONING"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	trace.expect(t, "begin", "configure", "run-lock", "owner", "clock", "run-update", "commit")
 
 	cancelled, err := setup.Cancel(testContext, renewed.Lease.Principal, current.ID)
 	if err != nil {
