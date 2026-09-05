@@ -10,6 +10,8 @@ import (
 
 var _ run.ArtifactRepository = (*Repository)(nil)
 
+// RegisterArtifact locks the owning Run and preserves the first canonical
+// artifact reference stored for an ID.
 func (r *Repository) RegisterArtifact(ctx context.Context, principal string, artifact run.Artifact) error {
 	artifact.ID = strings.ToLower(artifact.ID)
 	if err := artifact.Validate(); err != nil {
@@ -45,9 +47,11 @@ func (r *Repository) RegisterArtifact(ctx context.Context, principal string, art
 	if previous != artifact {
 		return run.ErrArtifactConflict
 	}
+
 	return storageError(tx.Commit())
 }
 
+// GetArtifact joins through the owning Run so cross-principal references remain hidden.
 func (r *Repository) GetArtifact(ctx context.Context, principal, runID, id string) (run.Artifact, error) {
 	ctx, cancel := context.WithTimeout(ctx, operationTimeout)
 	defer cancel()
@@ -63,6 +67,7 @@ func (r *Repository) GetArtifact(ctx context.Context, principal, runID, id strin
 	if err = json.Unmarshal(b, &artifact); err != nil {
 		return run.Artifact{}, err
 	}
+
 	return artifact, nil
 }
 

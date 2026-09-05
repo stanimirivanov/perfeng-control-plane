@@ -16,6 +16,8 @@ import (
 // and pinned request, not mutable lifecycle state. It must honor cancellation
 // and return safe errors without credentials or raw registry responses.
 type JobResolver interface {
+	// ResolveJob returns an independently owned, approved template for principal
+	// and the immutable accepted Run request.
 	ResolveJob(context.Context, string, run.Run) (*batchv1.Job, error)
 }
 
@@ -23,12 +25,14 @@ type JobResolver interface {
 // keeping Kubernetes I/O outside storage transactions.
 type ProvisioningStore interface {
 	kubernetes.ExecutionStore
+	// RenewClaim rechecks ownership and returns the latest Run before dispatch.
 	RenewClaim(context.Context, run.Lease, time.Duration) (run.Claim, error)
 }
 
 // JobDispatcher creates or adopts a matching deterministic Job without replacing
 // conflicting executions. A successful result must include a durable identity.
 type JobDispatcher interface {
+	// EnsureJob creates or adopts the deterministic Job without replacing conflicts.
 	EnsureJob(context.Context, string, *batchv1.Job) (kubernetes.Dispatch, error)
 }
 

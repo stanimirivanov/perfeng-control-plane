@@ -29,6 +29,8 @@ type AnalysisInput struct {
 // Run. It must use approved configuration and attest the normalized output bytes
 // before returning their immutable reference.
 type AnalysisExecutor interface {
+	// Normalize returns a verified normalized-result reference, ErrAnalysisPending
+	// while work remains active, or ErrAnalysisFailed after a definitive failure.
 	Normalize(context.Context, string, run.Run, AnalysisInput) (run.Artifact, error)
 }
 
@@ -36,7 +38,9 @@ type AnalysisExecutor interface {
 // changes through the current claim.
 type AnalysisStore interface {
 	ClaimAdvancer
+	// ListArtifacts returns the principal-owned Run's durable evidence in stable order.
 	ListArtifacts(context.Context, string, string) ([]run.Artifact, error)
+	// RegisterArtifact preserves one verified output reference idempotently.
 	RegisterArtifact(context.Context, string, run.Artifact) error
 }
 

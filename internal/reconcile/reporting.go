@@ -28,6 +28,8 @@ type ReportingInput struct {
 // must resolve the exact accepted policy, select only an approved reference and
 // attest the returned analysis-result bytes before returning their reference.
 type ReportExecutor interface {
+	// Report returns a verified analysis-result reference, ErrReportPending while
+	// work remains active, or ErrReportFailed after a definitive failure.
 	Report(context.Context, string, run.Run, ReportingInput) (run.Artifact, error)
 }
 
@@ -35,7 +37,9 @@ type ReportExecutor interface {
 // changes through the current claim.
 type ReportingStore interface {
 	ClaimAdvancer
+	// ListArtifacts returns the principal-owned Run's durable evidence in stable order.
 	ListArtifacts(context.Context, string, string) ([]run.Artifact, error)
+	// RegisterArtifact preserves one verified report reference idempotently.
 	RegisterArtifact(context.Context, string, run.Artifact) error
 }
 

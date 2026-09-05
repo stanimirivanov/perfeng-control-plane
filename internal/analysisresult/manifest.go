@@ -206,6 +206,7 @@ func (quality Quality) valid() bool {
 	) || !finite(quality.CV) {
 		return false
 	}
+
 	return (quality.Samples == nil || *quality.Samples >= 1) &&
 		(quality.CV == nil || *quality.CV >= 0)
 }
@@ -422,6 +423,7 @@ func decisiveFieldRequirements(outcome map[string]json.RawMessage) bool {
 				return false
 			}
 		}
+
 		return true
 	}
 	value, exists := outcome["value"]

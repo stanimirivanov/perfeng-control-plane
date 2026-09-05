@@ -97,5 +97,6 @@ func (r *Repository) Migrate(ctx context.Context) error {
 			return storageError(err)
 		}
 	}
+
 	return storageError(tx.Commit())
 }

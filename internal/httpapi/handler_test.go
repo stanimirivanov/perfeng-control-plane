@@ -23,6 +23,7 @@ func fixture(t *testing.T) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return b
 }
 func setup(t *testing.T) (*Handler, *memory.Repository) {
@@ -56,6 +57,7 @@ func setup(t *testing.T) (*Handler, *memory.Repository) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return h, repo
 }
 func call(h http.Handler, method, path, token string, body []byte) *httptest.ResponseRecorder {
@@ -67,6 +69,7 @@ func call(h http.Handler, method, path, token string, body []byte) *httptest.Res
 	r.Header.Set("Idempotency-Key", "request-key-00000001")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
+
 	return w
 }
 func decodeRun(t *testing.T, w *httptest.ResponseRecorder) run.Run {
@@ -75,6 +78,7 @@ func decodeRun(t *testing.T, w *httptest.ResponseRecorder) run.Run {
 	if err := json.Unmarshal(w.Body.Bytes(), &r); err != nil {
 		t.Fatal(err)
 	}
+
 	return r
 }
 

@@ -25,6 +25,7 @@ func claimsDB(t *testing.T) (*Repository, string) {
 	if err := r.Migrate(testContext); err != nil {
 		t.Fatal(err)
 	}
+
 	return r, dsn
 }
 func claimBatch(t *testing.T, r *Repository, worker string, limit int) []run.Claim {
@@ -33,6 +34,7 @@ func claimBatch(t *testing.T, r *Repository, worker string, limit int) []run.Cla
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return claims
 }
 func oneClaim(t *testing.T, r *Repository, worker string) run.Claim {
@@ -41,6 +43,7 @@ func oneClaim(t *testing.T, r *Repository, worker string) run.Claim {
 	if len(claims) != 1 {
 		t.Fatalf("expected one claim, got %d", len(claims))
 	}
+
 	return claims[0]
 }
 

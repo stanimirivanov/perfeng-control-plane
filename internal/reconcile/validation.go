@@ -15,11 +15,13 @@ import (
 // ClaimAdvancer applies a lifecycle change under current lease and revision
 // ownership. PostgreSQL's reconciliation store satisfies this boundary.
 type ClaimAdvancer interface {
+	// AdvanceClaim applies one lifecycle mutation while lease and revision remain current.
 	AdvanceClaim(context.Context, run.Lease, int64, run.Change) (run.Run, error)
 }
 
 // JobValidator applies dispatch policy without creating a Kubernetes resource.
 type JobValidator interface {
+	// ValidateJob checks dispatch identity and execution policy without cluster I/O.
 	ValidateJob(string, *batchv1.Job) error
 }
 

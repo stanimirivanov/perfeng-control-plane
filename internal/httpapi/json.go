@@ -25,6 +25,7 @@ func parseJSON(b []byte) (any, error) {
 	if _, err = d.Token(); !errors.Is(err, io.EOF) {
 		return nil, errJSON
 	}
+
 	return value, nil
 }
 
@@ -65,6 +66,7 @@ func readValue(d *json.Decoder, depth int) (any, error) {
 		if err != nil || end != json.Delim('}') {
 			return nil, errJSON
 		}
+
 		return object, nil
 	case '[':
 		array := make([]any, 0)
@@ -79,6 +81,7 @@ func readValue(d *json.Decoder, depth int) (any, error) {
 		if err != nil || end != json.Delim(']') {
 			return nil, errJSON
 		}
+
 		return array, nil
 	default:
 		return nil, errJSON

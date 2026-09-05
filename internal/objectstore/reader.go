@@ -36,6 +36,8 @@ type Object struct {
 // context cancellation, classify missing keys with ErrObjectNotFound, and return
 // safe errors that do not expose credentials or signed requests.
 type Getter interface {
+	// GetObject returns the response body and declared metadata for bucket and
+	// key. The caller owns and must close a non-nil Body.
 	GetObject(context.Context, string, string) (Object, error)
 }
 

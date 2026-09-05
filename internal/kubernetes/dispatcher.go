@@ -40,8 +40,11 @@ var ErrJobConflict = errors.New("kubernetes Job identity conflicts with the requ
 // Jobs is the Kubernetes API boundary for dispatch, observation and stop requests.
 // A typed client-go JobInterface satisfies this contract.
 type Jobs interface {
+	// Create must surface AlreadyExists without replacing the existing Job.
 	Create(context.Context, *batchv1.Job, metav1.CreateOptions) (*batchv1.Job, error)
+	// Get reads from the client's bound namespace and preserves NotFound errors.
 	Get(context.Context, string, metav1.GetOptions) (*batchv1.Job, error)
+	// Delete must honor supplied UID preconditions; NotFound means already absent.
 	Delete(context.Context, string, metav1.DeleteOptions) error
 }
 

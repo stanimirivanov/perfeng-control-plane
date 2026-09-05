@@ -14,6 +14,7 @@ import (
 // Pods is the Kubernetes API boundary needed to verify workload termination.
 // A typed client-go PodInterface satisfies this contract.
 type Pods interface {
+	// List returns an empty PodList when the execution ownership selector matches nothing.
 	List(context.Context, metav1.ListOptions) (*corev1.PodList, error)
 }
 

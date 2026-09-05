@@ -20,6 +20,7 @@ func decodeRun(b []byte) (run.Run, error) {
 	if err := json.Unmarshal(b, &result); err != nil {
 		return run.Run{}, errors.New("invalid stored run snapshot")
 	}
+
 	return result, nil
 }
 
@@ -37,6 +38,8 @@ func scopeLock(principal, key string) int64 {
 	return int64(binary.BigEndian.Uint64(hash[:8]))
 }
 
+// Accept serializes a principal/key scope with an advisory transaction lock and
+// uses database time for both Run identity and binding expiry.
 func (r *Repository) Accept(ctx context.Context, principal, key string, request run.Request) (run.Accepted, error) {
 	if principal == "" || !run.ValidKey(key) || request.Validate() != nil {
 		return run.Accepted{}, run.ErrValidation
@@ -99,9 +102,11 @@ func (r *Repository) Accept(ctx context.Context, principal, key string, request 
 	if err = tx.Commit(); err != nil {
 		return run.Accepted{}, storageError(err)
 	}
+
 	return run.Accepted{Run: created, ExpiresAt: expiry}, nil
 }
 
+// Get reads the current principal-owned Run snapshot without acquiring a row lock.
 func (r *Repository) Get(ctx context.Context, principal, id string) (run.Run, error) {
 	ctx, cancel := context.WithTimeout(ctx, operationTimeout)
 	defer cancel()
@@ -110,18 +115,24 @@ func (r *Repository) Get(ctx context.Context, principal, id string) (run.Run, er
 	if err != nil {
 		return run.Run{}, storageError(err)
 	}
+
 	return decodeRun(snapshot)
 }
 
+// lockedRun holds the principal-owned Run row lock until tx ends and returns
+// the current stored snapshot.
 func lockedRun(ctx context.Context, tx *sql.Tx, principal, id string) (run.Run, error) {
 	var snapshot []byte
 	err := tx.QueryRowContext(ctx, "SELECT snapshot FROM perfeng_control.runs WHERE principal=$1 AND run_id=$2 FOR UPDATE", principal, id).Scan(&snapshot)
 	if err != nil {
 		return run.Run{}, storageError(err)
 	}
+
 	return decodeRun(snapshot)
 }
 
+// mutate locks one Run, obtains database time after the lock and commits at most
+// one revision. Returning the current revision is a no-op that rolls back.
 func (r *Repository) mutate(ctx context.Context, principal, id string, change func(run.Run, time.Time) (run.Run, error)) (run.Run, error) {
 	ctx, cancel := context.WithTimeout(ctx, operationTimeout)
 	defer cancel()
@@ -155,9 +166,11 @@ func (r *Repository) mutate(ctx context.Context, principal, id string, change fu
 	if err = tx.Commit(); err != nil {
 		return run.Run{}, storageError(err)
 	}
+
 	return next, nil
 }
 
+// Cancel applies the repository cancellation contract under the Run row lock.
 func (r *Repository) Cancel(ctx context.Context, principal, id string) (run.Run, error) {
 	return r.mutate(ctx, principal, id, func(current run.Run, now time.Time) (run.Run, error) {
 		if current.State == run.StateCancelling || current.State == run.StateAborted {
@@ -166,10 +179,12 @@ func (r *Repository) Cancel(ctx context.Context, principal, id string) (run.Run,
 		if contract.Terminal(string(current.State)) {
 			return run.Run{}, run.ErrTerminal
 		}
+
 		return current.Transition(current.Revision, run.Change{State: run.StateCancelling}, now)
 	})
 }
 
+// Advance applies a worker lifecycle change using database time and the Run row lock.
 func (r *Repository) Advance(ctx context.Context, principal, id string, revision int64, change run.Change) (run.Run, error) {
 	return r.mutate(ctx, principal, id, func(current run.Run, now time.Time) (run.Run, error) {
 		return current.Transition(revision, change, now)

@@ -18,6 +18,7 @@ import (
 // S3GetObjectAPI is the single AWS SDK operation required by S3Getter.
 // *s3.Client satisfies this interface.
 type S3GetObjectAPI interface {
+	// GetObject transfers ownership of a successful response Body to the caller.
 	GetObject(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error)
 }
 

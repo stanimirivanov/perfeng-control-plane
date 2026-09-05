@@ -21,19 +21,26 @@ var ErrTransition = errors.New("invalid baseline transition")
 type State string
 
 const (
+	// StateCandidate is not eligible for use as a comparison anchor.
 	StateCandidate State = "CANDIDATE"
+	// StateQualified has passed evidence checks but still requires approval.
 	StateQualified State = "QUALIFIED"
-	StateApproved  State = "APPROVED"
-	StateRetired   State = "RETIRED"
+	// StateApproved is eligible for explicit policy selection.
+	StateApproved State = "APPROVED"
+	// StateRetired is terminal and cannot be selected for new comparisons.
+	StateRetired State = "RETIRED"
 )
 
 // QualificationStatus identifies whether baseline evidence passed review.
 type QualificationStatus string
 
 const (
+	// QualificationPending has no recorded sample-count or variability evidence.
 	QualificationPending QualificationStatus = "PENDING"
-	QualificationPassed  QualificationStatus = "PASSED"
-	QualificationFailed  QualificationStatus = "FAILED"
+	// QualificationPassed records evidence that met the reviewed policy.
+	QualificationPassed QualificationStatus = "PASSED"
+	// QualificationFailed records at least one safe rejection reason.
+	QualificationFailed QualificationStatus = "FAILED"
 )
 
 var (

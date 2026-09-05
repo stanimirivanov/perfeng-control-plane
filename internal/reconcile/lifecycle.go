@@ -16,10 +16,14 @@ var ErrStateNotHandled = errors.New("run state is not handled by Kubernetes exec
 type Action string
 
 const (
-	ActionWait        Action = "wait"
-	ActionStop        Action = "stop"
+	// ActionWait makes no external or lifecycle mutation during this attempt.
+	ActionWait Action = "wait"
+	// ActionStop requests deletion of the exact persisted execution.
+	ActionStop Action = "stop"
+	// ActionConfirmStop verifies that no owned Pods remain after Job deletion.
 	ActionConfirmStop Action = "confirm-stop"
-	ActionAdvance     Action = "advance"
+	// ActionAdvance applies Decision.Change through the current lease.
+	ActionAdvance Action = "advance"
 )
 
 // Decision contains either a wait, a stop request, or one validated lifecycle
