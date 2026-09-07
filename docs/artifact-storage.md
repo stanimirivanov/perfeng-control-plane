@@ -116,6 +116,11 @@ construction belongs to the executable composition root; parsing and lifecycle
 changes belong to the reconciliation collectors. Tests use injected SDK and
 storage interfaces and never contact object storage.
 
+The application composition layer combines this access bundle with immutable
+registry trust, baseline persistence and one pinned contracts version to create
+the three verified collectors. Registry population and lifecycle wiring remain
+separate startup work.
+
 References: [AWS SDK for Go v2 GetObject usage](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/using.html),
 [client endpoint configuration](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/configure-endpoints.html),
 and [error handling](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/handle-errors.html).

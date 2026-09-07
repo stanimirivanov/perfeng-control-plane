@@ -35,9 +35,11 @@ coordination, not load generation or statistical decisions.
 - AWS SDK for Go v2 adapter with safe S3 error classification.
 - Stable-key raw-manifest discovery from verified S3 reference metadata.
 - Stable-key normalized-manifest discovery from verified S3 reference metadata.
+- Stable-key analysis-report discovery from verified S3 reference metadata.
 - Consistent S3 artifact-access composition from one client and storage policy.
 - Strict, secret-safe runtime configuration for S3 artifact access.
 - AWS SDK client construction through the standard credential provider chain.
+- Pinned, inert composition of raw, normalized and report evidence attestation.
 - Secret-safe PostgreSQL and bounded HTTP server runtime composition.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.

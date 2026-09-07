@@ -36,8 +36,23 @@ shared files, but it performs no S3 request. Provider errors are redacted;
 caller cancellation and deadlines retain their standard identity.
 
 The loader produces `S3ClientConfig` together with the validated
-`S3ArtifactAccessConfig`. Kubernetes, authentication and registry settings will
-be added with the executable components that consume them.
+`S3ArtifactAccessConfig`. Authentication and registry settings remain separate
+executable-composition inputs.
+
+## Artifact verification
+
+| Variable | Meaning |
+| --- | --- |
+| `PERFENG_CONTRACTS_VERSION` | Exact contracts bundle version expected in raw, normalized and report evidence |
+
+The contracts version uses numeric `x.y.z` syntax and has no `latest` fallback.
+`NewArtifactCollectors` binds one validated version to raw-manifest,
+normalized-result and analysis-report verification. It combines deterministic
+publication discovery and verified reads with immutable registry approval,
+approved baseline resolution and independent verdict checking. Construction
+does not read object storage, query the registry or database, or parse evidence.
+The registry entries populated at startup must authorize the same contracts
+version; that cross-check belongs to registry loading.
 
 ## PostgreSQL
 
