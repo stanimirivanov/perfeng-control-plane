@@ -17,8 +17,10 @@ import (
 type ReportManifestResolver interface {
 	// ResolveReportManifest returns the trusted publication reference or an
 	// evidence-readiness error without listing arbitrary storage locations.
-	ResolveReportManifest(context.Context, string, run.Run, ReportingInput) (run.Artifact, error)
+	ResolveReportManifest(context.Context, string, run.Run) (run.Artifact, error)
 }
+
+var _ ReportManifestResolver = (*objectstore.ReportManifestResolver)(nil)
 
 // ReportManifestApprover authorizes the policy, selected references, producer
 // and verdict claims against the accepted Run and trusted registries.
@@ -84,7 +86,6 @@ func (collector *VerifiedReportCollector) CollectReportArtifact(
 		ctx,
 		principal,
 		current.Clone(),
-		input,
 	)
 	if err != nil {
 		return run.Artifact{}, classifyReportEvidence(err)

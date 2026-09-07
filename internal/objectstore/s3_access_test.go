@@ -50,6 +50,11 @@ func TestS3ArtifactAccessComposesDiscoveryAndVerifiedReads(t *testing.T) {
 			"sha256":      strings.Repeat("b", 64),
 			"format":      normalizedFormat,
 		},
+		"runs/" + manifestRunID + "/analysis-result.json": {
+			"artifact-id": "44444444-4444-4444-8444-444444444444",
+			"sha256":      strings.Repeat("d", 64),
+			"format":      reportFormat,
+		},
 	}
 	client := s3ArtifactAPIFunc{
 		head: func(
@@ -109,6 +114,12 @@ func TestS3ArtifactAccessComposesDiscoveryAndVerifiedReads(t *testing.T) {
 	if err != nil || normalizedArtifact.Format != normalizedFormat ||
 		normalizedArtifact.Kind != "normalized" {
 		t.Fatalf("ResolveNormalizedManifest() = %#v, %v", normalizedArtifact, err)
+	}
+	reportArtifact, err := access.ResolveReportManifest(
+		context.Background(), "worker-a", run.Run{ID: manifestRunID},
+	)
+	if err != nil || reportArtifact.Format != reportFormat || reportArtifact.Kind != "normalized" {
+		t.Fatalf("ResolveReportManifest() = %#v, %v", reportArtifact, err)
 	}
 	reference := run.Artifact{
 		ID: "33333333-3333-4333-8333-333333333333", RunID: manifestRunID, Kind: "raw",
@@ -189,6 +200,11 @@ func TestNilS3ArtifactAccessRejectsOperations(t *testing.T) {
 	); !errors.Is(err, run.ErrValidation) {
 		t.Fatalf("ResolveNormalizedManifest() error = %v", err)
 	}
+	if _, err := access.ResolveReportManifest(
+		context.Background(), "worker-a", run.Run{ID: manifestRunID},
+	); !errors.Is(err, run.ErrValidation) {
+		t.Fatalf("ResolveReportManifest() error = %v", err)
+	}
 	if _, err := access.Read(context.Background(), run.Artifact{}); !errors.Is(err, run.ErrValidation) {
 		t.Fatalf("Read() error = %v", err)
 	}
@@ -208,6 +224,11 @@ func TestS3ArtifactAccessPreservesCancellation(t *testing.T) {
 		canceled, "worker-a", run.Run{},
 	); !errors.Is(err, context.Canceled) {
 		t.Fatalf("ResolveNormalizedManifest() error = %v", err)
+	}
+	if _, err := access.ResolveReportManifest(
+		canceled, "worker-a", run.Run{},
+	); !errors.Is(err, context.Canceled) {
+		t.Fatalf("ResolveReportManifest() error = %v", err)
 	}
 	if _, err := access.Read(canceled, run.Artifact{}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Read() error = %v", err)

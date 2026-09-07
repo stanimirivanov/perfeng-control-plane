@@ -48,6 +48,16 @@ reference without listing the bucket or reading object bytes. The normalized
 collector independently downloads and verifies that reference before parsing
 or approval.
 
+## Report-manifest discovery
+
+`ReportManifestResolver` applies the same closed metadata contract to the
+deterministic `runs/<run-id>/analysis-result.json` publication. It accepts only
+`analysis-result/v1` JSON metadata and returns a normalized artifact reference;
+the artifact contract distinguishes the report from its normalized candidate by
+format. Discovery uses only the principal and immutable Run context. The
+candidate is not needed to locate the object and remains independently bound by
+the verified report collector after byte verification and parsing.
+
 ## Byte verification
 
 `Reader.Read` first validates the immutable artifact reference and its configured
@@ -92,19 +102,19 @@ artifact references, command arguments or committed configuration. Production
 endpoint and transport policy require a separate deployment review.
 
 `S3ArtifactAccess` wires one already-configured SDK client to the metadata
-inspector, getter, raw and normalized stable-key resolvers, and bounded reader.
-Its single policy fixes the bucket, accepted raw-manifest generation and maximum
-read size consistently across those adapters. It implements the discovery and
-reader interfaces consumed by both verified collectors.
+inspector, getter, raw, normalized and report stable-key resolvers, and bounded
+reader. Its single policy fixes the bucket, accepted raw-manifest generation and
+maximum read size consistently across those adapters. It implements the
+discovery and reader interfaces consumed by all verified collectors.
 
 ## Remaining integration
 
 This package intentionally does not construct the configured AWS SDK client,
 load credentials, choose endpoints, parse raw-result or normalized-result
-contracts, or change Run lifecycle state. Client construction belongs to the
-executable composition root; parsing and lifecycle changes belong to the
-raw/normalized collectors. Tests use injected SDK and storage interfaces and
-never contact object storage.
+or analysis-result contracts, or change Run lifecycle state. Client
+construction belongs to the executable composition root; parsing and lifecycle
+changes belong to the reconciliation collectors. Tests use injected SDK and
+storage interfaces and never contact object storage.
 
 References: [AWS SDK for Go v2 GetObject usage](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/using.html),
 [client endpoint configuration](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/configure-endpoints.html),

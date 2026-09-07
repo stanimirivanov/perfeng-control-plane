@@ -17,16 +17,15 @@ import (
 const reportContractsVersion = "0.6.0"
 
 type resolveReportManifestFunc func(
-	context.Context, string, run.Run, ReportingInput,
+	context.Context, string, run.Run,
 ) (run.Artifact, error)
 
 func (resolve resolveReportManifestFunc) ResolveReportManifest(
 	ctx context.Context,
 	principal string,
 	current run.Run,
-	input ReportingInput,
 ) (run.Artifact, error) {
-	return resolve(ctx, principal, current, input)
+	return resolve(ctx, principal, current)
 }
 
 type approveReportManifestFunc func(
@@ -52,10 +51,9 @@ func TestVerifiedReportCollectorReturnsApprovedVerifiedReference(t *testing.T) {
 		ctx context.Context,
 		principal string,
 		resolvedRun run.Run,
-		resolvedInput ReportingInput,
 	) (run.Artifact, error) {
 		if ctx.Err() != nil || principal != "principal-a" ||
-			resolvedRun != current || resolvedInput != input {
+			resolvedRun != current {
 			t.Fatal("resolver received changed report context")
 		}
 
@@ -144,7 +142,7 @@ func TestVerifiedReportCollectorClassifiesEvidenceFailures(t *testing.T) {
 			collector := newVerifiedReportCollector(
 				t,
 				resolveReportManifestFunc(func(
-					context.Context, string, run.Run, ReportingInput,
+					context.Context, string, run.Run,
 				) (run.Artifact, error) {
 					return reference, test.resolveErr
 				}),
@@ -416,7 +414,7 @@ func newVerifiedReportCollector(
 
 func fixedReportResolver(reference run.Artifact) ReportManifestResolver {
 	return resolveReportManifestFunc(func(
-		context.Context, string, run.Run, ReportingInput,
+		context.Context, string, run.Run,
 	) (run.Artifact, error) {
 		return reference, nil
 	})

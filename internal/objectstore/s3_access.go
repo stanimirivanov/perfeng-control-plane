@@ -37,6 +37,7 @@ func (config S3ArtifactAccessConfig) Validate() error {
 type S3ArtifactAccess struct {
 	rawManifest        *RawManifestResolver
 	normalizedManifest *NormalizedManifestResolver
+	reportManifest     *ReportManifestResolver
 	reader             *Reader
 }
 
@@ -71,6 +72,10 @@ func NewS3ArtifactAccess(
 	if err != nil {
 		return nil, err
 	}
+	reportManifest, err := NewReportManifestResolver(inspector, config.Bucket)
+	if err != nil {
+		return nil, err
+	}
 	reader, err := NewReader(getter, config.Bucket, config.MaximumReadBytes)
 	if err != nil {
 		return nil, err
@@ -79,6 +84,7 @@ func NewS3ArtifactAccess(
 	return &S3ArtifactAccess{
 		rawManifest:        rawManifest,
 		normalizedManifest: normalizedManifest,
+		reportManifest:     reportManifest,
 		reader:             reader,
 	}, nil
 }
@@ -113,6 +119,22 @@ func (access *S3ArtifactAccess) ResolveNormalizedManifest(
 	}
 
 	return access.normalizedManifest.ResolveNormalizedManifest(ctx, principal, current)
+}
+
+// ResolveReportManifest returns the stable analysis-result publication reference.
+func (access *S3ArtifactAccess) ResolveReportManifest(
+	ctx context.Context,
+	principal string,
+	current run.Run,
+) (run.Artifact, error) {
+	if err := ctx.Err(); err != nil {
+		return run.Artifact{}, err
+	}
+	if access == nil || access.reportManifest == nil {
+		return run.Artifact{}, run.ErrValidation
+	}
+
+	return access.reportManifest.ResolveReportManifest(ctx, principal, current)
 }
 
 // Read verifies and returns the bytes of one immutable artifact reference.

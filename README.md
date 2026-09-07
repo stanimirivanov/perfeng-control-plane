@@ -230,9 +230,9 @@ Run fail. `KubernetesReportExecutor` resolves an approved report template,
 creates or adopts the Run's deterministic `-report` Job, maps its
 identity-checked phase, and delegates successful output to a separate byte
 attestor. `Router` advances CREATED and selects every active stage. Real
-catalogue and environment publication verification, raw-manifest publication
-adapters, report-output resolution and attestation, unbound-cancellation
-recovery, and production composition are still missing.
+catalogue and environment publication verification, report Job-template
+resolution, full attestation composition, unbound-cancellation recovery, and
+production composition are still missing.
 The `reconcile` policy defines that connection's state decisions independently
 of I/O: pending Jobs wait, running Jobs enter RUNNING, terminal Jobs enter
 COLLECTING, and unexpected disappearance/deletion is infrastructure failure.
@@ -277,6 +277,10 @@ publication discovery supplies the immutable output reference. The collector
 binds normalized claims to the verified persisted raw manifest, while the
 immutable runtime registry authorizes the exact normalizer and accepted
 execution context.
+The same storage boundary discovers report output only from
+`runs/<run-id>/analysis-result.json`; the report collector separately verifies
+its bytes and binds it to the normalized candidate, policy, producer and
+approved baseline evidence.
 
 ## Contract provenance
 
