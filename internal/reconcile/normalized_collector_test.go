@@ -17,13 +17,13 @@ import (
 const normalizedContractsVersion = "0.5.0"
 
 type resolveNormalizedManifestFunc func(
-	context.Context, string, run.Run, AnalysisInput,
+	context.Context, string, run.Run,
 ) (run.Artifact, error)
 
 func (resolve resolveNormalizedManifestFunc) ResolveNormalizedManifest(
-	ctx context.Context, principal string, current run.Run, input AnalysisInput,
+	ctx context.Context, principal string, current run.Run,
 ) (run.Artifact, error) {
-	return resolve(ctx, principal, current, input)
+	return resolve(ctx, principal, current)
 }
 
 type approveNormalizedManifestFunc func(
@@ -62,13 +62,12 @@ func TestVerifiedNormalizedCollectorReturnsApprovedVerifiedReference(t *testing.
 	current, input, reference, manifest := normalizedCollectorFixture()
 	var read run.Artifact
 	resolver := resolveNormalizedManifestFunc(func(
-		ctx context.Context, principal string, resolvedRun run.Run, resolvedInput AnalysisInput,
+		ctx context.Context, principal string, resolvedRun run.Run,
 	) (run.Artifact, error) {
 		if ctx.Err() != nil || principal != "worker-a" ||
-			!reflect.DeepEqual(resolvedRun, current) || !reflect.DeepEqual(resolvedInput, input) {
-			t.Fatal("resolver received changed analysis context")
+			!reflect.DeepEqual(resolvedRun, current) {
+			t.Fatal("resolver received changed run context")
 		}
-		resolvedInput.Sources[0].URI = "s3://mutated/elsewhere"
 
 		return reference, nil
 	})
@@ -205,7 +204,7 @@ func TestVerifiedNormalizedCollectorClassifiesEvidenceFailures(t *testing.T) {
 			collector := newVerifiedNormalizedCollector(
 				t,
 				resolveNormalizedManifestFunc(func(
-					context.Context, string, run.Run, AnalysisInput,
+					context.Context, string, run.Run,
 				) (run.Artifact, error) {
 					return reference, test.resolveErr
 				}),
@@ -579,7 +578,7 @@ func newVerifiedNormalizedCollector(
 
 func fixedNormalizedResolver(reference run.Artifact) NormalizedManifestResolver {
 	return resolveNormalizedManifestFunc(func(
-		context.Context, string, run.Run, AnalysisInput,
+		context.Context, string, run.Run,
 	) (run.Artifact, error) {
 		return reference, nil
 	})

@@ -34,6 +34,7 @@ coordination, not load generation or statistical decisions.
 - Bounded verification of immutable objects from approved S3 locations.
 - AWS SDK for Go v2 adapter with safe S3 error classification.
 - Stable-key raw-manifest discovery from verified S3 reference metadata.
+- Stable-key normalized-manifest discovery from verified S3 reference metadata.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
   and raw-result/v2 manifests.
 - Composable verification of manifest provenance and every declared raw object.
@@ -261,10 +262,11 @@ preserves unavailable statistics without fabrication, validates metric and
 source consistency, and treats legacy thresholds as producer claims. A concrete
 collector composition now verifies the trusted output reference and its bytes,
 parses the envelope, binds its complete source set to the exact analysis input,
-and requires provenance approval before registration. Kubernetes publication
-discovery remains a deployment-specific adapter. The collector binds normalized
-claims to the verified persisted raw manifest, while the immutable runtime
-registry authorizes the exact normalizer and accepted execution context.
+and requires provenance approval before registration. Deterministic S3
+publication discovery supplies the immutable output reference. The collector
+binds normalized claims to the verified persisted raw manifest, while the
+immutable runtime registry authorizes the exact normalizer and accepted
+execution context.
 
 ## Contract provenance
 

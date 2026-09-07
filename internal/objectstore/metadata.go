@@ -9,7 +9,11 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
-const rawManifestName = "raw-result.json"
+const (
+	rawManifestName        = "raw-result.json"
+	normalizedManifestName = "normalized-result.json"
+	normalizedFormat       = "normalized-result/v1"
+)
 
 // Metadata describes one object without transferring its body. Values contains
 // only user-defined metadata returned by the storage service.
@@ -33,6 +37,14 @@ type RawManifestResolver struct {
 	format    string
 }
 
+// NormalizedManifestResolver resolves the stable normalized-result publication
+// object into a complete immutable artifact reference. It does not read or
+// parse object bytes.
+type NormalizedManifestResolver struct {
+	inspector MetadataInspector
+	bucket    string
+}
+
 // NewRawManifestResolver pins discovery to one bucket and supported manifest
 // generation. Callers must construct a new resolver to change either value.
 func NewRawManifestResolver(
@@ -45,6 +57,18 @@ func NewRawManifestResolver(
 	}
 
 	return &RawManifestResolver{inspector: inspector, bucket: bucket, format: format}, nil
+}
+
+// NewNormalizedManifestResolver pins discovery to one approved bucket.
+func NewNormalizedManifestResolver(
+	inspector MetadataInspector,
+	bucket string,
+) (*NormalizedManifestResolver, error) {
+	if inspector == nil || !validBucket(bucket) {
+		return nil, run.ErrValidation
+	}
+
+	return &NormalizedManifestResolver{inspector: inspector, bucket: bucket}, nil
 }
 
 // ResolveRawManifest inspects only the deterministic Run-scoped publication
@@ -66,7 +90,7 @@ func (resolver *RawManifestResolver) ResolveRawManifest(
 	if err != nil {
 		return run.Artifact{}, err
 	}
-	if !validRawManifestMetadata(metadata, resolver.format) {
+	if !validManifestMetadata(metadata, resolver.format) {
 		return run.Artifact{}, run.ErrValidation
 	}
 
@@ -83,7 +107,44 @@ func (resolver *RawManifestResolver) ResolveRawManifest(
 	return artifact, nil
 }
 
-func validRawManifestMetadata(metadata Metadata, expectedFormat string) bool {
+// ResolveNormalizedManifest inspects only the deterministic Run-scoped
+// publication key and requires the complete metadata contract emitted by the
+// normalizer.
+func (resolver *NormalizedManifestResolver) ResolveNormalizedManifest(
+	ctx context.Context,
+	principal string,
+	current run.Run,
+) (run.Artifact, error) {
+	if err := ctx.Err(); err != nil {
+		return run.Artifact{}, err
+	}
+	if resolver == nil || principal == "" || !contract.ValidID(current.ID) {
+		return run.Artifact{}, run.ErrValidation
+	}
+
+	key := fmt.Sprintf("runs/%s/%s", current.ID, normalizedManifestName)
+	metadata, err := resolver.inspector.Inspect(ctx, resolver.bucket, key)
+	if err != nil {
+		return run.Artifact{}, err
+	}
+	if !validManifestMetadata(metadata, normalizedFormat) {
+		return run.Artifact{}, run.ErrValidation
+	}
+
+	artifact := run.Artifact{
+		ID: metadata.Values["artifact-id"], RunID: current.ID, Kind: "normalized",
+		URI:    fmt.Sprintf("s3://%s/%s", resolver.bucket, key),
+		SHA256: metadata.Values["sha256"], SizeBytes: metadata.SizeBytes,
+		MediaType: metadata.MediaType, Format: metadata.Values["format"],
+	}
+	if artifact.Validate() != nil {
+		return run.Artifact{}, run.ErrValidation
+	}
+
+	return artifact, nil
+}
+
+func validManifestMetadata(metadata Metadata, expectedFormat string) bool {
 	if metadata.MediaType != "application/json" || len(metadata.Values) != 3 ||
 		metadata.Values["format"] != expectedFormat {
 		return false

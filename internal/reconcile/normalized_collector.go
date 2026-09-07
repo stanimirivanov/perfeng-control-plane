@@ -18,8 +18,10 @@ import (
 type NormalizedManifestResolver interface {
 	// ResolveNormalizedManifest returns the trusted publication reference or an
 	// evidence-readiness error without listing arbitrary storage locations.
-	ResolveNormalizedManifest(context.Context, string, run.Run, AnalysisInput) (run.Artifact, error)
+	ResolveNormalizedManifest(context.Context, string, run.Run) (run.Artifact, error)
 }
+
+var _ NormalizedManifestResolver = (*objectstore.NormalizedManifestResolver)(nil)
 
 // NormalizedManifestApprover checks the parsed normalizer, workload, window and
 // source claims against the accepted Run, analysis input and approved catalogue.
@@ -88,7 +90,6 @@ func (collector *VerifiedNormalizedCollector) CollectNormalizedArtifact(
 		ctx,
 		principal,
 		current.Clone(),
-		input.Clone(),
 	)
 	if err != nil {
 		return run.Artifact{}, classifyAnalysisEvidence(err)

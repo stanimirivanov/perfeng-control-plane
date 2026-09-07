@@ -49,13 +49,15 @@ checksum and size. `VerifiedNormalizedCollector` independently:
 7. authorizes the normalizer and accepted execution context; and
 8. returns the reference only after every check succeeds.
 
-Output-reference discovery remains an injected boundary. The resolver must use
-trusted orchestration state rather than public request fields or object-store
-listing. `registry.ReportPolicyRegistry` supplies normalizer approval from
-reviewed startup entries. It requires the exact principal, accepted request,
-contracts version, test, workload, digest-pinned normalizer and complete source
-set. The collector itself binds dynamic provenance to the verified raw manifest
-as an order-independent set of complete artifact records.
+Output-reference discovery remains an injected boundary. The object-store
+resolver inspects only `runs/<run-id>/normalized-result.json` in its configured
+bucket and requires the exact normalized-result metadata contract; it never
+uses public request fields or object-store listing.
+`registry.ReportPolicyRegistry` supplies normalizer approval from reviewed
+startup entries. It requires the exact principal, accepted request, contracts
+version, test, workload, digest-pinned normalizer and complete source set. The
+collector itself binds dynamic provenance to the verified raw manifest as an
+order-independent set of complete artifact records.
 
 An absent publication or object after Kubernetes reports Job success remains a
 retryable `ErrAnalysisPending`, allowing for bounded storage visibility delay.
