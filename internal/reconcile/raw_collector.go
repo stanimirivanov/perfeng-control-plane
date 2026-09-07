@@ -46,7 +46,9 @@ type VerifiedRawCollector struct {
 var (
 	_ RawArtifactCollector = (*VerifiedRawCollector)(nil)
 	_ ArtifactByteReader   = (*objectstore.Reader)(nil)
+	_ ArtifactByteReader   = (*objectstore.S3ArtifactAccess)(nil)
 	_ RawManifestResolver  = (*objectstore.RawManifestResolver)(nil)
+	_ RawManifestResolver  = (*objectstore.S3ArtifactAccess)(nil)
 )
 
 // NewVerifiedRawCollector validates all collection dependencies and the exact

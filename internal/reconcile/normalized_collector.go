@@ -22,6 +22,7 @@ type NormalizedManifestResolver interface {
 }
 
 var _ NormalizedManifestResolver = (*objectstore.NormalizedManifestResolver)(nil)
+var _ NormalizedManifestResolver = (*objectstore.S3ArtifactAccess)(nil)
 
 // NormalizedManifestApprover checks the parsed normalizer, workload, window and
 // source claims against the accepted Run, analysis input and approved catalogue.

@@ -91,13 +91,20 @@ addressing. Credentials must come from the runtime Secret/provider chain, never
 artifact references, command arguments or committed configuration. Production
 endpoint and transport policy require a separate deployment review.
 
+`S3ArtifactAccess` wires one already-configured SDK client to the metadata
+inspector, getter, raw and normalized stable-key resolvers, and bounded reader.
+Its single policy fixes the bucket, accepted raw-manifest generation and maximum
+read size consistently across those adapters. It implements the discovery and
+reader interfaces consumed by both verified collectors.
+
 ## Remaining integration
 
 This package intentionally does not construct the configured AWS SDK client,
 load credentials, choose endpoints, parse raw-result or normalized-result
-contracts, or change Run lifecycle state. Those responsibilities belong to
-production composition and the raw/normalized collectors. Tests use injected
-SDK and storage interfaces and never contact object storage.
+contracts, or change Run lifecycle state. Client construction belongs to the
+executable composition root; parsing and lifecycle changes belong to the
+raw/normalized collectors. Tests use injected SDK and storage interfaces and
+never contact object storage.
 
 References: [AWS SDK for Go v2 GetObject usage](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/using.html),
 [client endpoint configuration](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/configure-endpoints.html),
