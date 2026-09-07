@@ -2,8 +2,6 @@ package reconcile
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/analysisresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
@@ -65,9 +63,8 @@ type ReportVerdictApprover interface {
 // TrustedReportApprover binds report claims to approved policy, producer and
 // exact baseline versions before delegating verdict verification.
 type TrustedReportApprover struct {
-	baselines baseline.Repository
-	resolver  ReportTrustResolver
-	verdicts  ReportVerdictApprover
+	plans    ReportPlanResolver
+	verdicts ReportVerdictApprover
 }
 
 var _ ReportManifestApprover = (*TrustedReportApprover)(nil)
@@ -81,8 +78,12 @@ func NewTrustedReportApprover(
 	if baselines == nil || resolver == nil || verdicts == nil {
 		return nil, run.ErrValidation
 	}
+	plans, err := NewTrustedReportPlanResolver(baselines, resolver)
+	if err != nil {
+		return nil, run.ErrValidation
+	}
 
-	return &TrustedReportApprover{baselines: baselines, resolver: resolver, verdicts: verdicts}, nil
+	return &TrustedReportApprover{plans: plans, verdicts: verdicts}, nil
 }
 
 // ApproveReportManifest rejects policy, producer and reference claims that do
@@ -97,14 +98,15 @@ func (approver *TrustedReportApprover) ApproveReportManifest(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if principal == "" || current.State != run.StateReporting ||
+	if approver == nil || approver.plans == nil || approver.verdicts == nil ||
+		principal == "" || current.State != run.StateReporting ||
 		manifest.RunID != current.ID || manifest.TestID != current.Request.TestSuite ||
 		manifest.CandidateArtifact != input.Candidate ||
 		!validReportCandidate(current.ID, input.Candidate) {
 		return run.ErrValidation
 	}
 
-	trust, err := approver.resolver.ResolveReportTrust(
+	plan, err := approver.plans.ResolveReportPlan(
 		ctx,
 		principal,
 		current.Clone(),
@@ -113,76 +115,23 @@ func (approver *TrustedReportApprover) ApproveReportManifest(
 	if err != nil {
 		return err
 	}
-	trust = trust.Clone()
-	if !validReportTrust(current, manifest, trust) {
+	plan = plan.Clone()
+	if plan.Validate(current.ID) != nil || manifest.Policy.ID != current.Request.Policy.ID ||
+		manifest.Policy.Version != current.Request.Policy.Version ||
+		manifest.Policy.SHA256 != current.Request.Policy.SHA256 ||
+		manifest.Policy.Mode != plan.PolicyMode || !manifest.Producer.Equal(plan.Producer) {
 		return run.ErrValidation
 	}
-	document, err := policy.Parse(trust.PolicyBytes)
-	if err != nil || document.Metadata.Name != current.Request.Policy.ID ||
-		document.Metadata.Version != current.Request.Policy.Version ||
-		document.Spec.Mode != trust.PolicyMode ||
-		!matchesPolicyReferences(document.BaselineReferences(), trust.Baselines, manifest.TestID) {
-		return run.ErrValidation
-	}
-
-	resolutions, err := approver.resolveReferences(ctx, principal, trust.Baselines)
-	if err != nil {
-		return err
-	}
-	if !sameArtifacts(manifest.ReferenceArtifacts, resolvedArtifacts(resolutions)) {
+	if !sameArtifacts(manifest.ReferenceArtifacts, resolvedArtifacts(plan.Baselines)) {
 		return run.ErrValidation
 	}
 
 	return approver.verdicts.ApproveReportVerdicts(
 		ctx,
-		append([]byte(nil), trust.PolicyBytes...),
-		resolutions,
+		append([]byte(nil), plan.PolicyBytes...),
+		cloneBaselineResolutions(plan.Baselines),
 		manifest,
 	)
-}
-
-func validReportTrust(
-	current run.Run,
-	manifest analysisresult.Manifest,
-	trust ReportTrust,
-) bool {
-	policyHash := sha256.Sum256(trust.PolicyBytes)
-	requestPolicy := current.Request.Policy
-	return len(trust.PolicyBytes) > 0 &&
-		hex.EncodeToString(policyHash[:]) == requestPolicy.SHA256 &&
-		manifest.Policy.ID == requestPolicy.ID &&
-		manifest.Policy.Version == requestPolicy.Version &&
-		manifest.Policy.SHA256 == requestPolicy.SHA256 &&
-		manifest.Policy.Mode == trust.PolicyMode &&
-		(trust.PolicyMode == "observe" || trust.PolicyMode == "inform") &&
-		trust.Producer.Validate() == nil && manifest.Producer.Equal(trust.Producer)
-}
-
-func (approver *TrustedReportApprover) resolveReferences(
-	ctx context.Context,
-	principal string,
-	selections []baseline.Selection,
-) ([]policy.BaselineResolution, error) {
-	resolutions := make([]policy.BaselineResolution, 0, len(selections))
-	for _, selection := range selections {
-		record, found, err := approver.baselines.ResolveApprovedBaseline(ctx, principal, selection)
-		if err != nil {
-			return nil, err
-		}
-		resolution := policy.BaselineResolution{ID: selection.ID, Version: selection.Version}
-		if !found {
-			resolutions = append(resolutions, resolution)
-			continue
-		}
-		if !record.MatchesSelection(selection) || !validReportReference(record.Artifact) {
-			return nil, run.ErrValidation
-		}
-		artifact := record.Artifact
-		resolution.Artifact = &artifact
-		resolutions = append(resolutions, resolution)
-	}
-
-	return resolutions, nil
 }
 
 func matchesPolicyReferences(
