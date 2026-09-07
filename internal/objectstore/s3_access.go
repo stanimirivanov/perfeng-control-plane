@@ -21,6 +21,17 @@ type S3ArtifactAccessConfig struct {
 	MaximumReadBytes  int64
 }
 
+// Validate checks the complete artifact storage policy without constructing a client.
+func (config S3ArtifactAccessConfig) Validate() error {
+	if !validBucket(config.Bucket) ||
+		!validRawManifestFormat(config.RawManifestFormat) ||
+		config.MaximumReadBytes < 1 || config.MaximumReadBytes > maximumReadSize {
+		return run.ErrValidation
+	}
+
+	return nil
+}
+
 // S3ArtifactAccess composes S3 metadata discovery and verified byte reads
 // behind the interfaces consumed by reconciliation collectors.
 type S3ArtifactAccess struct {
@@ -36,7 +47,7 @@ func NewS3ArtifactAccess(
 	client S3API,
 	config S3ArtifactAccessConfig,
 ) (*S3ArtifactAccess, error) {
-	if client == nil {
+	if client == nil || config.Validate() != nil {
 		return nil, run.ErrValidation
 	}
 
