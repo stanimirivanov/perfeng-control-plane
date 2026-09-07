@@ -39,6 +39,15 @@ and verifies its response metadata, byte count, and SHA-256 before parsing or
 approval. A changed object therefore cannot pass merely because its discovery
 metadata was accepted.
 
+## Normalized-manifest discovery
+
+`NormalizedManifestResolver` applies the same closed metadata contract to the
+deterministic `runs/<run-id>/normalized-result.json` publication. It accepts
+only `normalized-result/v1` JSON metadata and returns a normalized artifact
+reference without listing the bucket or reading object bytes. The normalized
+collector independently downloads and verifies that reference before parsing
+or approval.
+
 ## Byte verification
 
 `Reader.Read` first validates the immutable artifact reference and its configured
