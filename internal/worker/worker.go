@@ -56,6 +56,18 @@ type Config struct {
 	FailureDelay time.Duration
 }
 
+// Validate checks worker identity, concurrency, lease renewal and retry timing.
+func (config Config) Validate() error {
+	if !run.ValidClaimOptions(config.WorkerID, config.Capacity, config.LeaseTTL) ||
+		config.RenewEvery <= 0 || config.RenewEvery > config.LeaseTTL/2 ||
+		config.PollEvery <= 0 || config.PollEvery > 5*time.Minute ||
+		!run.ValidRetryDelay(config.FailureDelay) {
+		return run.ErrValidation
+	}
+
+	return nil
+}
+
 // DefaultConfig returns conservative timings for a worker identity.
 func DefaultConfig(workerID string) Config {
 	return Config{
@@ -83,11 +95,7 @@ func New(
 	report func(Event),
 	config Config,
 ) (*Worker, error) {
-	if store == nil || reconciler == nil || report == nil ||
-		!run.ValidClaimOptions(config.WorkerID, config.Capacity, config.LeaseTTL) ||
-		config.RenewEvery <= 0 || config.RenewEvery > config.LeaseTTL/2 ||
-		config.PollEvery <= 0 || config.PollEvery > 5*time.Minute ||
-		!run.ValidRetryDelay(config.FailureDelay) {
+	if store == nil || reconciler == nil || report == nil || config.Validate() != nil {
 		return nil, run.ErrValidation
 	}
 
