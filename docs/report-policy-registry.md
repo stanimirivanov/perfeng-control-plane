@@ -88,7 +88,32 @@ choose latest versions or authorize evidence itself. `TrustedReportApprover`
 performs exact baseline resolution and `policy.VerdictApprover` binds the result
 back to each policy rule.
 
-Production composition must define how reviewed entries are loaded, signed or
-otherwise attested, refreshed and audited. Replacing the registry requires
+## Reviewed file bundles
+
+`LoadReportPolicyRegistry` constructs the authority from an injected `fs.FS` and
+one relative manifest path. The manifest has `schemaVersion: 1` and a non-empty
+`entries` array. Each entry contains the fields of `ReportPolicyEntry`, except:
+
+- `policy` is a relative path to the exact policy JSON bytes;
+- `executionTemplate` is an optional relative path to a Kubernetes Job JSON
+  document; and
+- `normalization` contains `sourceFormat` and `layout`.
+
+The loader bounds the manifest to 4 MiB and each referenced policy or Job to
+1 MiB. JSON must use UTF-8, unique keys, known fields and no more than the shared
+nesting limit. Paths use portable forward-slash `io/fs` syntax and cannot be
+absolute, empty, dot-relative, parent-relative or backslash-separated. The
+injected filesystem remains responsible for enforcing its own root and symlink
+trust boundary.
+
+Policy files are not parsed and reserialized: their exact bytes enter the
+registry so the accepted SHA-256 reference remains reproducible. Job documents
+are decoded into typed Kubernetes objects. The existing registry constructor
+then validates all identities, producer/runtime combinations, restricted Job
+policy, duplicate bindings and authorization context, and copies all mutable
+data. File reads happen only during construction.
+
+Production composition must still define how the bundle is signed or otherwise
+attested, mounted, refreshed and audited. Replacing the registry requires
 constructing a new validated instance; partially mutating a live registry is not
 supported.

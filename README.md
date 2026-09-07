@@ -57,6 +57,7 @@ coordination, not load generation or statistical decisions.
 - Exact per-rule report binding to run-pinned policy bytes, authorized producer and approved baselines.
 - Strict performance-policy parsing and independent report-verdict verification.
 - Principal-scoped immutable registry for Run admission and report trust resolution.
+- Bounded strict loading of reviewed registry manifests, exact policies and Job templates.
 - Versioned baseline candidates with revision-checked qualification, approval and retirement.
 - Principal-scoped PostgreSQL baseline storage backed by completed, registered evidence.
 
@@ -64,8 +65,8 @@ This is a library foundation, **not a deployable service**. There is intentional
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
 administrative `cmd/migrate` command applies database migrations. Reconciliation
 stages are not wired into a process. Catalogue and environment publication
-verification, concrete publication adapters, registry population, analysis and
-report input/output transfer, and production execution composition are still missing, so no
+verification, concrete publication adapters, registry source attestation and refresh,
+analysis and report input/output transfer, and production execution composition are still missing, so no
 worker executes Jobs from accepted requests. Tests use synthetic contract
 fixtures, not approved deployable resources.
 

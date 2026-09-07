@@ -9,8 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	batchv1 "k8s.io/api/batch/v1"
-
 	"github.com/stanimirivanov/perfeng-control-plane/internal/kubernetes"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/policy"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/rawresult"
