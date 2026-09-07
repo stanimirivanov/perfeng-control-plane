@@ -149,7 +149,7 @@ func TestKubernetesAnalysisJobResolverBuildsToolSpecificArguments(t *testing.T) 
 			if err := kubernetes.ValidateReusableJobTemplate(template); err != nil {
 				t.Fatal(err)
 			}
-			container := analysisContainer(template, "normalizer")
+			container := jobContainer(template, "normalizer")
 			if container == nil || container.Image != plan.Producer.Image {
 				t.Fatalf("normalizer container = %+v", container)
 			}
@@ -171,7 +171,7 @@ func TestKubernetesAnalysisJobResolverBuildsToolSpecificArguments(t *testing.T) 
 			again, err := resolver.ResolveAnalysisJob(
 				context.Background(), "principal-a", current, input,
 			)
-			if err != nil || analysisContainer(again, "normalizer").Args[0] != "--manifest" {
+			if err != nil || jobContainer(again, "normalizer").Args[0] != "--manifest" {
 				t.Fatal("resolved Jobs share mutable state")
 			}
 		})

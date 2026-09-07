@@ -343,9 +343,13 @@ the approved report producer and policy-derived baseline selections. Test and
 policy identities remain distinct. Entries are validated and copied at startup;
 request-time fallback or latest-version selection is not supported.
 
-Registry population and refresh, report-template resolution and production
-composition remain separate work. The S3 storage adapter supplies deterministic
-report-output publication discovery without accepting candidate locations.
+`KubernetesReportJobResolver` converts the trusted plan into the reviewed
+`perfeng-report` invocation. It binds fixed candidate, artifact-metadata, policy
+and output paths, includes only available policy-keyed baseline inputs, and
+reuses deterministic paths when baseline identities share an artifact. Registry
+population and refresh, input materialization and production composition remain
+separate work. The S3 storage adapter supplies deterministic report-output
+publication discovery without accepting candidate locations.
 
 ## Provisioning reconciliation
 

@@ -152,6 +152,15 @@ collector must retrieve and attest the `analysis-result/v1` bytes before it
 returns an immutable reference; Kubernetes completion is not evidence of a
 quality verdict or a valid report.
 
-Approved report template resolution, policy and baseline selection, storage
-publication, output-byte verification and production composition remain
-external boundaries.
+`reconcile.KubernetesReportJobResolver` combines a trusted report plan with a
+reviewed reusable template. It selects the digest-pinned producer image and the
+`perfeng-report` entry point, supplies fixed candidate, policy and output paths,
+and emits one policy-keyed `--baseline` argument for each available approved
+reference. Missing references are omitted so their rules remain inconclusive.
+Distinct baseline identities that share one artifact reuse its deterministic
+artifact-ID directory. The completed template is revalidated before dispatch.
+
+Input materialization, storage credentials, output publication and production
+composition remain external boundaries. Transfer containers and volumes are
+deployment-owned template data; the resolver does not embed policy bytes,
+artifact contents or credentials in the Pod specification.

@@ -28,6 +28,7 @@ coordination, not load generation or statistical decisions.
 - Restart-safe orchestration of normalization through an injected executor.
 - Approved normalization-plan resolution for k6 and Playwright raw evidence.
 - Deterministic restricted analysis Job construction from approved plans.
+- Deterministic restricted report Job construction from trusted policy and baseline plans.
 - Restart-safe report generation and durable completion through an injected executor.
 - Duplicate-safe Kubernetes normalization Job creation and phase mapping.
 - Duplicate-safe Kubernetes reporting Job creation and phase mapping.
@@ -62,8 +63,8 @@ This is a library foundation, **not a deployable service**. There is intentional
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
 administrative `cmd/migrate` command applies database migrations. Reconciliation
 stages are not wired into a process. Catalogue and environment publication
-verification, concrete publication adapters, registry population, analysis
-input/output transfer and concrete reporting execution are still missing, so no
+verification, concrete publication adapters, registry population, analysis and
+report input/output transfer, and production execution composition are still missing, so no
 worker executes Jobs from accepted requests. Tests use synthetic contract
 fixtures, not approved deployable resources.
 
@@ -231,10 +232,11 @@ inconclusive quality verdict belongs in a successful report and does not make th
 Run fail. `KubernetesReportExecutor` resolves an approved report template,
 creates or adopts the Run's deterministic `-report` Job, maps its
 identity-checked phase, and delegates successful output to a separate byte
-attestor. `Router` advances CREATED and selects every active stage. Real
-catalogue and environment publication verification, report Job-template
-resolution, full attestation composition, unbound-cancellation recovery, and
-production composition are still missing.
+attestor. The report resolver injects the exact digest-pinned producer and
+policy-keyed baseline paths into a restricted reusable template. `Router`
+advances CREATED and selects every active stage. Real catalogue and environment
+publication verification, input materialization, unbound-cancellation recovery,
+and production composition are still missing.
 The `reconcile` policy defines that connection's state decisions independently
 of I/O: pending Jobs wait, running Jobs enter RUNNING, terminal Jobs enter
 COLLECTING, and unexpected disappearance/deletion is infrastructure failure.
