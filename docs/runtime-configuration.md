@@ -36,6 +36,31 @@ shared files, but it performs no S3 request. Provider errors are redacted;
 caller cancellation and deadlines retain their standard identity.
 
 The loader produces `S3ClientConfig` together with the validated
-`S3ArtifactAccessConfig`. HTTP server, PostgreSQL, Kubernetes, authentication
-and registry settings will be added with the executable components that consume
-them.
+`S3ArtifactAccessConfig`. Kubernetes, authentication and registry settings will
+be added with the executable components that consume them.
+
+## PostgreSQL
+
+`PERFENG_DATABASE_URL` is required and treated as a secret. Configuration and
+connection errors never include its value. `NewDatabase` opens the existing
+bounded PostgreSQL repository without applying migrations; schema migration
+remains the responsibility of the dedicated command and deployment step.
+
+## HTTP server
+
+The HTTP listener requires all of the following explicit settings:
+
+| Variable | Meaning |
+| --- | --- |
+| `PERFENG_HTTP_ADDRESS` | Listener host and non-zero port, such as `:8080` |
+| `PERFENG_HTTP_READ_HEADER_TIMEOUT` | Maximum duration for request headers |
+| `PERFENG_HTTP_READ_TIMEOUT` | Maximum duration for the complete request read |
+| `PERFENG_HTTP_WRITE_TIMEOUT` | Maximum response-write duration |
+| `PERFENG_HTTP_IDLE_TIMEOUT` | Keep-alive idle limit |
+| `PERFENG_HTTP_SHUTDOWN_TIMEOUT` | Graceful-shutdown budget |
+| `PERFENG_HTTP_MAX_HEADER_BYTES` | Header limit from 1024 through 1048576 bytes |
+
+Durations use Go duration syntax, must be positive and cannot exceed ten
+minutes. `NewHTTPServer` applies the listener policy to a required handler but
+does not bind a socket or start serving. The shutdown timeout remains process
+orchestration policy and is consumed when the executable is introduced.
