@@ -193,6 +193,16 @@ object bytes, and attest a `normalized-result/v1` JSON object before returning i
 immutable reference. The public Run request cannot supply executable commands or
 artifact locations to this boundary.
 
+`AnalysisPlanResolver` separates trusted input selection from Kubernetes Job
+construction. The immutable runtime registry chooses exactly one registered raw
+source using a reviewed `NormalizationSpec`, binds it to the approved
+digest-pinned analysis producer, and returns no credentials, local paths or Pod
+configuration. Supported profiles are explicit: k6 summary JSON requires either
+the typed or legacy-export layout, while Playwright measurements/v2 forbids a k6
+layout. Missing or multiple sources of the configured format fail closed. A
+later Job builder must translate this plan into storage transfer and CLI
+arguments without accepting executable fields from the public Run request.
+
 The `normalizedresult` parser provides the strict envelope boundary for that
 collector: exact JSON shape, common provenance and window rules, raw-source
 consistency, result/v2 metric validation and unavailable-sample preservation.

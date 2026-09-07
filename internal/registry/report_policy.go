@@ -27,6 +27,7 @@ type ReportPolicyEntry struct {
 	Profile            string
 	RawProducer        rawresult.Producer
 	NormalizerProducer rawresult.Producer
+	Normalization      reconcile.NormalizationSpec
 	ReportProducer     rawresult.Producer
 	ExecutionTemplate  *batchv1.Job
 	Workload           rawresult.Identity
@@ -57,6 +58,7 @@ type reportPolicyValue struct {
 	contractsVersion   string
 	rawProducer        rawresult.Producer
 	normalizerProducer rawresult.Producer
+	normalization      reconcile.NormalizationSpec
 	reportProducer     rawresult.Producer
 	executionTemplate  *batchv1.Job
 	workload           rawresult.Identity
@@ -66,6 +68,7 @@ type reportPolicyValue struct {
 
 var (
 	_ reconcile.JobResolver                = (*ReportPolicyRegistry)(nil)
+	_ reconcile.AnalysisPlanResolver       = (*ReportPolicyRegistry)(nil)
 	_ reconcile.NormalizedManifestApprover = (*ReportPolicyRegistry)(nil)
 	_ reconcile.RawManifestApprover        = (*ReportPolicyRegistry)(nil)
 	_ reconcile.ReportTrustResolver        = (*ReportPolicyRegistry)(nil)
@@ -96,6 +99,7 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 		!validReference(entry.Catalogue) || !rawresult.ValidResourceID(entry.Profile) ||
 		!validRawExecution(entry.RawProducer, entry.ExecutionTemplate) ||
 		entry.NormalizerProducer.Validate() != nil ||
+		entry.Normalization.Validate() != nil ||
 		entry.ReportProducer.Validate() != nil ||
 		entry.Workload.Validate() != nil || entry.Environment.Validate() != nil ||
 		entry.Dataset.Validate() != nil || len(entry.CandidateImages) == 0 ||
@@ -155,6 +159,7 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 			contractsVersion:   entry.ContractsVersion,
 			rawProducer:        entry.RawProducer.Clone(),
 			normalizerProducer: entry.NormalizerProducer.Clone(),
+			normalization:      entry.Normalization,
 			reportProducer:     entry.ReportProducer.Clone(),
 			executionTemplate:  cloneJob(entry.ExecutionTemplate),
 			workload:           entry.Workload,
@@ -164,6 +169,50 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 	}
 
 	return nil
+}
+
+// ResolveAnalysisPlan selects the reviewed normalizer and its single exact raw input.
+func (registry *ReportPolicyRegistry) ResolveAnalysisPlan(
+	ctx context.Context,
+	principal string,
+	current run.Run,
+	input reconcile.AnalysisInput,
+) (reconcile.AnalysisPlan, error) {
+	if err := ctx.Err(); err != nil {
+		return reconcile.AnalysisPlan{}, err
+	}
+	rawArtifacts := reconcile.RawArtifactSet{Manifest: input.Manifest, Artifacts: input.Sources}
+	if registry == nil || principal == "" || current.State != run.StateAnalyzing ||
+		current.Request.Validate() != nil || rawArtifacts.Validate(current.ID) != nil {
+		return reconcile.AnalysisPlan{}, run.ErrValidation
+	}
+
+	entry, exists := registry.lookup(principal, current.Request)
+	if !exists {
+		return reconcile.AnalysisPlan{}, run.ErrForbidden
+	}
+	if _, approved := entry.candidates[current.Request.Candidate.Image]; !approved {
+		return reconcile.AnalysisPlan{}, run.ErrForbidden
+	}
+
+	var source run.Artifact
+	for _, artifact := range input.Sources {
+		if artifact.Format != entry.normalization.SourceFormat {
+			continue
+		}
+		if source.ID != "" {
+			return reconcile.AnalysisPlan{}, run.ErrForbidden
+		}
+		source = artifact
+	}
+	plan := reconcile.AnalysisPlan{
+		Source: source, Producer: entry.normalizerProducer.Clone(), Spec: entry.normalization,
+	}
+	if plan.Validate(current.ID) != nil {
+		return reconcile.AnalysisPlan{}, run.ErrForbidden
+	}
+
+	return plan, nil
 }
 
 // ApproveNormalizedManifest binds normalizer claims to approved raw evidence and Run context.
