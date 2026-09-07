@@ -90,12 +90,14 @@ Accepted Jobs have:
 These checks are the duplicate-safety boundary, not complete workload admission.
 `registry.ReportPolicyRegistry` resolves a reusable template from an exact
 principal and accepted request context. Registry construction applies this Job
-policy, requires the approved raw-producer image to occur in the template and
-copies the template before storing or returning it. Production entry population
-remains responsible for reviewing commands, targets, resource limits, node
-placement, storage credentials and policy. The worker must use its database
-lease for lifecycle writes, observe the returned Job UID, and handle
-cancellation without deleting unrelated Jobs.
+policy, requires an approved v1 or v2 OCI raw-producer image to occur in the
+template and copies the template before storing or returning it. Native
+source-checkout producers are rejected by this resolver instead of being mapped
+to a synthetic Job. Production entry population remains responsible for
+reviewing commands, targets, resource limits, node placement, storage
+credentials and policy. The worker must use its database lease for lifecycle
+writes, observe the returned Job UID, and handle cancellation without deleting
+unrelated Jobs.
 
 ## Failure behavior
 
