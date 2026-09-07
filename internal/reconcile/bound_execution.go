@@ -49,6 +49,16 @@ func DefaultBoundExecutionConfig() BoundExecutionConfig {
 	}
 }
 
+// Validate checks bounded rediscovery and cancellation polling intervals.
+func (config BoundExecutionConfig) Validate() error {
+	if config.RetryAfter <= 0 || !run.ValidRetryDelay(config.RetryAfter) ||
+		config.CancellationPollEvery <= 0 || config.CancellationPollEvery > 5*time.Minute {
+		return run.ErrValidation
+	}
+
+	return nil
+}
+
 // BoundExecutionReconciler applies lifecycle decisions for a persisted Job.
 // Dispatch and approved-template resolution belong to an earlier stage.
 type BoundExecutionReconciler struct {
@@ -69,9 +79,7 @@ func NewBoundExecutionReconciler(
 	verifier TerminationVerifier,
 	config BoundExecutionConfig,
 ) (*BoundExecutionReconciler, error) {
-	if store == nil || controller == nil || verifier == nil ||
-		config.RetryAfter <= 0 || !run.ValidRetryDelay(config.RetryAfter) ||
-		config.CancellationPollEvery <= 0 || config.CancellationPollEvery > 5*time.Minute {
+	if store == nil || controller == nil || verifier == nil || config.Validate() != nil {
 		return nil, run.ErrValidation
 	}
 

@@ -49,6 +49,17 @@ func DefaultProvisioningConfig() ProvisioningConfig {
 	return ProvisioningConfig{LeaseTTL: 30 * time.Second, AttemptTimeout: 10 * time.Second}
 }
 
+// Validate checks the lease relationship and bounded attempt deadline.
+func (config ProvisioningConfig) Validate() error {
+	if !run.ValidLeaseTTL(config.LeaseTTL) ||
+		!ValidAttemptTimeout(config.AttemptTimeout) ||
+		config.AttemptTimeout > config.LeaseTTL/2 {
+		return run.ErrValidation
+	}
+
+	return nil
+}
+
 // ProvisioningReconciler handles only PROVISIONING. Existing bindings are routed
 // to the bound stage; absent bindings are resolved, dispatched and persisted.
 type ProvisioningReconciler struct {
@@ -72,8 +83,7 @@ func NewProvisioningReconciler(
 	config ProvisioningConfig,
 ) (*ProvisioningReconciler, error) {
 	if store == nil || resolver == nil || dispatcher == nil || bound == nil ||
-		!run.ValidLeaseTTL(config.LeaseTTL) ||
-		config.AttemptTimeout <= 0 || config.AttemptTimeout > config.LeaseTTL/2 {
+		config.Validate() != nil {
 		return nil, run.ErrValidation
 	}
 

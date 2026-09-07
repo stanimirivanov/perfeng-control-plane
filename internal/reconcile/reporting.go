@@ -54,6 +54,16 @@ func DefaultReportingConfig() ReportingConfig {
 	return ReportingConfig{AttemptTimeout: 10 * time.Second, RetryAfter: 5 * time.Second}
 }
 
+// Validate checks the bounded report deadline and pending retry delay.
+func (config ReportingConfig) Validate() error {
+	if !ValidAttemptTimeout(config.AttemptTimeout) ||
+		config.RetryAfter <= 0 || !run.ValidRetryDelay(config.RetryAfter) {
+		return run.ErrValidation
+	}
+
+	return nil
+}
+
 // ReportingReconciler recovers normalized evidence and persists a validated
 // analysis report before completing the Run.
 type ReportingReconciler struct {
@@ -70,9 +80,7 @@ func NewReportingReconciler(
 	executor ReportExecutor,
 	config ReportingConfig,
 ) (*ReportingReconciler, error) {
-	if store == nil || executor == nil || config.AttemptTimeout <= 0 ||
-		config.AttemptTimeout > 5*time.Minute || config.RetryAfter <= 0 ||
-		!run.ValidRetryDelay(config.RetryAfter) {
+	if store == nil || executor == nil || config.Validate() != nil {
 		return nil, run.ErrValidation
 	}
 

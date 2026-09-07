@@ -55,6 +55,16 @@ func DefaultAnalysisConfig() AnalysisConfig {
 	return AnalysisConfig{AttemptTimeout: 10 * time.Second, RetryAfter: 5 * time.Second}
 }
 
+// Validate checks the bounded normalization deadline and pending retry delay.
+func (config AnalysisConfig) Validate() error {
+	if !ValidAttemptTimeout(config.AttemptTimeout) ||
+		config.RetryAfter <= 0 || !run.ValidRetryDelay(config.RetryAfter) {
+		return run.ErrValidation
+	}
+
+	return nil
+}
+
 // AnalysisReconciler recovers raw evidence and persists normalized output before
 // entering REPORTING. It does not make quality, SLO or regression decisions.
 type AnalysisReconciler struct {
@@ -71,9 +81,7 @@ func NewAnalysisReconciler(
 	executor AnalysisExecutor,
 	config AnalysisConfig,
 ) (*AnalysisReconciler, error) {
-	if store == nil || executor == nil || config.AttemptTimeout <= 0 ||
-		config.AttemptTimeout > 5*time.Minute || config.RetryAfter <= 0 ||
-		!run.ValidRetryDelay(config.RetryAfter) {
+	if store == nil || executor == nil || config.Validate() != nil {
 		return nil, run.ErrValidation
 	}
 

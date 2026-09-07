@@ -37,6 +37,12 @@ type ValidationReconciler struct {
 var _ worker.Reconciler = (*ValidationReconciler)(nil)
 var _ JobValidator = (*kubernetes.Dispatcher)(nil)
 
+// ValidAttemptTimeout accepts positive reconciliation attempt deadlines no
+// greater than five minutes.
+func ValidAttemptTimeout(timeout time.Duration) bool {
+	return timeout > 0 && timeout <= 5*time.Minute
+}
+
 // NewValidationReconciler requires a positive bounded resolver deadline.
 func NewValidationReconciler(
 	store ClaimAdvancer,
@@ -45,7 +51,7 @@ func NewValidationReconciler(
 	attemptTimeout time.Duration,
 ) (*ValidationReconciler, error) {
 	if store == nil || resolver == nil || validator == nil ||
-		attemptTimeout <= 0 || attemptTimeout > 5*time.Minute {
+		!ValidAttemptTimeout(attemptTimeout) {
 		return nil, run.ErrValidation
 	}
 
