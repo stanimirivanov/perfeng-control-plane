@@ -97,6 +97,12 @@ bounds and returns only namespaced Job and Pod interfaces. Construction reads
 service-account configuration but makes no API-server request. Loader and
 client-construction failures are redacted while cancellation is preserved.
 
+`NewKubernetesControllers` binds those clients and their namespace to the
+execution dispatcher, termination verifier, normalization dispatcher and
+reporting dispatcher. It rejects incomplete client bundles and constructs no
+Kubernetes resources. The returned controllers remain inert until a
+reconciliation operation invokes them.
+
 ## Reconciliation stages
 
 Each lifecycle stage has an explicit deadline or rediscovery interval:
