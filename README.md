@@ -31,7 +31,8 @@ coordination, not load generation or statistical decisions.
 - Duplicate-safe Kubernetes reporting Job creation and phase mapping.
 - Bounded verification of immutable objects from approved S3 locations.
 - AWS SDK for Go v2 adapter with safe S3 error classification.
-- Strict parsing and structural validation of raw-result manifests.
+- Strict, generation-aware parsing and structural validation of raw-result/v1
+  and raw-result/v2 manifests.
 - Composable verification of manifest provenance and every declared raw object.
 - Exact raw-manifest provenance approval from the immutable runtime registry.
 - Strict parsing and internal-consistency validation of normalized-result envelopes.

@@ -33,6 +33,110 @@ func TestParse(t *testing.T) {
 	}
 }
 
+func TestParseV2ExecutionArtifacts(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]ExecutionArtifact{
+		"OCI image": {
+			Kind:  "oci-image",
+			Image: "ghcr.io/stanimirivanov/perfeng-k6@sha256:" + strings.Repeat("e", 64),
+		},
+		"source checkout": validSourceCheckout(),
+	}
+	for name, artifact := range tests {
+		artifact := artifact
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			want := validV2Manifest()
+			want.Producer.Artifact = &artifact
+			manifest, err := Parse(encodeManifest(t, want), testRunID, "0.12.0")
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+			if !reflect.DeepEqual(manifest, want) {
+				t.Fatalf("Parse() = %#v, want %#v", manifest, want)
+			}
+		})
+	}
+}
+
+func TestParseV2RejectsMixedAndUnknownProducerFields(t *testing.T) {
+	t.Parallel()
+
+	valid := string(encodeManifest(t, validV2Manifest()))
+	tests := map[string]string{
+		"legacy image": strings.Replace(
+			valid, `"artifact":{`, `"image":"ghcr.io/example/runner@sha256:`+strings.Repeat("e", 64)+`","artifact":{`, 1,
+		),
+		"artifact unknown": strings.Replace(
+			valid, `"kind":"source-checkout"`, `"kind":"source-checkout","extra":true`, 1,
+		),
+		"lock unknown": strings.Replace(
+			valid, `"path":"pnpm-lock.yaml"`, `"path":"pnpm-lock.yaml","extra":true`, 1,
+		),
+		"artifact duplicate": strings.Replace(
+			valid, `"kind":"source-checkout"`, `"kind":"source-checkout","kind":"source-checkout"`, 1,
+		),
+	}
+	for name, input := range tests {
+		input := input
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assertValidationError(t, []byte(input), testRunID, "0.12.0")
+		})
+	}
+}
+
+func TestManifestValidateRejectsInvalidV2ProducerClaims(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]func(*Manifest){
+		"schema version":   func(m *Manifest) { m.SchemaVersion = 3 },
+		"legacy image":     func(m *Manifest) { m.Producer.Image = "ghcr.io/example/runner@sha256:" + strings.Repeat("e", 64) },
+		"missing artifact": func(m *Manifest) { m.Producer.Artifact = nil },
+		"unknown kind":     func(m *Manifest) { m.Producer.Artifact.Kind = "archive" },
+		"OCI tag": func(m *Manifest) {
+			m.Producer.Artifact = executionArtifactPointer(ExecutionArtifact{
+				Kind: "oci-image", Image: "ghcr.io/example/runner:latest",
+			})
+		},
+		"OCI native field": func(m *Manifest) {
+			m.Producer.Artifact = executionArtifactPointer(ExecutionArtifact{
+				Kind: "oci-image", Image: "ghcr.io/example/runner@sha256:" + strings.Repeat("e", 64),
+				Repository: "https://github.com/example/runner",
+			})
+		},
+		"repository scheme": func(m *Manifest) {
+			m.Producer.Artifact.Repository = "http://github.com/stanimirivanov/perfeng-playwright"
+		},
+		"repository URI": func(m *Manifest) { m.Producer.Artifact.Repository = "https://" },
+		"Git SHA":        func(m *Manifest) { m.Producer.Artifact.GitSHA = strings.Repeat("A", 40) },
+		"missing lock":   func(m *Manifest) { m.Producer.Artifact.DependencyLock = nil },
+		"absolute lock": func(m *Manifest) {
+			m.Producer.Artifact.DependencyLock.Path = "/pnpm-lock.yaml"
+		},
+		"traversing lock": func(m *Manifest) {
+			m.Producer.Artifact.DependencyLock.Path = "../pnpm-lock.yaml"
+		},
+		"lock hash": func(m *Manifest) { m.Producer.Artifact.DependencyLock.SHA256 = "invalid" },
+		"source image": func(m *Manifest) {
+			m.Producer.Artifact.Image = "ghcr.io/example/runner@sha256:" + strings.Repeat("e", 64)
+		},
+	}
+	for name, mutate := range tests {
+		mutate := mutate
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			manifest := validV2Manifest()
+			mutate(&manifest)
+			if !errors.Is(manifest.Validate(testRunID, "0.12.0"), run.ErrValidation) {
+				t.Fatal("Validate() did not return ErrValidation")
+			}
+			assertValidationError(t, encodeManifest(t, manifest), testRunID, "0.12.0")
+		})
+	}
+}
+
 func TestParseRejectsInvalidJSONEnvelope(t *testing.T) {
 	t.Parallel()
 
@@ -110,6 +214,7 @@ func TestManifestValidateRejectsInvalidClaims(t *testing.T) {
 		"producer name":       func(m *Manifest) { m.Producer.Name = "K6" },
 		"producer version":    func(m *Manifest) { m.Producer.Version = "2.2" },
 		"producer image":      func(m *Manifest) { m.Producer.Image = "ghcr.io/example/perfeng-k6:latest" },
+		"v2 artifact":         func(m *Manifest) { m.Producer.Artifact = executionArtifactPointer(validSourceCheckout()) },
 		"start syntax":        func(m *Manifest) { m.MeasurementWindow.Start = "2026-09-03 12:00:00Z" },
 		"timestamp precision": func(m *Manifest) { m.MeasurementWindow.End = "2026-09-03T12:01:00.1234567Z" },
 		"empty window":        func(m *Manifest) { m.MeasurementWindow.End = m.MeasurementWindow.Start },
@@ -181,6 +286,33 @@ func validManifest() Manifest {
 			},
 		},
 	}
+}
+
+func validV2Manifest() Manifest {
+	manifest := validManifest()
+	manifest.SchemaVersion = 2
+	manifest.ContractsVersion = "0.12.0"
+	manifest.Producer = Producer{
+		Name: "playwright", Version: "1.62.1",
+		Artifact: executionArtifactPointer(validSourceCheckout()),
+	}
+
+	return manifest
+}
+
+func validSourceCheckout() ExecutionArtifact {
+	return ExecutionArtifact{
+		Kind:       "source-checkout",
+		Repository: "https://github.com/stanimirivanov/perfeng-playwright",
+		GitSHA:     strings.Repeat("e", 40),
+		DependencyLock: &DependencyLock{
+			Path: "pnpm-lock.yaml", SHA256: strings.Repeat("f", 64),
+		},
+	}
+}
+
+func executionArtifactPointer(artifact ExecutionArtifact) *ExecutionArtifact {
+	return &artifact
 }
 
 func encodeManifest(t testing.TB, manifest Manifest) []byte {
