@@ -27,6 +27,7 @@ coordination, not load generation or statistical decisions.
 - Retry-safe registration of verified raw artifacts before analysis.
 - Restart-safe orchestration of normalization through an injected executor.
 - Approved normalization-plan resolution for k6 and Playwright raw evidence.
+- Deterministic restricted analysis Job construction from approved plans.
 - Restart-safe report generation and durable completion through an injected executor.
 - Duplicate-safe Kubernetes normalization Job creation and phase mapping.
 - Duplicate-safe Kubernetes reporting Job creation and phase mapping.
@@ -52,8 +53,8 @@ This is a library foundation, **not a deployable service**. There is intentional
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
 administrative `cmd/migrate` command applies database migrations. Reconciliation
 stages are not wired into a process. Catalogue and environment publication
-verification, concrete publication adapters, registry population, normalization
-Job construction and concrete reporting execution are still missing, so no
+verification, concrete publication adapters, registry population, analysis
+input/output transfer and concrete reporting execution are still missing, so no
 worker executes Jobs from accepted requests. Tests use synthetic contract
 fixtures, not approved deployable resources.
 

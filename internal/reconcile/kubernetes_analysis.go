@@ -13,7 +13,8 @@ import (
 // The returned template must be reproducible from the immutable Run and input.
 type AnalysisJobResolver interface {
 	// ResolveAnalysisJob returns an independently owned template for the principal,
-	// current Run and exact raw evidence set.
+	// current Run and exact raw evidence set. It preserves plan-resolution and
+	// context errors and returns run.ErrValidation for an invalid resulting Job.
 	ResolveAnalysisJob(context.Context, string, run.Run, AnalysisInput) (*batchv1.Job, error)
 }
 

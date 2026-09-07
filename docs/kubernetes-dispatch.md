@@ -128,8 +128,13 @@ analysis retries and a failed Job to a definitive normalization failure. It
 delegates a successful Job to a separate normalized-artifact collector, which
 must retrieve and verify the output bytes before returning an immutable
 reference. Kubernetes success alone does not attest output existence, checksum,
-format or provenance. Template resolution, storage access and worker composition
-remain external boundaries.
+format or provenance. The concrete analysis Job resolver combines an approved
+normalization plan with a reviewed reusable template. It injects the
+digest-pinned normalizer image, exact source artifact ID and tool-specific CLI
+arguments, then reapplies the same restricted Job policy before dispatch. Fixed
+container paths and transfer containers belong to deployment configuration;
+storage access, output publication and worker composition remain external
+boundaries.
 
 ## Reporting Jobs
 
