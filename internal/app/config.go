@@ -17,6 +17,7 @@ const (
 	s3EndpointVariable             = "PERFENG_S3_ENDPOINT"
 	s3PathStyleVariable            = "PERFENG_S3_PATH_STYLE"
 	s3AllowHTTPVariable            = "PERFENG_S3_ALLOW_HTTP"
+	s3MaximumAttemptsVariable      = "PERFENG_S3_MAX_ATTEMPTS"
 	artifactBucketVariable         = "PERFENG_ARTIFACT_BUCKET"
 	artifactRawFormatVariable      = "PERFENG_RAW_MANIFEST_FORMAT"
 	artifactMaximumReadVariable    = "PERFENG_ARTIFACT_MAX_READ_BYTES"
@@ -42,7 +43,7 @@ func (err *ConfigurationError) Unwrap() error {
 	return ErrInvalidConfiguration
 }
 
-// S3ClientConfig defines endpoint and signing settings for a future AWS SDK
+// S3ClientConfig defines endpoint, signing and retry settings for the AWS SDK
 // client. Credentials remain in the SDK provider chain and are never loaded
 // into this value.
 type S3ClientConfig struct {
@@ -50,12 +51,14 @@ type S3ClientConfig struct {
 	Endpoint     string
 	UsePathStyle bool
 	AllowHTTP    bool
+	MaxAttempts  int
 }
 
 // Validate rejects ambiguous regions, endpoint paths and accidental plaintext transport.
 func (config S3ClientConfig) Validate() error {
 	if config.Region == "" || strings.TrimSpace(config.Region) != config.Region ||
-		strings.IndexFunc(config.Region, unicode.IsControl) >= 0 {
+		strings.IndexFunc(config.Region, unicode.IsControl) >= 0 ||
+		config.MaxAttempts < 1 || config.MaxAttempts > 10 {
 		return ErrInvalidConfiguration
 	}
 	if config.Endpoint == "" {
@@ -126,6 +129,10 @@ func loadArtifactStorageConfig(lookup lookupEnvironment) (ArtifactStorageConfig,
 	if err != nil {
 		return ArtifactStorageConfig{}, err
 	}
+	maximumAttempts, err := requiredBoundedInteger(lookup, s3MaximumAttemptsVariable, 1, 10)
+	if err != nil {
+		return ArtifactStorageConfig{}, err
+	}
 	bucket, err := requiredValue(lookup, artifactBucketVariable)
 	if err != nil {
 		return ArtifactStorageConfig{}, err
@@ -145,6 +152,7 @@ func loadArtifactStorageConfig(lookup lookupEnvironment) (ArtifactStorageConfig,
 			Endpoint:     endpoint,
 			UsePathStyle: pathStyle,
 			AllowHTTP:    allowHTTP,
+			MaxAttempts:  maximumAttempts,
 		},
 		Access: objectstore.S3ArtifactAccessConfig{
 			Bucket:            bucket,
@@ -200,6 +208,24 @@ func requiredPositiveInteger(lookup lookupEnvironment, name string) (int64, erro
 	}
 	parsed, err := strconv.ParseInt(value, 10, 64)
 	if err != nil || parsed < 1 {
+		return 0, configurationError(name)
+	}
+
+	return parsed, nil
+}
+
+func requiredBoundedInteger(
+	lookup lookupEnvironment,
+	name string,
+	minimum int,
+	maximum int,
+) (int, error) {
+	value, err := requiredValue(lookup, name)
+	if err != nil {
+		return 0, err
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed < minimum || parsed > maximum {
 		return 0, configurationError(name)
 	}
 

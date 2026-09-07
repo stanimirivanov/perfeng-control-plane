@@ -37,6 +37,7 @@ coordination, not load generation or statistical decisions.
 - Stable-key normalized-manifest discovery from verified S3 reference metadata.
 - Consistent S3 artifact-access composition from one client and storage policy.
 - Strict, secret-safe runtime configuration for S3 artifact access.
+- AWS SDK client construction through the standard credential provider chain.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
   and raw-result/v2 manifests.
 - Composable verification of manifest provenance and every declared raw object.
@@ -70,7 +71,8 @@ dispatch, recovery, artifact collection and analysis integration follow.
 
 Use Go 1.26.6 (the tested toolchain, recorded in go.mod), or a reviewed newer Go
 toolchain. PostgreSQL uses pgx v5.10.0; the Kubernetes API libraries are aligned
-at v0.37.0; and the S3 adapter uses AWS SDK for Go v2 service/s3 v1.110.0.
+at v0.37.0; and the S3 adapter uses AWS SDK for Go v2 core v1.46.0,
+config v1.33.3 and service/s3 v1.110.0.
 go.mod and go.sum pin all dependencies. This Go repository does not need Python,
 uv or Ruff.
 

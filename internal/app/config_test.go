@@ -22,6 +22,7 @@ func TestLoadArtifactStorageConfigReturnsExplicitPolicy(t *testing.T) {
 			Endpoint:     "http://seaweedfs-s3.perf-storage.svc.cluster.local:9000",
 			UsePathStyle: true,
 			AllowHTTP:    true,
+			MaxAttempts:  3,
 		},
 		Access: objectstore.S3ArtifactAccessConfig{
 			Bucket:            "perfeng-artifacts",
@@ -44,7 +45,8 @@ func TestLoadArtifactStorageConfigAcceptsDefaultAWSEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if config.Client.Endpoint != "" || config.Client.AllowHTTP || config.Client.UsePathStyle {
+	if config.Client.Endpoint != "" || config.Client.AllowHTTP || config.Client.UsePathStyle ||
+		config.Client.MaxAttempts != 3 {
 		t.Fatalf("client config = %#v", config.Client)
 	}
 }
@@ -68,6 +70,12 @@ func TestLoadArtifactStorageConfigRejectsInvalidEnvironment(t *testing.T) {
 		},
 		"invalid HTTP flag": func(values map[string]string) {
 			values[s3AllowHTTPVariable] = "TRUE"
+		},
+		"zero attempts": func(values map[string]string) {
+			values[s3MaximumAttemptsVariable] = "0"
+		},
+		"excessive attempts": func(values map[string]string) {
+			values[s3MaximumAttemptsVariable] = "11"
 		},
 		"invalid bucket": func(values map[string]string) {
 			values[artifactBucketVariable] = "Invalid"
@@ -109,7 +117,7 @@ func TestLoadArtifactStorageConfigDoesNotExposeValues(t *testing.T) {
 
 func TestArtifactStorageConfigValidatesProgrammaticValues(t *testing.T) {
 	valid := ArtifactStorageConfig{
-		Client: S3ClientConfig{Region: "us-east-1"},
+		Client: S3ClientConfig{Region: "us-east-1", MaxAttempts: 3},
 		Access: objectstore.S3ArtifactAccessConfig{
 			Bucket:            "perfeng-artifacts",
 			RawManifestFormat: "raw-result/v2",
@@ -129,10 +137,10 @@ func TestArtifactStorageConfigValidatesProgrammaticValues(t *testing.T) {
 
 func TestS3ClientConfigValidatesEndpointPolicy(t *testing.T) {
 	accepted := []S3ClientConfig{
-		{Region: "us-east-1"},
-		{Region: "us-east-1", Endpoint: "https://s3.example.com"},
-		{Region: "us-east-1", Endpoint: "https://s3.example.com/", AllowHTTP: true},
-		{Region: "us-east-1", Endpoint: "http://seaweedfs:9000", AllowHTTP: true},
+		{Region: "us-east-1", MaxAttempts: 1},
+		{Region: "us-east-1", MaxAttempts: 10, Endpoint: "https://s3.example.com"},
+		{Region: "us-east-1", MaxAttempts: 3, Endpoint: "https://s3.example.com/", AllowHTTP: true},
+		{Region: "us-east-1", MaxAttempts: 3, Endpoint: "http://seaweedfs:9000", AllowHTTP: true},
 	}
 	for _, config := range accepted {
 		if err := config.Validate(); err != nil {
@@ -142,14 +150,16 @@ func TestS3ClientConfigValidatesEndpointPolicy(t *testing.T) {
 
 	rejected := []S3ClientConfig{
 		{},
-		{Region: " us-east-1"},
-		{Region: "us-east-1", AllowHTTP: true},
-		{Region: "us-east-1", Endpoint: "http://seaweedfs:9000"},
-		{Region: "us-east-1", Endpoint: "ftp://s3.example.com"},
-		{Region: "us-east-1", Endpoint: "https://user:secret@s3.example.com"},
-		{Region: "us-east-1", Endpoint: "https://s3.example.com/path"},
-		{Region: "us-east-1", Endpoint: "https://s3.example.com?mode=test"},
-		{Region: "us-east-1", Endpoint: "https://s3.example.com#fragment"},
+		{Region: " us-east-1", MaxAttempts: 3},
+		{Region: "us-east-1"},
+		{Region: "us-east-1", MaxAttempts: 11},
+		{Region: "us-east-1", MaxAttempts: 3, AllowHTTP: true},
+		{Region: "us-east-1", MaxAttempts: 3, Endpoint: "http://seaweedfs:9000"},
+		{Region: "us-east-1", MaxAttempts: 3, Endpoint: "ftp://s3.example.com"},
+		{Region: "us-east-1", MaxAttempts: 3, Endpoint: "https://user:secret@s3.example.com"},
+		{Region: "us-east-1", MaxAttempts: 3, Endpoint: "https://s3.example.com/path"},
+		{Region: "us-east-1", MaxAttempts: 3, Endpoint: "https://s3.example.com?mode=test"},
+		{Region: "us-east-1", MaxAttempts: 3, Endpoint: "https://s3.example.com#fragment"},
 	}
 	for _, config := range rejected {
 		if err := config.Validate(); !errors.Is(err, ErrInvalidConfiguration) {
@@ -170,6 +180,7 @@ func validArtifactStorageEnvironment() map[string]string {
 		s3EndpointVariable:          "http://seaweedfs-s3.perf-storage.svc.cluster.local:9000",
 		s3PathStyleVariable:         "true",
 		s3AllowHTTPVariable:         "true",
+		s3MaximumAttemptsVariable:   "3",
 		artifactBucketVariable:      "perfeng-artifacts",
 		artifactRawFormatVariable:   "raw-result/v2",
 		artifactMaximumReadVariable: "67108864",
