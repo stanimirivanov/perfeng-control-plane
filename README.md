@@ -35,6 +35,7 @@ coordination, not load generation or statistical decisions.
 - AWS SDK for Go v2 adapter with safe S3 error classification.
 - Stable-key raw-manifest discovery from verified S3 reference metadata.
 - Stable-key normalized-manifest discovery from verified S3 reference metadata.
+- Consistent S3 artifact-access composition from one client and storage policy.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
   and raw-result/v2 manifests.
 - Composable verification of manifest provenance and every declared raw object.
