@@ -143,8 +143,9 @@ a bounded quiet retry; other operational errors remain worker failures.
 that does not persist parser, object-store or credential details. A successful
 collector response is treated as a trusted-adapter boundary and must contain a
 non-empty, unique set of valid raw references for the claimed Run. The manifest
-is itself required to be an `application/json` raw artifact in `raw-result/v1`
-format, with an identity and location distinct from its declared objects.
+is itself required to be an `application/json` raw artifact in a supported
+`raw-result/v1` or `raw-result/v2` format, with an identity and location distinct
+from its declared objects.
 
 `VerifiedRawCollector` implements this composition behind the injected
 `RawArtifactCollector` interface. A trusted resolver supplies the manifest's
@@ -152,8 +153,10 @@ complete immutable artifact reference; it is never discovered by listing a
 bucket. The collector verifies those bytes, parses the exact raw-result
 contract, asks a separate approver to bind producer, test and workload claims
 to the accepted Run, validates the complete set, and verifies every declared
-object before returning any references. Inputs passed to the resolver and
-approver are isolated copies.
+object before returning any references. The reference format must identify the
+same generation as the parsed manifest. `objectstore.RawManifestResolver`
+provides the concrete stable-key and metadata implementation. Inputs passed to
+the resolver and approver are isolated copies.
 
 An absent manifest or source object remains `ErrArtifactsNotReady`. A checksum,
 metadata, reference, envelope or provenance mismatch becomes
@@ -170,9 +173,8 @@ rediscovery; cancellation wins the lifecycle write without invalidating already
 verified immutable references.
 
 This stage registers references only. Its composition does not upload objects,
-build raw manifests, determine how Kubernetes publishes the trusted manifest
-reference, implement catalogue provenance approval, dispatch analysis Jobs or
-interpret measurements.
+build raw manifests, wire storage credentials and endpoints into a service,
+dispatch native execution, dispatch analysis Jobs or interpret measurements.
 Later analysis reconciliation can rediscover the registered manifest and source
 objects through principal-scoped, artifact-ID-ordered storage listing; no
 in-memory handoff from the collection attempt is required.
@@ -180,9 +182,9 @@ in-memory handoff from the collection attempt is required.
 ## Analysis reconciliation
 
 `AnalysisReconciler` accepts only ANALYZING claims. It lists the principal-owned
-artifact references, requires exactly one `raw-result/v1` JSON manifest and at
-least one raw source, and rejects malformed, cross-Run or ambiguous persisted
-evidence before invoking external work.
+artifact references, requires exactly one supported v1 or v2 raw-result JSON
+manifest and at least one raw source, and rejects malformed, cross-Run or
+ambiguous persisted evidence before invoking external work.
 
 The injected `AnalysisExecutor` starts, adopts or observes idempotent
 normalization using the immutable Run and an isolated input copy. It must use an

@@ -120,6 +120,16 @@ func TestCollectionRegistersCompleteSetThenAdvances(t *testing.T) {
 	}
 }
 
+func TestRawArtifactSetAcceptsV2ManifestReference(t *testing.T) {
+	t.Parallel()
+
+	set := rawArtifactSet(boundClaim(run.StateCollecting).Run.ID)
+	set.Manifest.Format = "raw-result/v2"
+	if err := set.Validate(set.Manifest.RunID); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCollectionWaitsQuietlyForStorageVisibility(t *testing.T) {
 	reconciler, store, claim := collectionFixture(t)
 	reconciler.collector = collectRawFunc(func(context.Context, string, run.Run) (RawArtifactSet, error) {

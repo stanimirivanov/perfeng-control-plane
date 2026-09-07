@@ -108,6 +108,66 @@ func TestVerifiedNormalizedCollectorReturnsApprovedVerifiedReference(t *testing.
 	}
 }
 
+func TestVerifiedNormalizedCollectorAcceptsV2RawManifest(t *testing.T) {
+	t.Parallel()
+
+	current, input, reference, manifest := normalizedCollectorFixture()
+	input.Manifest.Format = "raw-result/v2"
+	rawManifest := normalizedRawManifest(current.ID)
+	rawManifest.SchemaVersion = 2
+	rawManifest.Producer = rawresult.Producer{
+		Name: "playwright", Version: "1.62.1",
+		Artifact: &rawresult.ExecutionArtifact{
+			Kind:       "source-checkout",
+			Repository: "https://github.com/stanimirivanov/perfeng-playwright",
+			GitSHA:     strings.Repeat("e", 40),
+			DependencyLock: &rawresult.DependencyLock{
+				Path: "pnpm-lock.yaml", SHA256: strings.Repeat("f", 64),
+			},
+		},
+	}
+	reader := readArtifactFunc(func(_ context.Context, artifact run.Artifact) ([]byte, error) {
+		if artifact == input.Manifest {
+			return encodeRawManifest(t, rawManifest), nil
+		}
+
+		return encodeNormalizedManifest(t, manifest), nil
+	})
+	collector := newVerifiedNormalizedCollector(
+		t, fixedNormalizedResolver(reference), reader, acceptingNormalizedApprover(),
+	)
+
+	actual, err := collector.CollectNormalizedArtifact(
+		context.Background(), "worker-a", current, input,
+	)
+	if err != nil || actual != reference {
+		t.Fatalf("CollectNormalizedArtifact() = %#v, %v", actual, err)
+	}
+}
+
+func TestVerifiedNormalizedCollectorRejectsPersistedRawGenerationMismatch(t *testing.T) {
+	t.Parallel()
+
+	current, input, reference, manifest := normalizedCollectorFixture()
+	input.Manifest.Format = "raw-result/v2"
+	reader := readArtifactFunc(func(_ context.Context, artifact run.Artifact) ([]byte, error) {
+		if artifact == input.Manifest {
+			return encodeRawManifest(t, normalizedRawManifest(current.ID)), nil
+		}
+
+		return encodeNormalizedManifest(t, manifest), nil
+	})
+	collector := newVerifiedNormalizedCollector(
+		t, fixedNormalizedResolver(reference), reader, acceptingNormalizedApprover(),
+	)
+
+	if _, err := collector.CollectNormalizedArtifact(
+		context.Background(), "worker-a", current, input,
+	); !errors.Is(err, ErrAnalysisFailed) {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestVerifiedNormalizedCollectorClassifiesEvidenceFailures(t *testing.T) {
 	t.Parallel()
 

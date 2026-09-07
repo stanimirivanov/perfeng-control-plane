@@ -1,4 +1,4 @@
-// Package objectstore verifies immutable artifact bytes read from S3-compatible storage.
+// Package objectstore discovers and verifies immutable artifacts in S3-compatible storage.
 package objectstore
 
 import (

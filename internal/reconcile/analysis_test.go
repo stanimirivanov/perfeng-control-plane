@@ -136,6 +136,21 @@ func TestAnalysisRegistersNormalizedResultThenAdvances(t *testing.T) {
 	}
 }
 
+func TestAnalysisEvidenceAcceptsV2ManifestReference(t *testing.T) {
+	t.Parallel()
+
+	runID := boundClaim(run.StateAnalyzing).Run.ID
+	artifacts := analysisArtifacts(runID)
+	artifacts[len(artifacts)-1].Format = "raw-result/v2"
+	input, normalized, err := analysisEvidence(runID, artifacts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if input.Manifest.Format != "raw-result/v2" || len(input.Sources) != 2 || normalized != nil {
+		t.Fatalf("analysisEvidence() = %#v, %#v", input, normalized)
+	}
+}
+
 func TestAnalysisRecoversRegisteredOutputWithoutDuplicateExecution(t *testing.T) {
 	reconciler, store, claim, calls := analysisFixture(t)
 	output := normalizedArtifact(claim.Run.ID)

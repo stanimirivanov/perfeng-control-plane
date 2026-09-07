@@ -136,7 +136,8 @@ func (collector *VerifiedNormalizedCollector) readRawManifest(
 		return rawresult.Manifest{}, classifyPersistedAnalysisInput(err)
 	}
 	manifest, err := rawresult.Parse(content, runID, collector.contractsVersion)
-	if err != nil || !sameArtifacts(manifest.Artifacts, input.Sources) {
+	if err != nil || input.Manifest.Format != rawManifestFormat(manifest.SchemaVersion) ||
+		!sameArtifacts(manifest.Artifacts, input.Sources) {
 		return rawresult.Manifest{}, ErrAnalysisFailed
 	}
 

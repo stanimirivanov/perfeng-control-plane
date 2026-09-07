@@ -219,7 +219,7 @@ func (evidence *analysisEvidenceSet) add(runID string, artifact run.Artifact) er
 }
 
 func (evidence *analysisEvidenceSet) addRaw(artifact run.Artifact) error {
-	if artifact.Format != "raw-result/v1" {
+	if !validRawManifestFormat(artifact.Format) {
 		evidence.input.Sources = append(evidence.input.Sources, artifact)
 
 		return nil
