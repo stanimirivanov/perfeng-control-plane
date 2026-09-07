@@ -94,10 +94,9 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 	if err != nil || !rawresult.ValidResourceID(entry.TestID) ||
 		!rawresult.ValidContractsVersion(entry.ContractsVersion) ||
 		!validReference(entry.Catalogue) || !rawresult.ValidResourceID(entry.Profile) ||
-		entry.RawProducer.Validate() != nil || entry.NormalizerProducer.Validate() != nil ||
+		!validRawExecution(entry.RawProducer, entry.ExecutionTemplate) ||
+		entry.NormalizerProducer.Validate() != nil ||
 		entry.ReportProducer.Validate() != nil ||
-		kubernetes.ValidateReusableJobTemplate(entry.ExecutionTemplate) != nil ||
-		!jobUsesImage(entry.ExecutionTemplate, entry.RawProducer.Image) ||
 		entry.Workload.Validate() != nil || entry.Environment.Validate() != nil ||
 		entry.Dataset.Validate() != nil || len(entry.CandidateImages) == 0 ||
 		len(entry.Principals) == 0 {
@@ -154,10 +153,10 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 			policyBytes:        append([]byte(nil), entry.PolicyBytes...),
 			mode:               document.Spec.Mode,
 			contractsVersion:   entry.ContractsVersion,
-			rawProducer:        entry.RawProducer,
-			normalizerProducer: entry.NormalizerProducer,
-			reportProducer:     entry.ReportProducer,
-			executionTemplate:  entry.ExecutionTemplate.DeepCopy(),
+			rawProducer:        entry.RawProducer.Clone(),
+			normalizerProducer: entry.NormalizerProducer.Clone(),
+			reportProducer:     entry.ReportProducer.Clone(),
+			executionTemplate:  cloneJob(entry.ExecutionTemplate),
 			workload:           entry.Workload,
 			baselines:          cloneSelections(baselines),
 			candidates:         cloneSet(candidates),
@@ -189,7 +188,7 @@ func (registry *ReportPolicyRegistry) ApproveNormalizedManifest(
 	entry, exists := registry.lookup(principal, current.Request)
 	if !exists || manifest.ContractsVersion != entry.contractsVersion ||
 		manifest.TestID != current.Request.TestSuite || manifest.Workload != entry.workload ||
-		manifest.Producer != entry.normalizerProducer ||
+		!manifest.Producer.Equal(entry.normalizerProducer) ||
 		!sameArtifactSet(manifest.SourceArtifacts, input.Sources) {
 		return run.ErrForbidden
 	}
@@ -213,7 +212,7 @@ func (registry *ReportPolicyRegistry) ResolveJob(
 	}
 
 	entry, exists := registry.lookup(principal, current.Request)
-	if !exists {
+	if !exists || entry.executionTemplate == nil {
 		return nil, run.ErrForbidden
 	}
 	if _, approved := entry.candidates[current.Request.Candidate.Image]; !approved {
@@ -242,7 +241,7 @@ func (registry *ReportPolicyRegistry) ApproveRawManifest(
 	entry, exists := registry.lookup(principal, current.Request)
 	if !exists || manifest.ContractsVersion != entry.contractsVersion ||
 		manifest.TestID != current.Request.TestSuite || manifest.Workload != entry.workload ||
-		manifest.Producer != entry.rawProducer {
+		!manifest.Producer.Equal(entry.rawProducer) {
 		return run.ErrForbidden
 	}
 
@@ -263,7 +262,7 @@ func (registry *ReportPolicyRegistry) ApproveRun(
 	}
 
 	entry, exists := registry.lookup(principal, request)
-	if !exists {
+	if !exists || entry.executionTemplate == nil {
 		return run.ErrForbidden
 	}
 	if _, approved := entry.candidates[request.Candidate.Image]; !approved {
@@ -368,6 +367,29 @@ func jobUsesImage(template *batchv1.Job, image string) bool {
 	}
 
 	return false
+}
+
+func validRawExecution(producer rawresult.Producer, template *batchv1.Job) bool {
+	image := producer.Image
+	if producer.Validate() != nil {
+		if producer.ValidateExecution() != nil {
+			return false
+		}
+		if producer.Artifact.Kind == "source-checkout" {
+			return template == nil
+		}
+		image = producer.Artifact.Image
+	}
+
+	return kubernetes.ValidateReusableJobTemplate(template) == nil && jobUsesImage(template, image)
+}
+
+func cloneJob(template *batchv1.Job) *batchv1.Job {
+	if template == nil {
+		return nil
+	}
+
+	return template.DeepCopy()
 }
 
 func sameArtifactSet(actual, expected []run.Artifact) bool {

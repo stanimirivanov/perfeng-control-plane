@@ -155,7 +155,7 @@ func validReportTrust(
 		manifest.Policy.SHA256 == requestPolicy.SHA256 &&
 		manifest.Policy.Mode == trust.PolicyMode &&
 		(trust.PolicyMode == "observe" || trust.PolicyMode == "inform") &&
-		trust.Producer.Validate() == nil && manifest.Producer == trust.Producer
+		trust.Producer.Validate() == nil && manifest.Producer.Equal(trust.Producer)
 }
 
 func (approver *TrustedReportApprover) resolveReferences(

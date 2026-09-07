@@ -34,7 +34,7 @@ coordination, not load generation or statistical decisions.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
   and raw-result/v2 manifests.
 - Composable verification of manifest provenance and every declared raw object.
-- Exact raw-manifest provenance approval from the immutable runtime registry.
+- Exact v1 and v2 raw-manifest provenance approval from the immutable runtime registry.
 - Strict parsing and internal-consistency validation of normalized-result envelopes.
 - Composable verification of normalized output bytes, sources and provenance.
 - Exact normalized-result producer approval from the immutable runtime registry.

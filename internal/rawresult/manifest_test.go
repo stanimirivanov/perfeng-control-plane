@@ -60,6 +60,30 @@ func TestParseV2ExecutionArtifacts(t *testing.T) {
 	}
 }
 
+func TestProducerCloneAndEquality(t *testing.T) {
+	t.Parallel()
+
+	original := validV2Manifest().Producer
+	clone := original.Clone()
+	if !original.Equal(clone) {
+		t.Fatal("Clone() changed producer identity")
+	}
+	clone.Artifact.DependencyLock.SHA256 = strings.Repeat("0", 64)
+	if original.Equal(clone) || original.Artifact.DependencyLock.SHA256 != strings.Repeat("f", 64) {
+		t.Fatal("Clone() retained caller-owned provenance storage")
+	}
+
+	legacy := validManifest().Producer
+	if !legacy.Equal(legacy.Clone()) {
+		t.Fatal("legacy producer identity changed")
+	}
+	changed := legacy.Clone()
+	changed.Image = "ghcr.io/example/other@sha256:" + strings.Repeat("1", 64)
+	if legacy.Equal(changed) {
+		t.Fatal("Equal() accepted different image provenance")
+	}
+}
+
 func TestParseV2RejectsMixedAndUnknownProducerFields(t *testing.T) {
 	t.Parallel()
 

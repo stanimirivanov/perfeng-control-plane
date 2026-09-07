@@ -213,10 +213,15 @@ func rawManifestFixture(
 	entry ReportPolicyEntry,
 	current run.Run,
 ) rawresult.Manifest {
+	schemaVersion := 1
+	if entry.RawProducer.Artifact != nil {
+		schemaVersion = 2
+	}
+
 	return rawresult.Manifest{
-		SchemaVersion: 1, Kind: "RawResult", ContractsVersion: entry.ContractsVersion,
+		SchemaVersion: schemaVersion, Kind: "RawResult", ContractsVersion: entry.ContractsVersion,
 		RunID: current.ID, TestID: current.Request.TestSuite, Workload: entry.Workload,
-		Producer: entry.RawProducer,
+		Producer: entry.RawProducer.Clone(),
 		MeasurementWindow: rawresult.Window{
 			Start: "2026-09-05T12:00:00Z", End: "2026-09-05T12:01:00Z",
 		},
@@ -271,6 +276,97 @@ func TestReportPolicyRegistryApprovesRawManifestProvenance(t *testing.T) {
 	}
 	if err := registry.ApproveRawManifest(
 		context.Background(), "alice", current, rawManifestFixture(entry, current),
+	); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestReportPolicyRegistryApprovesV2RawManifestProvenance(t *testing.T) {
+	for _, kind := range []string{"oci-image", "source-checkout"} {
+		t.Run(kind, func(t *testing.T) {
+			entry, current := v2RawPolicyFixture(t, kind)
+			current.State = run.StateCollecting
+			registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := registry.ApproveRawManifest(
+				context.Background(), "alice", current, rawManifestFixture(entry, current),
+			); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestReportPolicyRegistryRejectsChangedV2RawProvenance(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(*rawresult.ExecutionArtifact)
+	}{
+		{name: "repository", mutate: func(artifact *rawresult.ExecutionArtifact) {
+			artifact.Repository = "https://github.com/example/other"
+		}},
+		{name: "Git SHA", mutate: func(artifact *rawresult.ExecutionArtifact) {
+			artifact.GitSHA = strings.Repeat("9", 40)
+		}},
+		{name: "lock path", mutate: func(artifact *rawresult.ExecutionArtifact) {
+			artifact.DependencyLock.Path = "package-lock.json"
+		}},
+		{name: "lock hash", mutate: func(artifact *rawresult.ExecutionArtifact) {
+			artifact.DependencyLock.SHA256 = strings.Repeat("8", 64)
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			entry, current := v2RawPolicyFixture(t, "source-checkout")
+			current.State = run.StateCollecting
+			registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+			if err != nil {
+				t.Fatal(err)
+			}
+			manifest := rawManifestFixture(entry, current)
+			test.mutate(manifest.Producer.Artifact)
+			if err := registry.ApproveRawManifest(
+				context.Background(), "alice", current, manifest,
+			); !errors.Is(err, run.ErrForbidden) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
+func TestReportPolicyRegistryKeepsNativeEntriesOffKubernetesDispatch(t *testing.T) {
+	entry, current := v2RawPolicyFixture(t, "source-checkout")
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.ApproveRun(
+		context.Background(), "alice", current.Request,
+	); !errors.Is(err, run.ErrForbidden) {
+		t.Fatalf("ApproveRun() error = %v", err)
+	}
+	current.State = run.StateValidating
+	if _, err := registry.ResolveJob(
+		context.Background(), "alice", current,
+	); !errors.Is(err, run.ErrForbidden) {
+		t.Fatalf("ResolveJob() error = %v", err)
+	}
+}
+
+func TestReportPolicyRegistryOwnsV2RawProvenance(t *testing.T) {
+	entry, current := v2RawPolicyFixture(t, "source-checkout")
+	current.State = run.StateCollecting
+	manifest := rawManifestFixture(entry, current)
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry.RawProducer.Artifact.Repository = "https://github.com/example/changed"
+	entry.RawProducer.Artifact.DependencyLock.SHA256 = strings.Repeat("7", 64)
+
+	if err := registry.ApproveRawManifest(
+		context.Background(), "alice", current, manifest,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -737,6 +833,48 @@ func TestReportPolicyRegistryValidatesEntries(t *testing.T) {
 	); !errors.Is(err, run.ErrValidation) {
 		t.Fatalf("duplicate entry error = %v", err)
 	}
+
+	for _, kind := range []string{"oci-image", "source-checkout"} {
+		entry, _ := v2RawPolicyFixture(t, kind)
+		if kind == "oci-image" {
+			entry.ExecutionTemplate = nil
+		} else {
+			entry.ExecutionTemplate = executionTemplate(
+				"ghcr.io/example/runner@sha256:" + strings.Repeat("6", 64),
+			)
+		}
+		if _, err := NewReportPolicyRegistry(
+			[]ReportPolicyEntry{entry},
+		); !errors.Is(err, run.ErrValidation) {
+			t.Fatalf("%s dispatch binding error = %v", kind, err)
+		}
+	}
+}
+
+func v2RawPolicyFixture(t *testing.T, kind string) (ReportPolicyEntry, run.Run) {
+	t.Helper()
+	entry, current, _ := reportPolicyFixture(t)
+	entry.ContractsVersion = "0.12.0"
+	entry.RawProducer = rawresult.Producer{Name: "playwright", Version: "1.62.1"}
+	switch kind {
+	case "oci-image":
+		image := "ghcr.io/example/playwright@sha256:" + strings.Repeat("6", 64)
+		entry.RawProducer.Artifact = &rawresult.ExecutionArtifact{Kind: kind, Image: image}
+		entry.ExecutionTemplate = executionTemplate(image)
+	case "source-checkout":
+		entry.RawProducer.Artifact = &rawresult.ExecutionArtifact{
+			Kind: kind, Repository: "https://github.com/stanimirivanov/perfeng-playwright",
+			GitSHA: strings.Repeat("5", 40),
+			DependencyLock: &rawresult.DependencyLock{
+				Path: "pnpm-lock.yaml", SHA256: strings.Repeat("4", 64),
+			},
+		}
+		entry.ExecutionTemplate = nil
+	default:
+		t.Fatalf("unsupported fixture kind %q", kind)
+	}
+
+	return entry, current
 }
 
 func TestReportPolicyRegistryValidatesResolutionContext(t *testing.T) {

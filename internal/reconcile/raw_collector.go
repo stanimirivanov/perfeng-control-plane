@@ -170,13 +170,6 @@ func classifyCollectionApproval(err error) error {
 
 func cloneRawManifest(manifest rawresult.Manifest) rawresult.Manifest {
 	manifest.Artifacts = append([]run.Artifact(nil), manifest.Artifacts...)
-	if manifest.Producer.Artifact != nil {
-		artifact := *manifest.Producer.Artifact
-		if artifact.DependencyLock != nil {
-			lock := *artifact.DependencyLock
-			artifact.DependencyLock = &lock
-		}
-		manifest.Producer.Artifact = &artifact
-	}
+	manifest.Producer = manifest.Producer.Clone()
 	return manifest
 }

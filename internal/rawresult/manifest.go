@@ -61,6 +61,32 @@ type Producer struct {
 	Artifact *ExecutionArtifact `json:"artifact,omitempty"`
 }
 
+// Clone returns an independently owned producer identity.
+func (producer Producer) Clone() Producer {
+	if producer.Artifact != nil {
+		artifact := *producer.Artifact
+		if artifact.DependencyLock != nil {
+			lock := *artifact.DependencyLock
+			artifact.DependencyLock = &lock
+		}
+		producer.Artifact = &artifact
+	}
+
+	return producer
+}
+
+// Equal reports whether two producers identify the same execution bytes.
+func (producer Producer) Equal(other Producer) bool {
+	if producer.Name != other.Name || producer.Version != other.Version || producer.Image != other.Image {
+		return false
+	}
+	if producer.Artifact == nil || other.Artifact == nil {
+		return producer.Artifact == nil && other.Artifact == nil
+	}
+
+	return producer.Artifact.equal(*other.Artifact)
+}
+
 // ExecutionArtifact is the discriminated raw-result/v2 producer artifact.
 type ExecutionArtifact struct {
 	Kind           string          `json:"kind"`
@@ -74,6 +100,18 @@ type ExecutionArtifact struct {
 type DependencyLock struct {
 	Path   string `json:"path"`
 	SHA256 string `json:"sha256"`
+}
+
+func (artifact ExecutionArtifact) equal(other ExecutionArtifact) bool {
+	if artifact.Kind != other.Kind || artifact.Image != other.Image ||
+		artifact.Repository != other.Repository || artifact.GitSHA != other.GitSHA {
+		return false
+	}
+	if artifact.DependencyLock == nil || other.DependencyLock == nil {
+		return artifact.DependencyLock == nil && other.DependencyLock == nil
+	}
+
+	return *artifact.DependencyLock == *other.DependencyLock
 }
 
 // Window is the producer-declared half-open measurement interval.

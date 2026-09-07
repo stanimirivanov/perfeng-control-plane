@@ -61,11 +61,11 @@ manifest reference from an injected trusted resolver, verifies and parses the
 manifest, invokes an injected provenance approver, validates the manifest and
 source references as one set, and verifies every source object's bytes.
 
-`registry.ReportPolicyRegistry` is the concrete v1 provenance approver. Its
+`registry.ReportPolicyRegistry` is the concrete v1 and v2 provenance approver. Its
 reviewed startup entry pins the contracts bundle, test, workload and
-digest-pinned raw producer to the same principal and resource context used at
-Run admission. It validates the manifest again at the adapter boundary and
-rejects any valid but unauthorized claim. Trusted manifest publication
-resolution remains an external adapter; the collector does not infer a reference
-from an object key. V2 provenance approval, v2 publication-reference selection,
-and native dispatch remain separate integration boundaries.
+complete raw producer identity to the same principal and resource context. It
+validates the manifest again at the adapter boundary and rejects any valid but
+unauthorized claim. Native producer entries cannot pass the existing Kubernetes
+admission or Job resolver. Trusted v2 publication-reference selection and native
+dispatch remain separate integration boundaries; the collector does not infer a
+reference from an object key.
