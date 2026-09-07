@@ -29,6 +29,7 @@ coordination, not load generation or statistical decisions.
 - Approved normalization-plan resolution for k6 and Playwright raw evidence.
 - Deterministic restricted analysis Job construction from approved plans.
 - Deterministic restricted report Job construction from trusted policy and baseline plans.
+- Inert composition of Kubernetes analysis and reporting lifecycle executors.
 - Restart-safe report generation and durable completion through an injected executor.
 - Duplicate-safe Kubernetes normalization Job creation and phase mapping.
 - Duplicate-safe Kubernetes reporting Job creation and phase mapping.

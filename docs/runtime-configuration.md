@@ -118,6 +118,20 @@ reporting dispatcher. It rejects incomplete client bundles and constructs no
 Kubernetes resources. The returned controllers remain inert until a
 reconciliation operation invokes them.
 
+`NewKubernetesExecutors` composes the normalization and reporting lifecycle
+adapters from immutable registry trust, the baseline repository, these
+controllers, verified artifact collectors and reviewed Job configuration. The
+analysis configuration provides its reusable template and fixed manifest,
+source and output paths. The report configuration provides its reusable
+template and fixed candidate, candidate-artifact, policy, reference-directory
+and output paths. Structured Job templates are deployment inputs rather than
+environment-variable values.
+
+Construction validates every dependency and template but does not resolve a
+plan, read a baseline, access object storage or call Kubernetes. Input-transfer
+containers, volumes and credentials remain part of the reviewed deployment
+templates and production composition.
+
 ## Reconciliation stages
 
 Each lifecycle stage has an explicit deadline or rediscovery interval:
