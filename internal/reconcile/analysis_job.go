@@ -77,7 +77,7 @@ func (resolver *KubernetesAnalysisJobResolver) ResolveAnalysisJob(
 	}
 
 	template := resolver.config.Template.DeepCopy()
-	container := analysisContainer(template, resolver.config.ContainerName)
+	container := jobContainer(template, resolver.config.ContainerName)
 	if container == nil {
 		return nil, run.ErrValidation
 	}
@@ -105,11 +105,11 @@ func validAnalysisJobConfig(config AnalysisJobConfig) bool {
 		}
 	}
 
-	container := analysisContainer(config.Template, config.ContainerName)
+	container := jobContainer(config.Template, config.ContainerName)
 	return container != nil && len(container.Command) == 0 && len(container.Args) == 0
 }
 
-func analysisContainer(template *batchv1.Job, name string) *corev1.Container {
+func jobContainer(template *batchv1.Job, name string) *corev1.Container {
 	var match *corev1.Container
 	for index := range template.Spec.Template.Spec.Containers {
 		container := &template.Spec.Template.Spec.Containers[index]
