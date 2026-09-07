@@ -465,6 +465,21 @@ func TestTrustedReportApproverPreservesBoundaryErrors(t *testing.T) {
 
 func TestTrustedReportApproverValidatesDependenciesAndContext(t *testing.T) {
 	fixture := newReportApprovalFixture(t)
+	baselines := baseline.Repository(&baselineApprovalStore{resolve: func(
+		context.Context, string, baseline.Selection,
+	) (baseline.Record, bool, error) {
+		return fixture.record, true, nil
+	}})
+	resolver := ReportTrustResolver(reportTrustResolverFunc(func(
+		context.Context, string, run.Run, ReportingInput,
+	) (ReportTrust, error) {
+		return fixture.trust, nil
+	}))
+	verdicts := ReportVerdictApprover(reportVerdictApproverFunc(func(
+		context.Context, []byte, []policy.BaselineResolution, analysisresult.Manifest,
+	) error {
+		return nil
+	}))
 	valid := newTrustedReportApprover(
 		t,
 		fixture.trust,
@@ -473,9 +488,9 @@ func TestTrustedReportApproverValidatesDependenciesAndContext(t *testing.T) {
 		},
 	)
 	for name, dependencies := range map[string][]any{
-		"baselines": {nil, valid.resolver, valid.verdicts},
-		"resolver":  {valid.baselines, nil, valid.verdicts},
-		"verdicts":  {valid.baselines, valid.resolver, nil},
+		"baselines": {nil, resolver, verdicts},
+		"resolver":  {baselines, nil, verdicts},
+		"verdicts":  {baselines, resolver, nil},
 	} {
 		t.Run(name, func(t *testing.T) {
 			store, _ := dependencies[0].(baseline.Repository)
