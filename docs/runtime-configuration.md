@@ -96,3 +96,32 @@ The control plane uses in-cluster service-account credentials and requires:
 bounds and returns only namespaced Job and Pod interfaces. Construction reads
 service-account configuration but makes no API-server request. Loader and
 client-construction failures are redacted while cancellation is preserved.
+
+## Reconciliation stages
+
+Each lifecycle stage has an explicit deadline or rediscovery interval:
+
+| Variable | Meaning |
+| --- | --- |
+| `PERFENG_RECONCILIATION_VALIDATION_ATTEMPT_TIMEOUT` | Execution-plan validation deadline |
+| `PERFENG_RECONCILIATION_PROVISIONING_ATTEMPT_TIMEOUT` | Resolution, lease renewal, dispatch and binding deadline |
+| `PERFENG_RECONCILIATION_EXECUTION_RETRY_AFTER` | Delay before observing a nonterminal execution again |
+| `PERFENG_RECONCILIATION_CANCELLATION_POLL_EVERY` | Interval between stop-progress checks within an owned attempt |
+| `PERFENG_RECONCILIATION_COLLECTION_ATTEMPT_TIMEOUT` | Raw-artifact verification deadline |
+| `PERFENG_RECONCILIATION_COLLECTION_RETRY_AFTER` | Delay while raw artifacts are not yet visible |
+| `PERFENG_RECONCILIATION_ANALYSIS_ATTEMPT_TIMEOUT` | Normalization reconciliation deadline |
+| `PERFENG_RECONCILIATION_ANALYSIS_RETRY_AFTER` | Delay while normalization remains active |
+| `PERFENG_RECONCILIATION_REPORTING_ATTEMPT_TIMEOUT` | Report reconciliation deadline |
+| `PERFENG_RECONCILIATION_REPORTING_RETRY_AFTER` | Delay while report generation remains active |
+
+Attempt deadlines must be positive and no greater than five minutes. The
+provisioning deadline must additionally be no greater than half the worker
+lease. Retry delays are whole-second values from one second through five
+minutes. Cancellation polling is positive and no greater than five minutes.
+
+`LoadReconciliationConfig` requires an already validated `worker.Config`, uses
+that worker's lease for provisioning and returns the existing stage config
+types. `ReconciliationConfig.Validate` rejects a later lease mismatch so runtime
+composition cannot silently use different ownership and provisioning policy.
+Loading policy does not create reconcilers, call external services or start the
+worker.

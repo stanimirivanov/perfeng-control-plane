@@ -55,6 +55,16 @@ func DefaultCollectionConfig() CollectionConfig {
 	return CollectionConfig{AttemptTimeout: 10 * time.Second, RetryAfter: 5 * time.Second}
 }
 
+// Validate checks the bounded verification deadline and readiness retry delay.
+func (config CollectionConfig) Validate() error {
+	if !ValidAttemptTimeout(config.AttemptTimeout) ||
+		config.RetryAfter <= 0 || !run.ValidRetryDelay(config.RetryAfter) {
+		return run.ErrValidation
+	}
+
+	return nil
+}
+
 // CollectionReconciler registers verified raw references before entering
 // ANALYZING. It never reads arbitrary artifact locations from the public API.
 type CollectionReconciler struct {
@@ -71,9 +81,7 @@ func NewCollectionReconciler(
 	collector RawArtifactCollector,
 	config CollectionConfig,
 ) (*CollectionReconciler, error) {
-	if store == nil || collector == nil || config.AttemptTimeout <= 0 ||
-		config.AttemptTimeout > 5*time.Minute || config.RetryAfter <= 0 ||
-		!run.ValidRetryDelay(config.RetryAfter) {
+	if store == nil || collector == nil || config.Validate() != nil {
 		return nil, run.ErrValidation
 	}
 
