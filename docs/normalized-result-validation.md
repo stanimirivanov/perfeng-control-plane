@@ -17,7 +17,7 @@ hold:
   including inside open metadata;
 - closed objects use exact, case-sensitive contract properties;
 - envelope identity, workload, producer, measurement window and creation time
-  satisfy the same rules as `raw-result/v1`;
+  satisfy the same rules as the selected `raw-result/v1` or `raw-result/v2`;
 - at least one unique raw source artifact belongs to the Run;
 - at least one result/v2 record belongs to the Run, and metric names are unique;
 - metric names, directions and optional types match the contract;

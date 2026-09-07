@@ -20,6 +20,25 @@ Run's prefix and empty object keys are rejected before storage is contacted.
 The configured S3 endpoint is a client concern and never comes from an artifact
 reference or public Run request.
 
+## Raw-manifest discovery
+
+`RawManifestResolver` inspects only `runs/<run-id>/raw-result.json` in its
+configured bucket. It never lists objects or accepts a location from the Run
+request. The resolver is pinned to either `raw-result/v1` or `raw-result/v2` and
+requires exactly three publisher-defined metadata values: `artifact-id`,
+`sha256`, and `format`. Object size and `application/json` media type come from
+the storage response. Together these fields form the complete artifact
+reference.
+
+`S3MetadataInspector` adapts the AWS SDK `HeadObject` operation, copies returned
+metadata, preserves cancellation, classifies missing publication separately
+from transient storage failure, and redacts backend details through the shared
+S3 error classifier. Discovery metadata is still a producer claim. The
+collector passes the resulting reference to `Reader`, which downloads the object
+and verifies its response metadata, byte count, and SHA-256 before parsing or
+approval. A changed object therefore cannot pass merely because its discovery
+metadata was accepted.
+
 ## Byte verification
 
 `Reader.Read` first validates the immutable artifact reference and its configured

@@ -151,7 +151,7 @@ func (reconciler *CollectionReconciler) reject(
 func (collected RawArtifactSet) Validate(runID string) error {
 	if len(collected.Artifacts) == 0 || collected.Manifest.RunID != runID ||
 		collected.Manifest.Kind != "raw" || collected.Manifest.MediaType != "application/json" ||
-		collected.Manifest.Format != "raw-result/v1" || collected.Manifest.Validate() != nil {
+		!validRawManifestFormat(collected.Manifest.Format) || collected.Manifest.Validate() != nil {
 		return run.ErrValidation
 	}
 

@@ -104,6 +104,115 @@ func TestVerifiedRawCollectorReturnsOnlyApprovedVerifiedEvidence(t *testing.T) {
 	}
 }
 
+func TestVerifiedRawCollectorReturnsVerifiedV2Evidence(t *testing.T) {
+	t.Parallel()
+
+	current := boundClaim(run.StateCollecting).Run
+	manifest := collectorManifest(current.ID)
+	manifest.SchemaVersion = 2
+	manifest.ContractsVersion = "0.12.0"
+	manifest.Producer = rawresult.Producer{
+		Name: "playwright", Version: "1.62.1",
+		Artifact: &rawresult.ExecutionArtifact{
+			Kind:       "source-checkout",
+			Repository: "https://github.com/stanimirivanov/perfeng-playwright",
+			GitSHA:     strings.Repeat("e", 40),
+			DependencyLock: &rawresult.DependencyLock{
+				Path: "pnpm-lock.yaml", SHA256: strings.Repeat("f", 64),
+			},
+		},
+	}
+	reference := collectorManifestReference(current.ID)
+	reference.Format = "raw-result/v2"
+	reader := readArtifactFunc(func(_ context.Context, artifact run.Artifact) ([]byte, error) {
+		if artifact == reference {
+			return encodeRawManifest(t, manifest), nil
+		}
+
+		return []byte("verified"), nil
+	})
+	approver := approveRawManifestFunc(func(
+		_ context.Context,
+		_ string,
+		_ run.Run,
+		approved rawresult.Manifest,
+	) error {
+		if !approved.Producer.Equal(manifest.Producer) {
+			t.Fatal("approver received changed v2 provenance")
+		}
+		approved.Producer.Artifact.DependencyLock.Path = "changed"
+
+		return nil
+	})
+	collector, err := NewVerifiedRawCollector(
+		fixedRawResolver(reference), reader, approver, "0.12.0",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	collected, err := collector.CollectRawArtifacts(context.Background(), "worker-a", current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if collected.Manifest != reference || !reflect.DeepEqual(collected.Artifacts, manifest.Artifacts) ||
+		manifest.Producer.Artifact.DependencyLock.Path != "pnpm-lock.yaml" {
+		t.Fatalf("collected = %#v", collected)
+	}
+}
+
+func TestVerifiedRawCollectorRejectsManifestGenerationMismatch(t *testing.T) {
+	t.Parallel()
+
+	current := boundClaim(run.StateCollecting).Run
+	for _, test := range []struct {
+		name            string
+		schemaVersion   int
+		referenceFormat string
+	}{
+		{name: "v1 bytes at v2 reference", schemaVersion: 1, referenceFormat: "raw-result/v2"},
+		{name: "v2 bytes at v1 reference", schemaVersion: 2, referenceFormat: "raw-result/v1"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			manifest := collectorManifest(current.ID)
+			reference := collectorManifestReference(current.ID)
+			reference.Format = test.referenceFormat
+			contractsVersion := rawContractsVersion
+			if test.schemaVersion == 2 {
+				contractsVersion = "0.12.0"
+				manifest.SchemaVersion = 2
+				manifest.ContractsVersion = contractsVersion
+				manifest.Producer = rawresult.Producer{
+					Name: "playwright", Version: "1.62.1",
+					Artifact: &rawresult.ExecutionArtifact{
+						Kind:  "oci-image",
+						Image: "ghcr.io/example/playwright@sha256:" + strings.Repeat("e", 64),
+					},
+				}
+			}
+			reads := 0
+			reader := readArtifactFunc(func(context.Context, run.Artifact) ([]byte, error) {
+				reads++
+				return encodeRawManifest(t, manifest), nil
+			})
+			collector, err := NewVerifiedRawCollector(
+				fixedRawResolver(reference), reader, acceptingRawApprover(), contractsVersion,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := collector.CollectRawArtifacts(
+				context.Background(), "worker-a", current,
+			); !errors.Is(err, ErrInvalidArtifacts) {
+				t.Fatalf("error = %v", err)
+			}
+			if reads != 1 {
+				t.Fatalf("reads = %d, want manifest only", reads)
+			}
+		})
+	}
+}
+
 func TestVerifiedRawCollectorClassifiesManifestFailures(t *testing.T) {
 	t.Parallel()
 

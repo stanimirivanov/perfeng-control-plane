@@ -66,6 +66,9 @@ reviewed startup entry pins the contracts bundle, test, workload and
 complete raw producer identity to the same principal and resource context. It
 validates the manifest again at the adapter boundary and rejects any valid but
 unauthorized claim. Native producer entries cannot pass the existing Kubernetes
-admission or Job resolver. Trusted v2 publication-reference selection and native
-dispatch remain separate integration boundaries; the collector does not infer a
-reference from an object key.
+admission or Job resolver. Native dispatch remains a separate integration
+boundary. The collector does not infer a reference from manifest content.
+`objectstore.RawManifestResolver` supplies trusted publication selection by
+inspecting only the stable Run-scoped object key, requiring the configured
+generation and complete publisher metadata, and then letting the collector
+verify the referenced bytes independently.

@@ -46,6 +46,7 @@ type VerifiedRawCollector struct {
 var (
 	_ RawArtifactCollector = (*VerifiedRawCollector)(nil)
 	_ ArtifactByteReader   = (*objectstore.Reader)(nil)
+	_ RawManifestResolver  = (*objectstore.RawManifestResolver)(nil)
 )
 
 // NewVerifiedRawCollector validates all collection dependencies and the exact
@@ -101,7 +102,7 @@ func (collector *VerifiedRawCollector) CollectRawArtifacts(
 		return RawArtifactSet{}, classifyCollectionEvidence(err)
 	}
 	manifest, err := rawresult.Parse(manifestBytes, current.ID, collector.contractsVersion)
-	if err != nil {
+	if err != nil || manifestReference.Format != rawManifestFormat(manifest.SchemaVersion) {
 		return RawArtifactSet{}, ErrInvalidArtifacts
 	}
 	collected := RawArtifactSet{
@@ -132,8 +133,23 @@ func (collector *VerifiedRawCollector) CollectRawArtifacts(
 
 func validRawManifestReference(artifact run.Artifact, runID string) bool {
 	return artifact.RunID == runID && artifact.Kind == "raw" &&
-		artifact.MediaType == "application/json" && artifact.Format == "raw-result/v1" &&
+		artifact.MediaType == "application/json" && validRawManifestFormat(artifact.Format) &&
 		artifact.Validate() == nil
+}
+
+func validRawManifestFormat(format string) bool {
+	return format == "raw-result/v1" || format == "raw-result/v2"
+}
+
+func rawManifestFormat(schemaVersion int) string {
+	if schemaVersion == 1 {
+		return "raw-result/v1"
+	}
+	if schemaVersion == 2 {
+		return "raw-result/v2"
+	}
+
+	return ""
 }
 
 func classifyCollectionEvidence(err error) error {

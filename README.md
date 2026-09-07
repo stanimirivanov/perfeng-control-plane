@@ -31,6 +31,7 @@ coordination, not load generation or statistical decisions.
 - Duplicate-safe Kubernetes reporting Job creation and phase mapping.
 - Bounded verification of immutable objects from approved S3 locations.
 - AWS SDK for Go v2 adapter with safe S3 error classification.
+- Stable-key raw-manifest discovery from verified S3 reference metadata.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
   and raw-result/v2 manifests.
 - Composable verification of manifest provenance and every declared raw object.
@@ -243,13 +244,16 @@ transport security and safe backend error classification.
 `objectstore.S3Getter` adapts the AWS SDK v2 `GetObject` operation and redacts
 backend messages and request details. It preserves cancellation, distinguishes
 missing keys, and classifies transient service/network failures as unavailable.
+Its metadata adapter resolves a raw manifest only from the deterministic
+`runs/<run-id>/raw-result.json` key and a configured v1 or v2 format. Discovery
+does not replace the collector's independent byte verification.
 The [raw-result parsing boundary](docs/raw-result-validation.md) validates the
 producer envelope's exact structure, identities, timestamps and artifact claims.
 Parsing does not approve provenance or attest remote bytes. A collector
 composition accepts that approval and a trusted manifest publication reference
 through separate injected boundaries, then verifies the manifest and every
-declared object. Kubernetes publication discovery remains unwired; the immutable
-runtime registry provides the concrete provenance approval.
+declared object. Stable-key S3 publication discovery and immutable runtime
+registry provenance approval both have concrete adapters.
 The [normalized-result parsing boundary](docs/normalized-result-validation.md)
 preserves unavailable statistics without fabrication, validates metric and
 source consistency, and treats legacy thresholds as producer claims. A concrete
