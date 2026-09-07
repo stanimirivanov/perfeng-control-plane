@@ -30,7 +30,7 @@ func TestBaselinePersistence(t *testing.T) {
 		t.Fatal("invalid stored baseline candidate")
 	}
 	got, err := second.GetBaseline(testContext, "alice", created.ID, created.Version)
-	if err != nil || !reflect.DeepEqual(got, created) {
+	if err != nil || !equalBaselineRecords(got, created) {
 		t.Fatal("baseline not durable across connections", err)
 	}
 	if _, err := second.GetBaseline(testContext, "bob", created.ID, created.Version); !errors.Is(err, run.ErrNotFound) {
@@ -140,7 +140,7 @@ func TestApprovedBaselineResolution(t *testing.T) {
 	}
 
 	resolved, found, err := second.ResolveApprovedBaseline(testContext, "alice", selection)
-	if err != nil || !found || !reflect.DeepEqual(resolved, approved) {
+	if err != nil || !found || !equalBaselineRecords(resolved, approved) {
 		t.Fatal("approved baseline did not resolve", err)
 	}
 	if _, found, err = second.ResolveApprovedBaseline(testContext, "bob", selection); err != nil || found {
@@ -174,6 +174,22 @@ func TestApprovedBaselineResolution(t *testing.T) {
 	if _, found, err = second.ResolveApprovedBaseline(testContext, "alice", selection); err != nil || found {
 		t.Fatal("retired baseline resolved", err)
 	}
+}
+
+func equalBaselineRecords(left, right baseline.Record) bool {
+	if !left.CreatedAt.Equal(right.CreatedAt) || len(left.Lifecycle) != len(right.Lifecycle) {
+		return false
+	}
+	left = left.Clone()
+	for index := range left.Lifecycle {
+		if !left.Lifecycle[index].At.Equal(right.Lifecycle[index].At) {
+			return false
+		}
+		left.Lifecycle[index].At = right.Lifecycle[index].At
+	}
+	left.CreatedAt = right.CreatedAt
+
+	return reflect.DeepEqual(left, right)
 }
 
 func approveBaselineConcurrently(

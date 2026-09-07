@@ -75,6 +75,9 @@ func reportPolicyFixture(t *testing.T) (ReportPolicyEntry, run.Run, reconcile.Re
 			Name: "perfeng-analysis", Version: "1.0.0",
 			Image: "ghcr.io/example/perfeng-analysis@sha256:" + strings.Repeat("f", 64),
 		},
+		Normalization: reconcile.NormalizationSpec{
+			SourceFormat: reconcile.K6SummaryFormat, Layout: reconcile.K6TypedLayout,
+		},
 		ReportProducer: rawresult.Producer{
 			Name: "perfeng-analysis", Version: "1.0.0",
 			Image: "ghcr.io/example/perfeng-analysis@sha256:" + strings.Repeat("f", 64),
@@ -230,7 +233,7 @@ func rawManifestFixture(
 			ID: "22222222-2222-4222-8222-222222222222", RunID: current.ID,
 			Kind: "raw", URI: "s3://perfeng/runs/" + current.ID + "/summary.json",
 			SHA256: strings.Repeat("a", 64), SizeBytes: 100,
-			MediaType: "application/json", Format: "k6-summary/v1",
+			MediaType: "application/json", Format: entry.Normalization.SourceFormat,
 		}},
 	}
 }
@@ -782,6 +785,12 @@ func TestReportPolicyRegistryValidatesEntries(t *testing.T) {
 		{name: "normalizer producer", mutate: func(entry *ReportPolicyEntry) {
 			entry.NormalizerProducer.Image = "latest"
 		}},
+		{name: "normalization format", mutate: func(entry *ReportPolicyEntry) {
+			entry.Normalization.SourceFormat = "unknown"
+		}},
+		{name: "normalization layout", mutate: func(entry *ReportPolicyEntry) {
+			entry.Normalization.Layout = "latest"
+		}},
 		{name: "report producer", mutate: func(entry *ReportPolicyEntry) {
 			entry.ReportProducer.Image = "latest"
 		}},
@@ -855,6 +864,9 @@ func v2RawPolicyFixture(t *testing.T, kind string) (ReportPolicyEntry, run.Run) 
 	t.Helper()
 	entry, current, _ := reportPolicyFixture(t)
 	entry.ContractsVersion = "0.12.0"
+	entry.Normalization = reconcile.NormalizationSpec{
+		SourceFormat: reconcile.PlaywrightMeasurementsV2Format,
+	}
 	entry.RawProducer = rawresult.Producer{Name: "playwright", Version: "1.62.1"}
 	switch kind {
 	case "oci-image":
