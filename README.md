@@ -39,6 +39,7 @@ coordination, not load generation or statistical decisions.
 - Strict, secret-safe runtime configuration for S3 artifact access.
 - AWS SDK client construction through the standard credential provider chain.
 - Secret-safe PostgreSQL and bounded HTTP server runtime composition.
+- Bounded worker and in-cluster Kubernetes client runtime composition.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
   and raw-result/v2 manifests.
 - Composable verification of manifest provenance and every declared raw object.

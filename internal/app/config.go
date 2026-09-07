@@ -3,6 +3,7 @@ package app
 
 import (
 	"errors"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -71,6 +72,41 @@ func requiredDuration(lookup lookupEnvironment, name string) (time.Duration, err
 	}
 
 	return duration, nil
+}
+
+func requiredNonNegativeDuration(
+	lookup lookupEnvironment,
+	name string,
+) (time.Duration, error) {
+	value, err := requiredValue(lookup, name)
+	if err != nil {
+		return 0, err
+	}
+	duration, err := time.ParseDuration(value)
+	if err != nil || duration < 0 || duration > 10*time.Minute {
+		return 0, configurationError(name)
+	}
+
+	return duration, nil
+}
+
+func requiredBoundedFloat(
+	lookup lookupEnvironment,
+	name string,
+	minimum float64,
+	maximum float64,
+) (float64, error) {
+	value, err := requiredValue(lookup, name)
+	if err != nil {
+		return 0, err
+	}
+	parsed, err := strconv.ParseFloat(value, 64)
+	if err != nil || math.IsNaN(parsed) || math.IsInf(parsed, 0) ||
+		parsed < minimum || parsed > maximum {
+		return 0, configurationError(name)
+	}
+
+	return parsed, nil
 }
 
 func requiredPositiveInteger(lookup lookupEnvironment, name string) (int64, error) {

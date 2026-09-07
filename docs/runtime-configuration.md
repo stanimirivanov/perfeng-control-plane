@@ -64,3 +64,35 @@ Durations use Go duration syntax, must be positive and cannot exceed ten
 minutes. `NewHTTPServer` applies the listener policy to a required handler but
 does not bind a socket or start serving. The shutdown timeout remains process
 orchestration policy and is consumed when the executable is introduced.
+
+## Reconciliation worker
+
+The worker requires explicit identity, concurrency and lease policy:
+
+| Variable | Meaning |
+| --- | --- |
+| `PERFENG_WORKER_ID` | Stable worker identity used for lease ownership |
+| `PERFENG_WORKER_CAPACITY` | Concurrent reconciliation limit from 1 through 100 |
+| `PERFENG_WORKER_LEASE_TTL` | Whole-second lease lifetime from 5 seconds through 5 minutes |
+| `PERFENG_WORKER_RENEW_EVERY` | Positive renewal interval no greater than half the lease lifetime |
+| `PERFENG_WORKER_POLL_EVERY` | Positive work-discovery interval no greater than 5 minutes |
+| `PERFENG_WORKER_FAILURE_DELAY` | Whole-second failure delay from zero through 5 minutes |
+
+The loader returns the existing `worker.Config`, whose validation is shared by
+the loader and worker constructor.
+
+## Kubernetes
+
+The control plane uses in-cluster service-account credentials and requires:
+
+| Variable | Meaning |
+| --- | --- |
+| `PERFENG_KUBERNETES_NAMESPACE` | DNS-label namespace containing managed Jobs and Pods |
+| `PERFENG_KUBERNETES_REQUEST_TIMEOUT` | Positive per-request timeout no greater than 10 minutes |
+| `PERFENG_KUBERNETES_QPS` | Client-side rate from 0.1 through 100 requests per second |
+| `PERFENG_KUBERNETES_BURST` | Client-side burst from 1 through 1000 requests |
+
+`NewKubernetesClients` copies the in-cluster REST configuration, applies these
+bounds and returns only namespaced Job and Pod interfaces. Construction reads
+service-account configuration but makes no API-server request. Loader and
+client-construction failures are redacted while cancellation is preserved.
