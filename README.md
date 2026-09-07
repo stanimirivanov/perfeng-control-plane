@@ -36,6 +36,7 @@ coordination, not load generation or statistical decisions.
 - Stable-key raw-manifest discovery from verified S3 reference metadata.
 - Stable-key normalized-manifest discovery from verified S3 reference metadata.
 - Consistent S3 artifact-access composition from one client and storage policy.
+- Strict, secret-safe runtime configuration for S3 artifact access.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
   and raw-result/v2 manifests.
 - Composable verification of manifest provenance and every declared raw object.
@@ -115,6 +116,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/jsondocument | Shared bounded, duplicate-safe contract JSON handling |
 | internal/normalizedresult | Untrusted normalized-result parsing and consistency validation |
 | internal/analysisresult | Untrusted analysis-result parsing and consistency validation |
+| internal/app | Executable configuration and dependency composition |
 | internal/policy | Approved performance-policy parsing and report-verdict verification |
 | internal/registry | Run admission, execution resolution, producer provenance and report trust from immutable startup entries |
 | internal/rawresult | Untrusted raw-result manifest parsing and structural validation |
@@ -245,6 +247,8 @@ the configured S3 bucket and each artifact's `runs/<run-id>/` namespace. It
 returns bytes only after bounded reading and exact metadata, size and SHA-256
 checks. An injected client still owns S3 authentication, endpoint configuration,
 transport security and safe backend error classification.
+The [runtime configuration boundary](docs/runtime-configuration.md) parses that
+client policy separately from credential loading and adapter construction.
 `objectstore.S3Getter` adapts the AWS SDK v2 `GetObject` operation and redacts
 backend messages and request details. It preserves cancellation, distinguishes
 missing keys, and classifies transient service/network failures as unavailable.
