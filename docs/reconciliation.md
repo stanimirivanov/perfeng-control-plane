@@ -343,8 +343,9 @@ the approved report producer and policy-derived baseline selections. Test and
 policy identities remain distinct. Entries are validated and copied at startup;
 request-time fallback or latest-version selection is not supported.
 
-Registry population and refresh, report-template resolution, output-publication
-resolution and production composition remain separate work.
+Registry population and refresh, report-template resolution and production
+composition remain separate work. The S3 storage adapter supplies deterministic
+report-output publication discovery without accepting candidate locations.
 
 ## Provisioning reconciliation
 

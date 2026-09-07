@@ -292,6 +292,142 @@ func TestNormalizedManifestResolverValidatesConfigurationAndContext(t *testing.T
 	}
 }
 
+func TestReportManifestResolverReturnsPublishedReference(t *testing.T) {
+	wantMetadata := manifestMetadata(reportFormat)
+	calls := 0
+	inspector := inspectMetadataFunc(func(
+		ctx context.Context,
+		bucket string,
+		key string,
+	) (Metadata, error) {
+		calls++
+		if ctx.Err() != nil || bucket != "perfeng-artifacts" ||
+			key != "runs/"+manifestRunID+"/analysis-result.json" {
+			t.Fatalf("Inspect() = %q, %q", bucket, key)
+		}
+
+		return wantMetadata, nil
+	})
+	resolver, err := NewReportManifestResolver(inspector, "perfeng-artifacts")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	artifact, err := resolver.ResolveReportManifest(
+		context.Background(), "worker-a", run.Run{ID: manifestRunID},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := run.Artifact{
+		ID:        wantMetadata.Values["artifact-id"],
+		RunID:     manifestRunID,
+		Kind:      "normalized",
+		URI:       "s3://perfeng-artifacts/runs/" + manifestRunID + "/analysis-result.json",
+		SHA256:    wantMetadata.Values["sha256"],
+		SizeBytes: wantMetadata.SizeBytes,
+		MediaType: "application/json",
+		Format:    reportFormat,
+	}
+	if calls != 1 || artifact != want {
+		t.Fatalf("ResolveReportManifest() = %#v; calls = %d", artifact, calls)
+	}
+}
+
+func TestReportManifestResolverRejectsInvalidPublishedMetadata(t *testing.T) {
+	tests := map[string]func(*Metadata){
+		"negative size": func(metadata *Metadata) { metadata.SizeBytes = -1 },
+		"media type":    func(metadata *Metadata) { metadata.MediaType = "application/octet-stream" },
+		"missing ID":    func(metadata *Metadata) { delete(metadata.Values, "artifact-id") },
+		"invalid ID":    func(metadata *Metadata) { metadata.Values["artifact-id"] = "invalid" },
+		"missing hash":  func(metadata *Metadata) { delete(metadata.Values, "sha256") },
+		"invalid hash":  func(metadata *Metadata) { metadata.Values["sha256"] = "invalid" },
+		"other format":  func(metadata *Metadata) { metadata.Values["format"] = normalizedFormat },
+		"extra metadata": func(metadata *Metadata) {
+			metadata.Values["unreviewed"] = "value"
+		},
+	}
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			metadata := manifestMetadata(reportFormat)
+			mutate(&metadata)
+			resolver := newReportManifestResolver(t, inspectMetadataFunc(func(
+				context.Context, string, string,
+			) (Metadata, error) {
+				return metadata, nil
+			}))
+			if _, err := resolver.ResolveReportManifest(
+				context.Background(), "worker-a", run.Run{ID: manifestRunID},
+			); !errors.Is(err, run.ErrValidation) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
+func TestReportManifestResolverPreservesInspectionErrors(t *testing.T) {
+	want := errors.Join(ErrObjectNotFound, errors.New("publication pending"))
+	resolver := newReportManifestResolver(t, inspectMetadataFunc(func(
+		context.Context, string, string,
+	) (Metadata, error) {
+		return Metadata{}, want
+	}))
+	if _, err := resolver.ResolveReportManifest(
+		context.Background(), "worker-a", run.Run{ID: manifestRunID},
+	); !errors.Is(err, ErrObjectNotFound) {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestReportManifestResolverValidatesConfigurationAndContext(t *testing.T) {
+	inspector := inspectMetadataFunc(func(context.Context, string, string) (Metadata, error) {
+		return manifestMetadata(reportFormat), nil
+	})
+	for name, input := range map[string]struct {
+		inspector MetadataInspector
+		bucket    string
+	}{
+		"inspector": {bucket: "perfeng-artifacts"},
+		"bucket":    {inspector: inspector, bucket: "Invalid"},
+	} {
+		if _, err := NewReportManifestResolver(
+			input.inspector, input.bucket,
+		); !errors.Is(err, run.ErrValidation) {
+			t.Fatalf("%s error = %v", name, err)
+		}
+	}
+
+	resolver := newReportManifestResolver(t, inspector)
+	for name, input := range map[string]struct {
+		principal string
+		runID     string
+	}{
+		"principal": {runID: manifestRunID},
+		"run ID":    {principal: "worker-a", runID: "invalid"},
+	} {
+		if _, err := resolver.ResolveReportManifest(
+			context.Background(), input.principal, run.Run{ID: input.runID},
+		); !errors.Is(err, run.ErrValidation) {
+			t.Fatalf("%s error = %v", name, err)
+		}
+	}
+
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := resolver.ResolveReportManifest(
+		canceled, "worker-a", run.Run{ID: manifestRunID},
+	); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancellation error = %v", err)
+	}
+
+	var nilResolver *ReportManifestResolver
+	if _, err := nilResolver.ResolveReportManifest(
+		context.Background(), "worker-a", run.Run{ID: manifestRunID},
+	); !errors.Is(err, run.ErrValidation) {
+		t.Fatalf("nil resolver error = %v", err)
+	}
+}
+
 func manifestMetadata(format string) Metadata {
 	return Metadata{
 		SizeBytes: 512, MediaType: "application/json",
@@ -318,6 +454,19 @@ func newNormalizedManifestResolver(
 ) *NormalizedManifestResolver {
 	t.Helper()
 	resolver, err := NewNormalizedManifestResolver(inspector, "perfeng-artifacts")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return resolver
+}
+
+func newReportManifestResolver(
+	t testing.TB,
+	inspector MetadataInspector,
+) *ReportManifestResolver {
+	t.Helper()
+	resolver, err := NewReportManifestResolver(inspector, "perfeng-artifacts")
 	if err != nil {
 		t.Fatal(err)
 	}
