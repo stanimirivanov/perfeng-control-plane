@@ -42,6 +42,7 @@ func TestParseV2ExecutionArtifacts(t *testing.T) {
 			Image: "ghcr.io/stanimirivanov/perfeng-k6@sha256:" + strings.Repeat("e", 64),
 		},
 		"source checkout": validSourceCheckout(),
+		"release archive": validReleaseArchive(),
 	}
 	for name, artifact := range tests {
 		artifact := artifact
@@ -49,7 +50,7 @@ func TestParseV2ExecutionArtifacts(t *testing.T) {
 			t.Parallel()
 			want := validV2Manifest()
 			want.Producer.Artifact = &artifact
-			manifest, err := Parse(encodeManifest(t, want), testRunID, "0.12.0")
+			manifest, err := Parse(encodeManifest(t, want), testRunID, "0.13.0")
 			if err != nil {
 				t.Fatalf("Parse() error = %v", err)
 			}
@@ -81,6 +82,52 @@ func TestProducerCloneAndEquality(t *testing.T) {
 	changed.Image = "ghcr.io/example/other@sha256:" + strings.Repeat("1", 64)
 	if legacy.Equal(changed) {
 		t.Fatal("Equal() accepted different image provenance")
+	}
+
+	release := Producer{
+		Name: "kube-burner", Version: "2.8.5",
+		Artifact: executionArtifactPointer(validReleaseArchive()),
+	}
+	changedRelease := release.Clone()
+	changedRelease.Artifact.ExecutableSHA256 = strings.Repeat("9", 64)
+	if !release.Equal(release.Clone()) || release.Equal(changedRelease) {
+		t.Fatal("release archive equality did not include executable identity")
+	}
+}
+
+func TestReleaseArchiveValidation(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]func(*ExecutionArtifact){
+		"missing URL":     func(artifact *ExecutionArtifact) { artifact.URL = "" },
+		"HTTP URL":        func(artifact *ExecutionArtifact) { artifact.URL = "http://example.com/runner.zip" },
+		"credentials":     func(artifact *ExecutionArtifact) { artifact.URL = "https://user@example.com/runner.zip" },
+		"query":           func(artifact *ExecutionArtifact) { artifact.URL += "?download=1" },
+		"fragment":        func(artifact *ExecutionArtifact) { artifact.URL += "#runner" },
+		"whitespace":      func(artifact *ExecutionArtifact) { artifact.URL = "https://example.com/runner file.zip" },
+		"archive hash":    func(artifact *ExecutionArtifact) { artifact.ArchiveSHA256 = "invalid" },
+		"executable hash": func(artifact *ExecutionArtifact) { artifact.ExecutableSHA256 = "invalid" },
+		"OCI field": func(artifact *ExecutionArtifact) {
+			artifact.Image = "ghcr.io/example/runner@sha256:" + strings.Repeat("1", 64)
+		},
+		"source field": func(artifact *ExecutionArtifact) { artifact.Repository = "https://github.com/example/runner" },
+		"dependency lock": func(artifact *ExecutionArtifact) {
+			artifact.DependencyLock = &DependencyLock{Path: "uv.lock", SHA256: strings.Repeat("2", 64)}
+		},
+	}
+	for name, mutate := range tests {
+		mutate := mutate
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			artifact := validReleaseArchive()
+			mutate(&artifact)
+			if !errors.Is(artifact.Validate(), run.ErrValidation) {
+				t.Fatal("Validate() did not return ErrValidation")
+			}
+			manifest := validV2Manifest()
+			manifest.Producer.Artifact = &artifact
+			assertValidationError(t, encodeManifest(t, manifest), testRunID, "0.13.0")
+		})
 	}
 }
 
@@ -315,13 +362,22 @@ func validManifest() Manifest {
 func validV2Manifest() Manifest {
 	manifest := validManifest()
 	manifest.SchemaVersion = 2
-	manifest.ContractsVersion = "0.12.0"
+	manifest.ContractsVersion = "0.13.0"
 	manifest.Producer = Producer{
 		Name: "playwright", Version: "1.62.1",
 		Artifact: executionArtifactPointer(validSourceCheckout()),
 	}
 
 	return manifest
+}
+
+func validReleaseArchive() ExecutionArtifact {
+	return ExecutionArtifact{
+		Kind:             "release-archive",
+		URL:              "https://github.com/kube-burner/kube-burner/releases/download/v2.8.5/kube-burner-V2.8.5-windows-x86_64.zip",
+		ArchiveSHA256:    strings.Repeat("1", 64),
+		ExecutableSHA256: strings.Repeat("2", 64),
+	}
 }
 
 func validSourceCheckout() ExecutionArtifact {

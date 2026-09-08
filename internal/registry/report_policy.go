@@ -424,7 +424,7 @@ func validRawExecution(producer rawresult.Producer, template *batchv1.Job) bool 
 		if producer.ValidateExecution() != nil {
 			return false
 		}
-		if producer.Artifact.Kind == "source-checkout" {
+		if producer.Artifact.Kind != "oci-image" {
 			return template == nil
 		}
 		image = producer.Artifact.Image
