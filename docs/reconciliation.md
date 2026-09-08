@@ -204,14 +204,17 @@ the individual pod-startup observations rather than derived quantiles or a Job
 summary. Missing or multiple sources of the configured format fail closed.
 
 `KubernetesAnalysisJobResolver` translates that plan into an independently owned
-reusable Job template. Reviewed configuration identifies one normalizer
-container and three distinct, absolute container paths. The resolver replaces
-that container's image and arguments with the approved producer, exact artifact
-ID and format-specific CLI flags, then reapplies the Kubernetes Job policy. k6
-Jobs receive their reviewed layout and explicit whole-window assertion;
-Playwright and kube-burner Jobs do not receive k6-only flags. Public Run fields
-cannot provide paths, images, commands or arguments. Input download, output
-publication, volumes and credential injection remain deployment-owned
+reusable Job template. Reviewed configuration identifies one normalizer, one
+input-staging init container and three distinct, absolute container paths. The
+resolver replaces the normalizer's image and arguments with the approved
+producer, exact artifact ID and format-specific CLI flags. It supplies the init
+container with the selected manifest and source identities, URIs, SHA-256
+digests, sizes and fixed destination paths, then reapplies the Kubernetes Job
+policy. Reserved staging variables cannot be shadowed by template data. k6 Jobs
+receive their reviewed layout and explicit whole-window assertion; Playwright
+and kube-burner Jobs do not receive k6-only flags. Public Run fields cannot
+provide paths, images, commands or arguments. Input transfer commands, storage
+endpoints, credentials, volumes and output publication remain deployment-owned
 responsibilities.
 
 The `normalizedresult` parser provides the strict envelope boundary for that

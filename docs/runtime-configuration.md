@@ -121,16 +121,18 @@ reconciliation operation invokes them.
 `NewKubernetesExecutors` composes the normalization and reporting lifecycle
 adapters from immutable registry trust, the baseline repository, these
 controllers, verified artifact collectors and reviewed Job configuration. The
-analysis configuration provides its reusable template and fixed manifest,
-source and output paths. The report configuration provides its reusable
-template and fixed candidate, candidate-artifact, policy, reference-directory
-and output paths. Structured Job templates are deployment inputs rather than
-environment-variable values.
+analysis configuration provides its reusable template, named normalizer and
+input-staging init container, and fixed manifest, source and output paths. The
+report configuration provides its reusable template and fixed candidate,
+candidate-artifact, policy, reference-directory and output paths. Structured
+Job templates are deployment inputs rather than environment-variable values.
 
 Construction validates every dependency and template but does not resolve a
-plan, read a baseline, access object storage or call Kubernetes. Input-transfer
-containers, volumes and credentials remain part of the reviewed deployment
-templates and production composition.
+plan, read a baseline, access object storage or call Kubernetes. During
+resolution, immutable artifact IDs, URIs, checksums, sizes and destination paths
+are bound to reserved environment variables on the input-staging init container.
+Its image, command, volumes, endpoints and credential sources remain part of the
+reviewed deployment template and production composition.
 
 ## Reconciliation stages
 
