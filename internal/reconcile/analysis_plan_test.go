@@ -13,6 +13,7 @@ func TestNormalizationSpecAcceptsOnlyExplicitSupportedCombinations(t *testing.T)
 		{SourceFormat: K6SummaryFormat, Layout: K6TypedLayout},
 		{SourceFormat: K6SummaryFormat, Layout: K6LegacyExportLayout},
 		{SourceFormat: PlaywrightMeasurementsV2Format},
+		{SourceFormat: KubeBurnerPodLatencyFormat},
 	}
 	for _, spec := range valid {
 		if err := spec.Validate(); err != nil {
@@ -25,6 +26,7 @@ func TestNormalizationSpecAcceptsOnlyExplicitSupportedCombinations(t *testing.T)
 		{SourceFormat: K6SummaryFormat},
 		{SourceFormat: K6SummaryFormat, Layout: "latest"},
 		{SourceFormat: PlaywrightMeasurementsV2Format, Layout: K6TypedLayout},
+		{SourceFormat: KubeBurnerPodLatencyFormat, Layout: K6TypedLayout},
 		{SourceFormat: "browser-observations-json"},
 	}
 	for _, spec := range invalid {
@@ -44,7 +46,7 @@ func TestAnalysisPlanBindsSourceFormatAndApprovedImage(t *testing.T) {
 			MediaType: "application/json", Format: PlaywrightMeasurementsV2Format,
 		},
 		Producer: rawresult.Producer{
-			Name: "perfeng-analysis", Version: "0.7.0",
+			Name: "perfeng-analysis", Version: "0.8.0",
 			Image: "ghcr.io/example/perfeng-analysis@sha256:" + strings.Repeat("b", 64),
 		},
 		Spec: NormalizationSpec{SourceFormat: PlaywrightMeasurementsV2Format},

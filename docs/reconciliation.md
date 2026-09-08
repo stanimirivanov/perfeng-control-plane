@@ -198,8 +198,10 @@ construction. The immutable runtime registry chooses exactly one registered raw
 source using a reviewed `NormalizationSpec`, binds it to the approved
 digest-pinned analysis producer, and returns no credentials, local paths or Pod
 configuration. Supported profiles are explicit: k6 summary JSON requires either
-the typed or legacy-export layout, while Playwright measurements/v2 forbids a k6
-layout. Missing or multiple sources of the configured format fail closed.
+the typed or legacy-export layout, while Playwright measurements/v2 and
+kube-burner pod-latency JSON forbid a k6 layout. The kube-burner profile selects
+the individual pod-startup observations rather than derived quantiles or a Job
+summary. Missing or multiple sources of the configured format fail closed.
 
 `KubernetesAnalysisJobResolver` translates that plan into an independently owned
 reusable Job template. Reviewed configuration identifies one normalizer
@@ -207,9 +209,10 @@ container and three distinct, absolute container paths. The resolver replaces
 that container's image and arguments with the approved producer, exact artifact
 ID and format-specific CLI flags, then reapplies the Kubernetes Job policy. k6
 Jobs receive their reviewed layout and explicit whole-window assertion;
-Playwright Jobs do not receive k6-only flags. Public Run fields cannot provide
-paths, images, commands or arguments. Input download, output publication,
-volumes and credential injection remain deployment-owned responsibilities.
+Playwright and kube-burner Jobs do not receive k6-only flags. Public Run fields
+cannot provide paths, images, commands or arguments. Input download, output
+publication, volumes and credential injection remain deployment-owned
+responsibilities.
 
 The `normalizedresult` parser provides the strict envelope boundary for that
 collector: exact JSON shape, common provenance and window rules, raw-source

@@ -920,6 +920,9 @@ func v2RawPolicyFixture(t *testing.T, kind string) (ReportPolicyEntry, run.Run) 
 		}
 		entry.ExecutionTemplate = nil
 	case "release-archive":
+		entry.Normalization = reconcile.NormalizationSpec{
+			SourceFormat: reconcile.KubeBurnerPodLatencyFormat,
+		}
 		entry.RawProducer = rawresult.Producer{Name: "kube-burner", Version: "2.8.5"}
 		entry.RawProducer.Artifact = &rawresult.ExecutionArtifact{
 			Kind:          "release-archive",

@@ -102,7 +102,9 @@ one relative manifest path. The manifest has `schemaVersion: 1` and a non-empty
 - `policy` is a relative path to the exact policy JSON bytes;
 - `executionTemplate` is an optional relative path to a Kubernetes Job JSON
   document; and
-- `normalization` contains `sourceFormat` and `layout`.
+- `normalization` contains `sourceFormat` and `layout`. k6 summary sources require
+  a reviewed typed or legacy-export layout; Playwright measurements/v2 and
+  kube-burner pod-latency sources require an empty layout.
 
 The loader bounds the manifest to 4 MiB and each referenced policy or Job to
 1 MiB. JSON must use UTF-8, unique keys, known fields and no more than the shared

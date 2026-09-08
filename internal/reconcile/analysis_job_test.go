@@ -62,7 +62,7 @@ func analysisPlan(source run.Artifact, spec NormalizationSpec) AnalysisPlan {
 	return AnalysisPlan{
 		Source: source,
 		Producer: rawresult.Producer{
-			Name: "perfeng-analysis", Version: "0.7.0",
+			Name: "perfeng-analysis", Version: "0.8.0",
 			Image: "ghcr.io/example/perfeng-analysis@sha256:" + strings.Repeat("a", 64),
 		},
 		Spec: spec,
@@ -110,6 +110,12 @@ func TestKubernetesAnalysisJobResolverBuildsToolSpecificArguments(t *testing.T) 
 		{
 			name: "Playwright", spec: NormalizationSpec{
 				SourceFormat: PlaywrightMeasurementsV2Format,
+			},
+			wantTail: []string{"--output", "/workspace/output/normalized-result.json"},
+		},
+		{
+			name: "kube-burner", spec: NormalizationSpec{
+				SourceFormat: KubeBurnerPodLatencyFormat,
 			},
 			wantTail: []string{"--output", "/workspace/output/normalized-result.json"},
 		},
