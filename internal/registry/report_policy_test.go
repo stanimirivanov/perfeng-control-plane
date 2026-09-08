@@ -285,7 +285,7 @@ func TestReportPolicyRegistryApprovesRawManifestProvenance(t *testing.T) {
 }
 
 func TestReportPolicyRegistryApprovesV2RawManifestProvenance(t *testing.T) {
-	for _, kind := range []string{"oci-image", "source-checkout"} {
+	for _, kind := range []string{"oci-image", "source-checkout", "release-archive"} {
 		t.Run(kind, func(t *testing.T) {
 			entry, current := v2RawPolicyFixture(t, kind)
 			current.State = run.StateCollecting
@@ -338,22 +338,59 @@ func TestReportPolicyRegistryRejectsChangedV2RawProvenance(t *testing.T) {
 	}
 }
 
+func TestReportPolicyRegistryRejectsChangedReleaseArchiveProvenance(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(*rawresult.ExecutionArtifact)
+	}{
+		{name: "URL", mutate: func(artifact *rawresult.ExecutionArtifact) {
+			artifact.URL = "https://example.com/other.zip"
+		}},
+		{name: "archive hash", mutate: func(artifact *rawresult.ExecutionArtifact) {
+			artifact.ArchiveSHA256 = strings.Repeat("9", 64)
+		}},
+		{name: "executable hash", mutate: func(artifact *rawresult.ExecutionArtifact) {
+			artifact.ExecutableSHA256 = strings.Repeat("8", 64)
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			entry, current := v2RawPolicyFixture(t, "release-archive")
+			current.State = run.StateCollecting
+			registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+			if err != nil {
+				t.Fatal(err)
+			}
+			manifest := rawManifestFixture(entry, current)
+			test.mutate(manifest.Producer.Artifact)
+			if err := registry.ApproveRawManifest(
+				context.Background(), "alice", current, manifest,
+			); !errors.Is(err, run.ErrForbidden) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
 func TestReportPolicyRegistryKeepsNativeEntriesOffKubernetesDispatch(t *testing.T) {
-	entry, current := v2RawPolicyFixture(t, "source-checkout")
-	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := registry.ApproveRun(
-		context.Background(), "alice", current.Request,
-	); !errors.Is(err, run.ErrForbidden) {
-		t.Fatalf("ApproveRun() error = %v", err)
-	}
-	current.State = run.StateValidating
-	if _, err := registry.ResolveJob(
-		context.Background(), "alice", current,
-	); !errors.Is(err, run.ErrForbidden) {
-		t.Fatalf("ResolveJob() error = %v", err)
+	for _, kind := range []string{"source-checkout", "release-archive"} {
+		t.Run(kind, func(t *testing.T) {
+			entry, current := v2RawPolicyFixture(t, kind)
+			registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := registry.ApproveRun(
+				context.Background(), "alice", current.Request,
+			); !errors.Is(err, run.ErrForbidden) {
+				t.Fatalf("ApproveRun() error = %v", err)
+			}
+			current.State = run.StateValidating
+			if _, err := registry.ResolveJob(
+				context.Background(), "alice", current,
+			); !errors.Is(err, run.ErrForbidden) {
+				t.Fatalf("ResolveJob() error = %v", err)
+			}
+		})
 	}
 }
 
@@ -843,7 +880,7 @@ func TestReportPolicyRegistryValidatesEntries(t *testing.T) {
 		t.Fatalf("duplicate entry error = %v", err)
 	}
 
-	for _, kind := range []string{"oci-image", "source-checkout"} {
+	for _, kind := range []string{"oci-image", "source-checkout", "release-archive"} {
 		entry, _ := v2RawPolicyFixture(t, kind)
 		if kind == "oci-image" {
 			entry.ExecutionTemplate = nil
@@ -863,7 +900,7 @@ func TestReportPolicyRegistryValidatesEntries(t *testing.T) {
 func v2RawPolicyFixture(t *testing.T, kind string) (ReportPolicyEntry, run.Run) {
 	t.Helper()
 	entry, current, _ := reportPolicyFixture(t)
-	entry.ContractsVersion = "0.12.0"
+	entry.ContractsVersion = "0.13.0"
 	entry.Normalization = reconcile.NormalizationSpec{
 		SourceFormat: reconcile.PlaywrightMeasurementsV2Format,
 	}
@@ -880,6 +917,14 @@ func v2RawPolicyFixture(t *testing.T, kind string) (ReportPolicyEntry, run.Run) 
 			DependencyLock: &rawresult.DependencyLock{
 				Path: "pnpm-lock.yaml", SHA256: strings.Repeat("4", 64),
 			},
+		}
+		entry.ExecutionTemplate = nil
+	case "release-archive":
+		entry.RawProducer = rawresult.Producer{Name: "kube-burner", Version: "2.8.5"}
+		entry.RawProducer.Artifact = &rawresult.ExecutionArtifact{
+			Kind:          "release-archive",
+			URL:           "https://github.com/kube-burner/kube-burner/releases/download/v2.8.5/kube-burner-V2.8.5-windows-x86_64.zip",
+			ArchiveSHA256: strings.Repeat("3", 64), ExecutableSHA256: strings.Repeat("2", 64),
 		}
 		entry.ExecutionTemplate = nil
 	default:

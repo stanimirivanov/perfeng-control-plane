@@ -24,6 +24,7 @@ var (
 	)
 	gitSHAPattern       = regexp.MustCompile(`^[a-f0-9]{40}$`)
 	relativePathPattern = regexp.MustCompile(`^[A-Za-z0-9_./-]+$`)
+	releaseURLPattern   = regexp.MustCompile(`^https://[^\s@?#]+$`)
 	timestampPattern    = regexp.MustCompile(
 		`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:[0-5]\d(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$`,
 	)
@@ -89,11 +90,14 @@ func (producer Producer) Equal(other Producer) bool {
 
 // ExecutionArtifact is the discriminated raw-result/v2 producer artifact.
 type ExecutionArtifact struct {
-	Kind           string          `json:"kind"`
-	Image          string          `json:"image,omitempty"`
-	Repository     string          `json:"repository,omitempty"`
-	GitSHA         string          `json:"gitSha,omitempty"`
-	DependencyLock *DependencyLock `json:"dependencyLock,omitempty"`
+	Kind             string          `json:"kind"`
+	Image            string          `json:"image,omitempty"`
+	Repository       string          `json:"repository,omitempty"`
+	GitSHA           string          `json:"gitSha,omitempty"`
+	DependencyLock   *DependencyLock `json:"dependencyLock,omitempty"`
+	URL              string          `json:"url,omitempty"`
+	ArchiveSHA256    string          `json:"archiveSha256,omitempty"`
+	ExecutableSHA256 string          `json:"executableSha256,omitempty"`
 }
 
 // DependencyLock identifies the exact native dependency-lock bytes.
@@ -104,7 +108,9 @@ type DependencyLock struct {
 
 func (artifact ExecutionArtifact) equal(other ExecutionArtifact) bool {
 	if artifact.Kind != other.Kind || artifact.Image != other.Image ||
-		artifact.Repository != other.Repository || artifact.GitSHA != other.GitSHA {
+		artifact.Repository != other.Repository || artifact.GitSHA != other.GitSHA ||
+		artifact.URL != other.URL || artifact.ArchiveSHA256 != other.ArchiveSHA256 ||
+		artifact.ExecutableSHA256 != other.ExecutableSHA256 {
 		return false
 	}
 	if artifact.DependencyLock == nil || other.DependencyLock == nil {
@@ -233,13 +239,20 @@ func (artifact ExecutionArtifact) Validate() error {
 	switch artifact.Kind {
 	case "oci-image":
 		if !ValidImage(artifact.Image) || artifact.Repository != "" || artifact.GitSHA != "" ||
-			artifact.DependencyLock != nil {
+			artifact.DependencyLock != nil || artifact.hasReleaseArchiveFields() {
 			return run.ErrValidation
 		}
 	case "source-checkout":
 		if artifact.Image != "" || !validRepository(artifact.Repository) ||
 			!gitSHAPattern.MatchString(artifact.GitSHA) || artifact.DependencyLock == nil ||
-			artifact.DependencyLock.Validate() != nil {
+			artifact.DependencyLock.Validate() != nil || artifact.hasReleaseArchiveFields() {
+			return run.ErrValidation
+		}
+	case "release-archive":
+		if artifact.Image != "" || artifact.Repository != "" || artifact.GitSHA != "" ||
+			artifact.DependencyLock != nil || !validReleaseURL(artifact.URL) ||
+			!hashPattern.MatchString(artifact.ArchiveSHA256) ||
+			!hashPattern.MatchString(artifact.ExecutableSHA256) {
 			return run.ErrValidation
 		}
 	default:
@@ -247,6 +260,10 @@ func (artifact ExecutionArtifact) Validate() error {
 	}
 
 	return nil
+}
+
+func (artifact ExecutionArtifact) hasReleaseArchiveFields() bool {
+	return artifact.URL != "" || artifact.ArchiveSHA256 != "" || artifact.ExecutableSHA256 != ""
 }
 
 // Validate checks a native dependency-lock identity.
@@ -329,6 +346,10 @@ func validProducerShape(data json.RawMessage) bool {
 		if valid {
 			_, valid = jsondocument.ExactObject(artifact["dependencyLock"], "path", "sha256")
 		}
+	case "release-archive":
+		_, valid = jsondocument.ExactObject(
+			producer["artifact"], "kind", "url", "archiveSha256", "executableSha256",
+		)
 	default:
 		return false
 	}
@@ -339,6 +360,16 @@ func validProducerShape(data json.RawMessage) bool {
 func validRepository(value string) bool {
 	parsed, err := url.ParseRequestURI(value)
 	return err == nil && parsed.Scheme == "https" && parsed.Host != ""
+}
+
+func validReleaseURL(value string) bool {
+	if !releaseURLPattern.MatchString(value) {
+		return false
+	}
+	parsed, err := url.ParseRequestURI(value)
+
+	return err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil &&
+		parsed.RawQuery == "" && parsed.Fragment == ""
 }
 
 func validRelativePath(value string) bool {
