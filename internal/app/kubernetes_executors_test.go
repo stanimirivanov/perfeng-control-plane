@@ -35,6 +35,10 @@ func executorJob(containerName string) *batchv1.Job {
 		ActiveDeadlineSeconds: &deadline,
 		Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
 			RestartPolicy: corev1.RestartPolicyNever, AutomountServiceAccountToken: &automount,
+			InitContainers: []corev1.Container{{
+				Name:  "stage-inputs",
+				Image: "ghcr.io/example/artifact-transfer@sha256:" + strings.Repeat("9", 64),
+			}},
 			Containers: []corev1.Container{{
 				Name:  containerName,
 				Image: "ghcr.io/example/placeholder@sha256:" + strings.Repeat("0", 64),
@@ -47,9 +51,10 @@ func kubernetesExecutorConfig() KubernetesExecutorConfig {
 	return KubernetesExecutorConfig{
 		Analysis: reconcile.AnalysisJobConfig{
 			Template: executorJob("normalizer"), ContainerName: "normalizer",
-			ManifestPath: "/workspace/input/raw-result.json",
-			SourcePath:   "/workspace/input/source.json",
-			OutputPath:   "/workspace/output/normalized-result.json",
+			InputContainerName: "stage-inputs",
+			ManifestPath:       "/workspace/input/raw-result.json",
+			SourcePath:         "/workspace/input/source.json",
+			OutputPath:         "/workspace/output/normalized-result.json",
 		},
 		Report: reconcile.ReportJobConfig{
 			Template: executorJob("reporter"), ContainerName: "reporter",

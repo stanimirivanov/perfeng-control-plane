@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -39,6 +40,12 @@ func reusableAnalysisJob() *batchv1.Job {
 		ActiveDeadlineSeconds: &deadline,
 		Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
 			RestartPolicy: corev1.RestartPolicyNever, AutomountServiceAccountToken: &automount,
+			InitContainers: []corev1.Container{{
+				Name:    "stage-inputs",
+				Image:   "ghcr.io/example/artifact-transfer@sha256:" + strings.Repeat("9", 64),
+				Command: []string{"stage-analysis-inputs"},
+				Env:     []corev1.EnvVar{{Name: "AWS_REGION", Value: "eu-west-1"}},
+			}},
 			Containers: []corev1.Container{{
 				Name:  "normalizer",
 				Image: "ghcr.io/example/placeholder@sha256:" + strings.Repeat("0", 64),
@@ -51,7 +58,7 @@ func analysisJobConfig() AnalysisJobConfig {
 	template := reusableAnalysisJob()
 
 	return AnalysisJobConfig{
-		Template: template, ContainerName: "normalizer",
+		Template: template, ContainerName: "normalizer", InputContainerName: "stage-inputs",
 		ManifestPath: "/workspace/input/raw-result.json",
 		SourcePath:   "/workspace/input/source.json",
 		OutputPath:   "/workspace/output/normalized-result.json",
@@ -172,12 +179,37 @@ func TestKubernetesAnalysisJobResolverBuildsToolSpecificArguments(t *testing.T) 
 			if original.Spec.Template.Spec.Containers[0].Args != nil {
 				t.Fatal("constructor changed its input template")
 			}
+			inputContainer := jobInitContainer(template, "stage-inputs")
+			wantEnvironment := []corev1.EnvVar{
+				{Name: "AWS_REGION", Value: "eu-west-1"},
+				{Name: manifestArtifactIDEnvironment, Value: input.Manifest.ID},
+				{Name: manifestURIEnvironment, Value: input.Manifest.URI},
+				{Name: manifestSHA256Environment, Value: input.Manifest.SHA256},
+				{Name: manifestSizeEnvironment, Value: strconv.FormatInt(input.Manifest.SizeBytes, 10)},
+				{Name: manifestPathEnvironment, Value: config.ManifestPath},
+				{Name: sourceArtifactIDEnvironment, Value: plan.Source.ID},
+				{Name: sourceURIEnvironment, Value: plan.Source.URI},
+				{Name: sourceSHA256Environment, Value: plan.Source.SHA256},
+				{Name: sourceSizeEnvironment, Value: strconv.FormatInt(plan.Source.SizeBytes, 10)},
+				{Name: sourcePathEnvironment, Value: config.SourcePath},
+			}
+			if inputContainer == nil || !reflect.DeepEqual(inputContainer.Env, wantEnvironment) {
+				t.Fatalf("input environment = %+v, want %+v", inputContainer, wantEnvironment)
+			}
+			if !reflect.DeepEqual(
+				original.Spec.Template.Spec.InitContainers[0].Env,
+				[]corev1.EnvVar{{Name: "AWS_REGION", Value: "eu-west-1"}},
+			) {
+				t.Fatal("constructor changed the input container environment")
+			}
 
 			container.Args[0] = "changed"
+			inputContainer.Env[1].Value = "changed"
 			again, err := resolver.ResolveAnalysisJob(
 				context.Background(), "principal-a", current, input,
 			)
-			if err != nil || jobContainer(again, "normalizer").Args[0] != "--manifest" {
+			if err != nil || jobContainer(again, "normalizer").Args[0] != "--manifest" ||
+				jobInitContainer(again, "stage-inputs").Env[1].Value != input.Manifest.ID {
 				t.Fatal("resolved Jobs share mutable state")
 			}
 		})
@@ -201,6 +233,22 @@ func TestKubernetesAnalysisJobResolverRejectsInvalidConfiguration(t *testing.T) 
 		}},
 		{name: "container", plans: validPlanResolver, mutate: func(config *AnalysisJobConfig) {
 			config.ContainerName = "missing"
+		}},
+		{name: "input container", plans: validPlanResolver, mutate: func(config *AnalysisJobConfig) {
+			config.InputContainerName = "missing"
+		}},
+		{name: "duplicate input container", plans: validPlanResolver, mutate: func(config *AnalysisJobConfig) {
+			container := config.Template.Spec.Template.Spec.InitContainers[0]
+			config.Template.Spec.Template.Spec.InitContainers = append(
+				config.Template.Spec.Template.Spec.InitContainers,
+				container,
+			)
+		}},
+		{name: "reserved input environment", plans: validPlanResolver, mutate: func(config *AnalysisJobConfig) {
+			config.Template.Spec.Template.Spec.InitContainers[0].Env = append(
+				config.Template.Spec.Template.Spec.InitContainers[0].Env,
+				corev1.EnvVar{Name: sourceURIEnvironment, Value: "s3://untrusted/source.json"},
+			)
 		}},
 		{name: "predefined command", plans: validPlanResolver, mutate: func(config *AnalysisJobConfig) {
 			config.Template.Spec.Template.Spec.Containers[0].Command = []string{"sh"}

@@ -136,8 +136,14 @@ arguments, then reapplies the same restricted Job policy before dispatch. k6
 receives explicit layout and whole-window flags; Playwright and kube-burner use
 the common arguments only. The kube-burner plan selects individual pod-latency
 observations, not derived quantiles or a Job summary. Fixed container paths and
-transfer containers belong to deployment configuration; storage access, output
-publication and worker composition remain external boundaries.
+transfer containers belong to deployment configuration. A named init container
+receives the selected manifest and source artifact IDs, URIs, SHA-256 digests,
+sizes and fixed destination paths through reserved `PERFENG_*` environment
+variables. The template owns its transfer command, image, volumes, endpoint and
+credential sources. Reserved variables cannot be predefined by the template.
+Artifact URI validation excludes credentials, queries and fragments before the
+metadata reaches the Pod. Output publication and worker composition remain
+external boundaries.
 
 ## Reporting Jobs
 

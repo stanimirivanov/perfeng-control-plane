@@ -4,6 +4,7 @@ import (
 	"context"
 	"path"
 	"slices"
+	"strconv"
 	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -13,15 +14,30 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
-// AnalysisJobConfig supplies a reusable Pod specification and fixed container paths.
-// Transfer containers and volumes remain deployment-owned template data;
-// credential injection remains outside this resolver.
+const (
+	manifestArtifactIDEnvironment = "PERFENG_RAW_MANIFEST_ARTIFACT_ID"
+	manifestURIEnvironment        = "PERFENG_RAW_MANIFEST_URI"
+	manifestSHA256Environment     = "PERFENG_RAW_MANIFEST_SHA256"
+	manifestSizeEnvironment       = "PERFENG_RAW_MANIFEST_SIZE_BYTES"
+	manifestPathEnvironment       = "PERFENG_RAW_MANIFEST_PATH"
+	sourceArtifactIDEnvironment   = "PERFENG_SOURCE_ARTIFACT_ID"
+	sourceURIEnvironment          = "PERFENG_SOURCE_URI"
+	sourceSHA256Environment       = "PERFENG_SOURCE_SHA256"
+	sourceSizeEnvironment         = "PERFENG_SOURCE_SIZE_BYTES"
+	sourcePathEnvironment         = "PERFENG_SOURCE_PATH"
+)
+
+// AnalysisJobConfig supplies a reusable Pod specification, the containers
+// owned by analysis composition and their fixed file paths. The input container
+// owns transfer mechanics and credentials; the resolver supplies artifact
+// metadata only.
 type AnalysisJobConfig struct {
-	Template      *batchv1.Job
-	ContainerName string
-	ManifestPath  string
-	SourcePath    string
-	OutputPath    string
+	Template           *batchv1.Job
+	ContainerName      string
+	InputContainerName string
+	ManifestPath       string
+	SourcePath         string
+	OutputPath         string
 }
 
 // KubernetesAnalysisJobResolver converts an approved plan into one restricted Job template.
@@ -78,9 +94,14 @@ func (resolver *KubernetesAnalysisJobResolver) ResolveAnalysisJob(
 
 	template := resolver.config.Template.DeepCopy()
 	container := jobContainer(template, resolver.config.ContainerName)
-	if container == nil {
+	inputContainer := jobInitContainer(template, resolver.config.InputContainerName)
+	if container == nil || inputContainer == nil {
 		return nil, run.ErrValidation
 	}
+	inputContainer.Env = append(
+		inputContainer.Env,
+		analysisInputEnvironment(resolver.config, input.Manifest, plan.Source)...,
+	)
 	container.Image = plan.Producer.Image
 	container.Args = normalizationArguments(resolver.config, plan)
 	if kubernetes.ValidateReusableJobTemplate(template) != nil {
@@ -91,7 +112,7 @@ func (resolver *KubernetesAnalysisJobResolver) ResolveAnalysisJob(
 }
 
 func validAnalysisJobConfig(config AnalysisJobConfig) bool {
-	if config.ContainerName == "" || config.Template == nil ||
+	if config.ContainerName == "" || config.InputContainerName == "" || config.Template == nil ||
 		kubernetes.ValidateReusableJobTemplate(config.Template) != nil {
 		return false
 	}
@@ -106,7 +127,10 @@ func validAnalysisJobConfig(config AnalysisJobConfig) bool {
 	}
 
 	container := jobContainer(config.Template, config.ContainerName)
-	return container != nil && len(container.Command) == 0 && len(container.Args) == 0
+	inputContainer := jobInitContainer(config.Template, config.InputContainerName)
+
+	return container != nil && len(container.Command) == 0 && len(container.Args) == 0 &&
+		inputContainer != nil && !hasReservedAnalysisInputEnvironment(inputContainer.Env)
 }
 
 func jobContainer(template *batchv1.Job, name string) *corev1.Container {
@@ -123,6 +147,61 @@ func jobContainer(template *batchv1.Job, name string) *corev1.Container {
 	}
 
 	return match
+}
+
+func jobInitContainer(template *batchv1.Job, name string) *corev1.Container {
+	var match *corev1.Container
+	for index := range template.Spec.Template.Spec.InitContainers {
+		container := &template.Spec.Template.Spec.InitContainers[index]
+		if container.Name != name {
+			continue
+		}
+		if match != nil {
+			return nil
+		}
+		match = container
+	}
+
+	return match
+}
+
+func analysisInputEnvironment(
+	config AnalysisJobConfig,
+	manifest run.Artifact,
+	source run.Artifact,
+) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{Name: manifestArtifactIDEnvironment, Value: manifest.ID},
+		{Name: manifestURIEnvironment, Value: manifest.URI},
+		{Name: manifestSHA256Environment, Value: manifest.SHA256},
+		{Name: manifestSizeEnvironment, Value: strconv.FormatInt(manifest.SizeBytes, 10)},
+		{Name: manifestPathEnvironment, Value: config.ManifestPath},
+		{Name: sourceArtifactIDEnvironment, Value: source.ID},
+		{Name: sourceURIEnvironment, Value: source.URI},
+		{Name: sourceSHA256Environment, Value: source.SHA256},
+		{Name: sourceSizeEnvironment, Value: strconv.FormatInt(source.SizeBytes, 10)},
+		{Name: sourcePathEnvironment, Value: config.SourcePath},
+	}
+}
+
+func hasReservedAnalysisInputEnvironment(environment []corev1.EnvVar) bool {
+	for _, variable := range environment {
+		switch variable.Name {
+		case manifestArtifactIDEnvironment,
+			manifestURIEnvironment,
+			manifestSHA256Environment,
+			manifestSizeEnvironment,
+			manifestPathEnvironment,
+			sourceArtifactIDEnvironment,
+			sourceURIEnvironment,
+			sourceSHA256Environment,
+			sourceSizeEnvironment,
+			sourcePathEnvironment:
+			return true
+		}
+	}
+
+	return false
 }
 
 func normalizationArguments(config AnalysisJobConfig, plan AnalysisPlan) []string {
