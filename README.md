@@ -63,7 +63,8 @@ coordination, not load generation or statistical decisions.
 
 This is a library foundation, **not a deployable service**. There is intentionally
 no HTTP server executable, Docker image or Kubernetes deployment yet. The
-administrative `cmd/migrate` command applies database migrations. Reconciliation
+administrative `cmd/migrate` command applies database migrations, and
+`cmd/validate-registry` validates reviewed runtime bundles offline. Reconciliation
 stages are not wired into a process. Catalogue and environment publication
 verification, concrete publication adapters, registry source attestation and refresh,
 analysis and report input/output transfer, and production execution composition are still missing, so no

@@ -113,6 +113,20 @@ then validates all identities, producer/runtime combinations, restricted Job
 policy, duplicate bindings and authorization context, and copies all mutable
 data. File reads happen only during construction.
 
+Validate a mounted or checked-out bundle without starting the API, worker,
+database, object-store client or Kubernetes client:
+
+```sh
+go run ./cmd/validate-registry \
+  -root ./deployment/runtime-registry \
+  -manifest registry.json
+```
+
+Success prints one confirmation and exits zero. Invalid arguments exit 2;
+unreadable or invalid bundle content exits 1 with a generic message that does
+not include configured paths, policy contents or parser details. Deployment
+repositories can use the same command in CI before publishing configuration.
+
 Production composition must still define how the bundle is signed or otherwise
 attested, mounted, refreshed and audited. Replacing the registry requires
 constructing a new validated instance; partially mutating a live registry is not
