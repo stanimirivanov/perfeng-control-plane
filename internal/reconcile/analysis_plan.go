@@ -12,6 +12,8 @@ const (
 	K6SummaryFormat = "k6-summary-json"
 	// PlaywrightMeasurementsV2Format identifies semantic browser duration measurements.
 	PlaywrightMeasurementsV2Format = "playwright-measurements/v2"
+	// KubeBurnerPodLatencyFormat identifies individual pod-startup observations.
+	KubeBurnerPodLatencyFormat = "kube-burner-pod-latency-json"
 	// K6TypedLayout identifies the typed k6 summary representation.
 	K6TypedLayout = "typed"
 	// K6LegacyExportLayout identifies the flat k6 summary-export representation.
@@ -31,7 +33,7 @@ func (spec NormalizationSpec) Validate() error {
 		if spec.Layout != K6TypedLayout && spec.Layout != K6LegacyExportLayout {
 			return run.ErrValidation
 		}
-	case PlaywrightMeasurementsV2Format:
+	case PlaywrightMeasurementsV2Format, KubeBurnerPodLatencyFormat:
 		if spec.Layout != "" {
 			return run.ErrValidation
 		}

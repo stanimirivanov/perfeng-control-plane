@@ -55,6 +55,52 @@ func TestReportPolicyRegistryResolvesNativePlaywrightNormalizationPlan(t *testin
 	}
 }
 
+func TestReportPolicyRegistryResolvesKubeBurnerNormalizationPlan(t *testing.T) {
+	entry, current := v2RawPolicyFixture(t, "release-archive")
+	current.State = run.StateAnalyzing
+	input, _ := normalizedManifestFixture(entry, current)
+	input.Manifest.Format = "raw-result/v2"
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err := registry.ResolveAnalysisPlan(context.Background(), "alice", current, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Source != input.Sources[0] || plan.Spec != entry.Normalization ||
+		plan.Spec.SourceFormat != reconcile.KubeBurnerPodLatencyFormat || plan.Spec.Layout != "" {
+		t.Fatalf("plan = %+v", plan)
+	}
+
+	for _, test := range []struct {
+		name   string
+		mutate func(*reconcile.AnalysisInput)
+	}{
+		{name: "missing", mutate: func(input *reconcile.AnalysisInput) {
+			input.Sources[0].Format = "kube-burner-job-summary-json"
+		}},
+		{name: "ambiguous", mutate: func(input *reconcile.AnalysisInput) {
+			duplicate := input.Sources[0]
+			duplicate.ID = "99999999-9999-4999-8999-999999999999"
+			duplicate.URI += ".duplicate"
+			input.Sources = append(input.Sources, duplicate)
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			candidate := input
+			candidate.Sources = append([]run.Artifact(nil), input.Sources...)
+			test.mutate(&candidate)
+			if _, err := registry.ResolveAnalysisPlan(
+				context.Background(), "alice", current, candidate,
+			); !errors.Is(err, run.ErrForbidden) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
 func TestReportPolicyRegistryRejectsUnapprovedNormalizationEvidence(t *testing.T) {
 	for _, test := range []struct {
 		name   string

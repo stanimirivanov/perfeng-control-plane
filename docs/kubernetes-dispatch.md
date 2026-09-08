@@ -132,10 +132,12 @@ reference. Kubernetes success alone does not attest output existence, checksum,
 format or provenance. The concrete analysis Job resolver combines an approved
 normalization plan with a reviewed reusable template. It injects the
 digest-pinned normalizer image, exact source artifact ID and tool-specific CLI
-arguments, then reapplies the same restricted Job policy before dispatch. Fixed
-container paths and transfer containers belong to deployment configuration;
-storage access, output publication and worker composition remain external
-boundaries.
+arguments, then reapplies the same restricted Job policy before dispatch. k6
+receives explicit layout and whole-window flags; Playwright and kube-burner use
+the common arguments only. The kube-burner plan selects individual pod-latency
+observations, not derived quantiles or a Job summary. Fixed container paths and
+transfer containers belong to deployment configuration; storage access, output
+publication and worker composition remain external boundaries.
 
 ## Reporting Jobs
 
