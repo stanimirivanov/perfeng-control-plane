@@ -5,6 +5,44 @@ process environment. Configuration parsing is separate from dependency
 construction so malformed or contradictory policy fails before any network
 client is created.
 
+## Static bearer authentication
+
+The first isolated local deployment uses a strict file-based credential
+registry. It is an executable-composition input rather than environment-variable
+content. The document has this shape:
+
+~~~json
+{
+  "schemaVersion": 1,
+  "credentials": [
+    {
+      "tokenSha256": "<64 lowercase hexadecimal characters>",
+      "principal": "local-operator",
+      "permissions": ["runs:create", "runs:read"]
+    }
+  ]
+}
+~~~
+
+The accepted permissions are `runs:create`, `runs:read`, `runs:cancel`,
+`baselines:create`, `baselines:read` and `baselines:transition`. The loader
+rejects unknown or duplicate fields, digests and permissions. It
+also rejects two credentials for the same principal when their permissions
+differ. Consequently, overlapping old and new token hashes can rotate a
+credential without changing the durable principal or its authorization.
+
+Only SHA-256 token digests are read and retained. The bearer tokens themselves
+must be generated with sufficient entropy and delivered separately to clients;
+they do not belong in this document, process arguments, ordinary logs or the
+repository. The future executable will mount the document from a Kubernetes
+Secret and choose its path explicitly.
+
+This adapter is intended for the isolated local vertical slice. It does not
+provide token issuance, revocation, expiry, rate limiting or federated identity.
+TLS is still required when traffic leaves the isolated development environment.
+A production identity provider and its stable-principal mapping remain a
+separate deployment decision.
+
 ## Artifact storage
 
 All artifact-storage policy values are explicit:
