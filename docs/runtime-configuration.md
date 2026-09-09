@@ -168,3 +168,13 @@ types. `ReconciliationConfig.Validate` rejects a later lease mismatch so runtime
 composition cannot silently use different ownership and provisioning policy.
 Loading policy does not create reconcilers, call external services or start the
 worker.
+
+`NewReconciliationWorker` is the inert lifecycle composition boundary. It
+requires the durable reconciliation, execution and artifact store; the approved
+Job resolver; constructed Kubernetes controllers, artifact collectors and
+analysis/reporting executors; the event reporter; and both validated timing
+configurations. It connects CREATED through REPORTING to the existing router and
+bounded worker without reading PostgreSQL or object storage and without making a
+Kubernetes request. The future executable remains responsible for constructing
+those dependencies, running the worker, reporting safe operational events and
+coordinating shutdown with the HTTP server.
