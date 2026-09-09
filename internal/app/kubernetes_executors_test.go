@@ -58,6 +58,7 @@ func kubernetesExecutorConfig() KubernetesExecutorConfig {
 		},
 		Report: reconcile.ReportJobConfig{
 			Template: executorJob("reporter"), ContainerName: "reporter",
+			InputContainerName:    "stage-inputs",
 			CandidatePath:         "/workspace/input/candidate/normalized-result.json",
 			CandidateArtifactPath: "/workspace/input/candidate/artifact-reference.json",
 			PolicyPath:            "/workspace/input/performance-policy.json",

@@ -5,21 +5,37 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"path"
+	"strconv"
 
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/kubernetes"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/policy"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
-const reportExecutable = "perfeng-report"
+const (
+	reportExecutable                     = "perfeng-report"
+	reportCandidateArtifactIDEnvironment = "PERFENG_REPORT_CANDIDATE_ARTIFACT_ID"
+	reportCandidateRunIDEnvironment      = "PERFENG_REPORT_CANDIDATE_RUN_ID"
+	reportCandidateKindEnvironment       = "PERFENG_REPORT_CANDIDATE_KIND"
+	reportCandidateURIEnvironment        = "PERFENG_REPORT_CANDIDATE_URI"
+	reportCandidateSHA256Environment     = "PERFENG_REPORT_CANDIDATE_SHA256"
+	reportCandidateSizeEnvironment       = "PERFENG_REPORT_CANDIDATE_SIZE_BYTES"
+	reportCandidateMediaTypeEnvironment  = "PERFENG_REPORT_CANDIDATE_MEDIA_TYPE"
+	reportCandidateFormatEnvironment     = "PERFENG_REPORT_CANDIDATE_FORMAT"
+	reportCandidatePathEnvironment       = "PERFENG_REPORT_CANDIDATE_PATH"
+	reportCandidateReferenceEnvironment  = "PERFENG_REPORT_CANDIDATE_REFERENCE_PATH"
+)
 
-// ReportJobConfig supplies a reusable Pod specification and fixed container paths.
-// Transfer containers and volumes remain deployment-owned template data.
+// ReportJobConfig supplies a reusable Pod specification, the containers owned
+// by report composition and their fixed file paths. The input container owns
+// transfer mechanics and credentials; the resolver supplies artifact metadata.
 type ReportJobConfig struct {
 	Template              *batchv1.Job
 	ContainerName         string
+	InputContainerName    string
 	CandidatePath         string
 	CandidateArtifactPath string
 	PolicyPath            string
@@ -77,9 +93,14 @@ func (resolver *KubernetesReportJobResolver) ResolveReportJob(
 
 	template := resolver.config.Template.DeepCopy()
 	container := jobContainer(template, resolver.config.ContainerName)
-	if container == nil {
+	inputContainer := jobInitContainer(template, resolver.config.InputContainerName)
+	if container == nil || inputContainer == nil {
 		return nil, run.ErrValidation
 	}
+	inputContainer.Env = append(
+		inputContainer.Env,
+		reportCandidateEnvironment(resolver.config, plan.Candidate)...,
+	)
 	container.Image = plan.Producer.Image
 	container.Command = []string{reportExecutable}
 	container.Args = reportArguments(resolver.config, plan)
@@ -91,7 +112,7 @@ func (resolver *KubernetesReportJobResolver) ResolveReportJob(
 }
 
 func validReportJobConfig(config ReportJobConfig) bool {
-	if config.ContainerName == "" || config.Template == nil ||
+	if config.ContainerName == "" || config.InputContainerName == "" || config.Template == nil ||
 		kubernetes.ValidateReusableJobTemplate(config.Template) != nil {
 		return false
 	}
@@ -112,7 +133,45 @@ func validReportJobConfig(config ReportJobConfig) bool {
 	}
 
 	container := jobContainer(config.Template, config.ContainerName)
-	return container != nil && len(container.Command) == 0 && len(container.Args) == 0
+	inputContainer := jobInitContainer(config.Template, config.InputContainerName)
+
+	return container != nil && len(container.Command) == 0 && len(container.Args) == 0 &&
+		inputContainer != nil && !hasReservedReportCandidateEnvironment(inputContainer.Env)
+}
+
+func reportCandidateEnvironment(config ReportJobConfig, candidate run.Artifact) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{Name: reportCandidateArtifactIDEnvironment, Value: candidate.ID},
+		{Name: reportCandidateRunIDEnvironment, Value: candidate.RunID},
+		{Name: reportCandidateKindEnvironment, Value: candidate.Kind},
+		{Name: reportCandidateURIEnvironment, Value: candidate.URI},
+		{Name: reportCandidateSHA256Environment, Value: candidate.SHA256},
+		{Name: reportCandidateSizeEnvironment, Value: strconv.FormatInt(candidate.SizeBytes, 10)},
+		{Name: reportCandidateMediaTypeEnvironment, Value: candidate.MediaType},
+		{Name: reportCandidateFormatEnvironment, Value: candidate.Format},
+		{Name: reportCandidatePathEnvironment, Value: config.CandidatePath},
+		{Name: reportCandidateReferenceEnvironment, Value: config.CandidateArtifactPath},
+	}
+}
+
+func hasReservedReportCandidateEnvironment(environment []corev1.EnvVar) bool {
+	for _, variable := range environment {
+		switch variable.Name {
+		case reportCandidateArtifactIDEnvironment,
+			reportCandidateRunIDEnvironment,
+			reportCandidateKindEnvironment,
+			reportCandidateURIEnvironment,
+			reportCandidateSHA256Environment,
+			reportCandidateSizeEnvironment,
+			reportCandidateMediaTypeEnvironment,
+			reportCandidateFormatEnvironment,
+			reportCandidatePathEnvironment,
+			reportCandidateReferenceEnvironment:
+			return true
+		}
+	}
+
+	return false
 }
 
 func reportPlanMatchesRequest(plan ReportPlan, reference run.Reference) bool {

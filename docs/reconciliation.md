@@ -353,8 +353,12 @@ request-time fallback or latest-version selection is not supported.
 `perfeng-report` invocation. It binds fixed candidate, artifact-metadata, policy
 and output paths, includes only available policy-keyed baseline inputs, and
 reuses deterministic paths when baseline identities share an artifact. Registry
-population and refresh, input materialization and production composition remain
-separate work. The S3 storage adapter supplies deterministic report-output
+population and refresh remain separate work. A named input-staging init
+container receives the candidate's complete immutable artifact metadata and
+fixed candidate and artifact-reference destinations through reserved environment
+variables. The template retains ownership of transfer mechanics, credentials and
+volumes; policy and baseline materialization remain separate composition work.
+The S3 storage adapter supplies deterministic report-output
 publication discovery without accepting candidate locations.
 
 ## Provisioning reconciliation

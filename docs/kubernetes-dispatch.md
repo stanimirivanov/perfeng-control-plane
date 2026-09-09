@@ -168,8 +168,15 @@ and emits one policy-keyed `--baseline` argument for each available approved
 reference. Missing references are omitted so their rules remain inconclusive.
 Distinct baseline identities that share one artifact reuse its deterministic
 artifact-ID directory. The completed template is revalidated before dispatch.
+The resolver also requires one uniquely named input-staging init container and
+binds the candidate's complete immutable artifact metadata plus its result and
+artifact-reference destination paths through reserved environment variables.
+Reviewed staging code can therefore download and verify the exact normalized
+candidate and materialize the reference consumed by `perfeng-report`. Templates
+that predefine those reserved variables are rejected.
 
 Input materialization, storage credentials, output publication and production
 composition remain external boundaries. Transfer containers and volumes are
 deployment-owned template data; the resolver does not embed policy bytes,
-artifact contents or credentials in the Pod specification.
+artifact contents or credentials in the Pod specification. Policy and baseline
+materialization remain separate composition work.
