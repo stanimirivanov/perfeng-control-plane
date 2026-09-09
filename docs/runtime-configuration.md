@@ -134,8 +134,9 @@ resolution, immutable artifact IDs, URIs, checksums, sizes and destination paths
 are bound to reserved environment variables on the input-staging init container.
 Its image, command, volumes, endpoints and credential sources remain part of the
 reviewed deployment template and production composition. Reporting currently
-binds this staging contract for the normalized candidate; policy and baseline
-materialization remain separate composition work.
+binds this staging contract for the normalized candidate and the exact policy
+identity, version, SHA-256 digest and destination. Policy content is not embedded
+in the Job. Baseline materialization remains separate composition work.
 
 ## Reconciliation stages
 

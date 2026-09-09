@@ -156,6 +156,10 @@ func TestKubernetesReportJobResolverBuildsPolicyKeyedArguments(t *testing.T) {
 		{Name: reportCandidateFormatEnvironment, Value: plan.Candidate.Format},
 		{Name: reportCandidatePathEnvironment, Value: config.CandidatePath},
 		{Name: reportCandidateReferenceEnvironment, Value: config.CandidateArtifactPath},
+		{Name: reportPolicyIDEnvironment, Value: current.Request.Policy.ID},
+		{Name: reportPolicyVersionEnvironment, Value: current.Request.Policy.Version},
+		{Name: reportPolicySHA256Environment, Value: current.Request.Policy.SHA256},
+		{Name: reportPolicyPathEnvironment, Value: config.PolicyPath},
 	}
 	if inputContainer == nil || !reflect.DeepEqual(inputContainer.Env, wantEnvironment) {
 		t.Fatalf("input environment = %+v, want %+v", inputContainer, wantEnvironment)
@@ -208,13 +212,19 @@ func TestKubernetesReportJobResolverRejectsInvalidConfiguration(t *testing.T) {
 				container,
 			)
 		}},
-		{name: "reserved input environment", plans: validPlans, mutate: func(config *ReportJobConfig) {
+		{name: "reserved candidate environment", plans: validPlans, mutate: func(config *ReportJobConfig) {
 			config.Template.Spec.Template.Spec.InitContainers[0].Env = append(
 				config.Template.Spec.Template.Spec.InitContainers[0].Env,
 				corev1.EnvVar{
 					Name:  reportCandidateURIEnvironment,
 					Value: "s3://untrusted/candidate.json",
 				},
+			)
+		}},
+		{name: "reserved policy environment", plans: validPlans, mutate: func(config *ReportJobConfig) {
+			config.Template.Spec.Template.Spec.InitContainers[0].Env = append(
+				config.Template.Spec.Template.Spec.InitContainers[0].Env,
+				corev1.EnvVar{Name: reportPolicySHA256Environment, Value: strings.Repeat("0", 64)},
 			)
 		}},
 		{name: "predefined command", plans: validPlans, mutate: func(config *ReportJobConfig) {

@@ -27,6 +27,10 @@ const (
 	reportCandidateFormatEnvironment     = "PERFENG_REPORT_CANDIDATE_FORMAT"
 	reportCandidatePathEnvironment       = "PERFENG_REPORT_CANDIDATE_PATH"
 	reportCandidateReferenceEnvironment  = "PERFENG_REPORT_CANDIDATE_REFERENCE_PATH"
+	reportPolicyIDEnvironment            = "PERFENG_REPORT_POLICY_ID"
+	reportPolicyVersionEnvironment       = "PERFENG_REPORT_POLICY_VERSION"
+	reportPolicySHA256Environment        = "PERFENG_REPORT_POLICY_SHA256"
+	reportPolicyPathEnvironment          = "PERFENG_REPORT_POLICY_PATH"
 )
 
 // ReportJobConfig supplies a reusable Pod specification, the containers owned
@@ -101,6 +105,10 @@ func (resolver *KubernetesReportJobResolver) ResolveReportJob(
 		inputContainer.Env,
 		reportCandidateEnvironment(resolver.config, plan.Candidate)...,
 	)
+	inputContainer.Env = append(
+		inputContainer.Env,
+		reportPolicyEnvironment(resolver.config, current.Request.Policy)...,
+	)
 	container.Image = plan.Producer.Image
 	container.Command = []string{reportExecutable}
 	container.Args = reportArguments(resolver.config, plan)
@@ -136,7 +144,7 @@ func validReportJobConfig(config ReportJobConfig) bool {
 	inputContainer := jobInitContainer(config.Template, config.InputContainerName)
 
 	return container != nil && len(container.Command) == 0 && len(container.Args) == 0 &&
-		inputContainer != nil && !hasReservedReportCandidateEnvironment(inputContainer.Env)
+		inputContainer != nil && !hasReservedReportInputEnvironment(inputContainer.Env)
 }
 
 func reportCandidateEnvironment(config ReportJobConfig, candidate run.Artifact) []corev1.EnvVar {
@@ -154,7 +162,16 @@ func reportCandidateEnvironment(config ReportJobConfig, candidate run.Artifact) 
 	}
 }
 
-func hasReservedReportCandidateEnvironment(environment []corev1.EnvVar) bool {
+func reportPolicyEnvironment(config ReportJobConfig, reference run.Reference) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{Name: reportPolicyIDEnvironment, Value: reference.ID},
+		{Name: reportPolicyVersionEnvironment, Value: reference.Version},
+		{Name: reportPolicySHA256Environment, Value: reference.SHA256},
+		{Name: reportPolicyPathEnvironment, Value: config.PolicyPath},
+	}
+}
+
+func hasReservedReportInputEnvironment(environment []corev1.EnvVar) bool {
 	for _, variable := range environment {
 		switch variable.Name {
 		case reportCandidateArtifactIDEnvironment,
@@ -166,7 +183,11 @@ func hasReservedReportCandidateEnvironment(environment []corev1.EnvVar) bool {
 			reportCandidateMediaTypeEnvironment,
 			reportCandidateFormatEnvironment,
 			reportCandidatePathEnvironment,
-			reportCandidateReferenceEnvironment:
+			reportCandidateReferenceEnvironment,
+			reportPolicyIDEnvironment,
+			reportPolicyVersionEnvironment,
+			reportPolicySHA256Environment,
+			reportPolicyPathEnvironment:
 			return true
 		}
 	}

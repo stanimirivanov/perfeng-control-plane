@@ -173,10 +173,14 @@ binds the candidate's complete immutable artifact metadata plus its result and
 artifact-reference destination paths through reserved environment variables.
 Reviewed staging code can therefore download and verify the exact normalized
 candidate and materialize the reference consumed by `perfeng-report`. Templates
-that predefine those reserved variables are rejected.
+that predefine those reserved variables are rejected. The staging container also
+receives the exact approved policy ID, version, SHA-256 digest and destination
+path. This binds policy selection without placing policy content in the Job;
+reviewed staging code remains responsible for sourcing the policy and rejecting
+bytes that do not match the supplied digest.
 
 Input materialization, storage credentials, output publication and production
 composition remain external boundaries. Transfer containers and volumes are
 deployment-owned template data; the resolver does not embed policy bytes,
-artifact contents or credentials in the Pod specification. Policy and baseline
-materialization remain separate composition work.
+artifact contents or credentials in the Pod specification. Baseline
+materialization remains separate composition work.
