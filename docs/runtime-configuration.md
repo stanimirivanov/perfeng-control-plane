@@ -97,7 +97,17 @@ publication discovery and verified reads with immutable registry approval,
 approved baseline resolution and independent verdict checking. Construction
 does not read object storage, query the registry or database, or parse evidence.
 The registry entries populated at startup must authorize the same contracts
-version; that cross-check belongs to registry loading.
+version. The registry is loaded from two explicit settings:
+
+| Variable | Meaning |
+| --- | --- |
+| `PERFENG_REGISTRY_ROOT` | Canonical absolute non-root directory of the mounted reviewed bundle |
+| `PERFENG_REGISTRY_MANIFEST` | Portable manifest path relative to that root |
+
+Startup strictly loads the complete immutable registry and rejects it unless
+every entry uses `PERFENG_CONTRACTS_VERSION`. Registry paths and content are not
+included in returned configuration errors. Signing, attestation and refresh
+policy remain deployment responsibilities.
 
 ## PostgreSQL
 

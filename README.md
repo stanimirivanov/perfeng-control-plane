@@ -44,6 +44,7 @@ coordination, not load generation or statistical decisions.
 - Pinned, inert composition of raw, normalized and report evidence attestation.
 - Secret-safe PostgreSQL and bounded HTTP server runtime composition.
 - Strict mounted authentication configuration and inert HTTP API composition.
+- Mounted reviewed-registry loading cross-checked with artifact contracts.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1

@@ -92,6 +92,21 @@ func NewReportPolicyRegistry(entries []ReportPolicyEntry) (*ReportPolicyRegistry
 	return registry, nil
 }
 
+// ValidateContractsVersion requires every registry entry to use the exact
+// contracts version configured for artifact verification.
+func (registry *ReportPolicyRegistry) ValidateContractsVersion(version string) error {
+	if registry == nil || len(registry.entries) == 0 || !rawresult.ValidContractsVersion(version) {
+		return run.ErrValidation
+	}
+	for _, entry := range registry.entries {
+		if entry.contractsVersion != version {
+			return run.ErrValidation
+		}
+	}
+
+	return nil
+}
+
 func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 	document, err := policy.Parse(entry.PolicyBytes)
 	if err != nil || !rawresult.ValidResourceID(entry.TestID) ||
