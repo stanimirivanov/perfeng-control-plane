@@ -178,3 +178,12 @@ bounded worker without reading PostgreSQL or object storage and without making a
 Kubernetes request. The future executable remains responsible for constructing
 those dependencies, running the worker, reporting safe operational events and
 coordinating shutdown with the HTTP server.
+
+`NewRuntime` supervises the constructed HTTP server and reconciliation worker as
+one process lifetime. `Runtime.Run` starts both loops, cancels the peer when one
+exits, and applies the configured shutdown timeout to HTTP shutdown and peer
+termination.
+Cancellation of the caller context is a successful graceful stop. Unexpected
+serve, worker or shutdown errors return the redacted `ErrRuntimeFailure`
+classification. Signal registration, exit-code policy and diagnostic logging
+remain responsibilities of the future executable.
