@@ -292,6 +292,9 @@ approved baseline evidence.
 collection, analysis and reporting behind the lifecycle router and bounded
 worker. Construction validates the complete dependency graph without calling
 PostgreSQL, Kubernetes or object storage.
+`app.Runtime` then supervises the HTTP and worker loops together, cancels the
+peer on exit, and applies bounded graceful HTTP shutdown without choosing a
+signal, authentication or deployment policy.
 
 ## Contract provenance
 
