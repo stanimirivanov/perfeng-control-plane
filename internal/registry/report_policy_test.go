@@ -44,6 +44,43 @@ func executionTemplate(image string) *batchv1.Job {
 	}
 }
 
+func TestReportPolicyRegistryValidatesUniformContractsVersion(t *testing.T) {
+	entry, _, _ := reportPolicyFixture(t)
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.ValidateContractsVersion(entry.ContractsVersion); err != nil {
+		t.Fatal(err)
+	}
+	second := entry
+	second.Profile = "load"
+	second.ContractsVersion = "0.9.0"
+	mixed, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry, second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name     string
+		registry *ReportPolicyRegistry
+		version  string
+	}{
+		{name: "nil registry", version: entry.ContractsVersion},
+		{name: "empty registry", registry: &ReportPolicyRegistry{}, version: entry.ContractsVersion},
+		{name: "invalid version", registry: registry, version: "latest"},
+		{name: "mismatch", registry: registry, version: "0.9.0"},
+		{name: "mixed versions", registry: mixed, version: entry.ContractsVersion},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.registry.ValidateContractsVersion(test.version); !errors.Is(
+				err, run.ErrValidation,
+			) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
 func reportPolicyFixture(t *testing.T) (ReportPolicyEntry, run.Run, reconcile.ReportingInput) {
 	t.Helper()
 	policyBytes, err := contract.Files.ReadFile("snapshot/examples/policy/browser.json")
