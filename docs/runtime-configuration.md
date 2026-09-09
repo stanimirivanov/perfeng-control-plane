@@ -136,7 +136,9 @@ Its image, command, volumes, endpoints and credential sources remain part of the
 reviewed deployment template and production composition. Reporting currently
 binds this staging contract for the normalized candidate and the exact policy
 identity, version, SHA-256 digest and destination. Policy content is not embedded
-in the Job. Baseline materialization remains separate composition work.
+in the Job. Available baseline artifacts are bound once per artifact ID with
+indexed immutable metadata and deterministic result and artifact-reference paths.
+A count variable defines the complete set; unavailable baselines are omitted.
 
 ## Reconciliation stages
 
