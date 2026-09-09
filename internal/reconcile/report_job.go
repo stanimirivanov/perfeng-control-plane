@@ -3,9 +3,12 @@ package reconcile
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"path"
 	"strconv"
+	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,6 +34,8 @@ const (
 	reportPolicyVersionEnvironment       = "PERFENG_REPORT_POLICY_VERSION"
 	reportPolicySHA256Environment        = "PERFENG_REPORT_POLICY_SHA256"
 	reportPolicyPathEnvironment          = "PERFENG_REPORT_POLICY_PATH"
+	reportReferenceCountEnvironment      = "PERFENG_REPORT_REFERENCE_COUNT"
+	reportReferenceEnvironmentPrefix     = "PERFENG_REPORT_REFERENCE_"
 )
 
 // ReportJobConfig supplies a reusable Pod specification, the containers owned
@@ -94,6 +99,10 @@ func (resolver *KubernetesReportJobResolver) ResolveReportJob(
 		!reportPlanMatchesRequest(plan, current.Request.Policy) {
 		return nil, run.ErrValidation
 	}
+	referenceEnvironment, err := reportReferenceEnvironment(resolver.config, plan.Baselines)
+	if err != nil {
+		return nil, err
+	}
 
 	template := resolver.config.Template.DeepCopy()
 	container := jobContainer(template, resolver.config.ContainerName)
@@ -109,6 +118,7 @@ func (resolver *KubernetesReportJobResolver) ResolveReportJob(
 		inputContainer.Env,
 		reportPolicyEnvironment(resolver.config, current.Request.Policy)...,
 	)
+	inputContainer.Env = append(inputContainer.Env, referenceEnvironment...)
 	container.Image = plan.Producer.Image
 	container.Command = []string{reportExecutable}
 	container.Args = reportArguments(resolver.config, plan)
@@ -171,8 +181,55 @@ func reportPolicyEnvironment(config ReportJobConfig, reference run.Reference) []
 	}
 }
 
+func reportReferenceEnvironment(
+	config ReportJobConfig,
+	resolutions []policy.BaselineResolution,
+) ([]corev1.EnvVar, error) {
+	environment := []corev1.EnvVar{{Name: reportReferenceCountEnvironment}}
+	seen := make(map[string]run.Artifact, len(resolutions))
+	count := 0
+	for _, resolution := range resolutions {
+		if resolution.Artifact == nil {
+			continue
+		}
+		artifact := *resolution.Artifact
+		if previous, exists := seen[artifact.ID]; exists {
+			if previous != artifact {
+				return nil, run.ErrValidation
+			}
+			continue
+		}
+		encoded, err := json.Marshal(artifact)
+		if err != nil {
+			return nil, run.ErrValidation
+		}
+		resultPath, referencePath := reportReferencePaths(config, artifact.ID)
+		prefix := reportReferenceEnvironmentPrefix + strconv.Itoa(count) + "_"
+		environment = append(environment,
+			corev1.EnvVar{Name: prefix + "ARTIFACT_ID", Value: artifact.ID},
+			corev1.EnvVar{Name: prefix + "URI", Value: artifact.URI},
+			corev1.EnvVar{Name: prefix + "SHA256", Value: artifact.SHA256},
+			corev1.EnvVar{Name: prefix + "SIZE_BYTES", Value: strconv.FormatInt(artifact.SizeBytes, 10)},
+			corev1.EnvVar{Name: prefix + "PATH", Value: resultPath},
+			corev1.EnvVar{Name: prefix + "REFERENCE_PATH", Value: referencePath},
+			corev1.EnvVar{
+				Name:  prefix + "ARTIFACT_BASE64",
+				Value: base64.StdEncoding.EncodeToString(encoded),
+			},
+		)
+		seen[artifact.ID] = artifact
+		count++
+	}
+	environment[0].Value = strconv.Itoa(count)
+
+	return environment, nil
+}
+
 func hasReservedReportInputEnvironment(environment []corev1.EnvVar) bool {
 	for _, variable := range environment {
+		if strings.HasPrefix(variable.Name, reportReferenceEnvironmentPrefix) {
+			return true
+		}
 		switch variable.Name {
 		case reportCandidateArtifactIDEnvironment,
 			reportCandidateRunIDEnvironment,
@@ -216,12 +273,12 @@ func reportArguments(config ReportJobConfig, plan ReportPlan) []string {
 		if resolution.Artifact == nil {
 			continue
 		}
-		directory := path.Join(config.ReferenceDirectory, resolution.Artifact.ID)
+		resultPath, referencePath := reportReferencePaths(config, resolution.Artifact.ID)
 		arguments = append(
 			arguments,
 			"--baseline", resolution.ID, resolution.Version,
-			path.Join(directory, "normalized-result.json"),
-			path.Join(directory, "artifact-reference.json"),
+			resultPath,
+			referencePath,
 		)
 	}
 
@@ -230,4 +287,11 @@ func reportArguments(config ReportJobConfig, plan ReportPlan) []string {
 		"--producer-image", plan.Producer.Image,
 		"--output", config.OutputPath,
 	)
+}
+
+func reportReferencePaths(config ReportJobConfig, artifactID string) (string, string) {
+	directory := path.Join(config.ReferenceDirectory, artifactID)
+
+	return path.Join(directory, "normalized-result.json"),
+		path.Join(directory, "artifact-reference.json")
 }

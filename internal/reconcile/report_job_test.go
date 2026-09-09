@@ -3,7 +3,9 @@ package reconcile
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strconv"
@@ -141,6 +143,10 @@ func TestKubernetesReportJobResolverBuildsPolicyKeyedArguments(t *testing.T) {
 		t.Fatalf("arguments = %q, want %q", container.Args, want)
 	}
 	inputContainer := jobInitContainer(template, "stage-inputs")
+	referenceJSON, err := json.Marshal(*plan.Baselines[0].Artifact)
+	if err != nil {
+		t.Fatal(err)
+	}
 	wantEnvironment := []corev1.EnvVar{
 		{Name: "AWS_REGION", Value: "eu-west-1"},
 		{Name: reportCandidateArtifactIDEnvironment, Value: plan.Candidate.ID},
@@ -160,6 +166,20 @@ func TestKubernetesReportJobResolverBuildsPolicyKeyedArguments(t *testing.T) {
 		{Name: reportPolicyVersionEnvironment, Value: current.Request.Policy.Version},
 		{Name: reportPolicySHA256Environment, Value: current.Request.Policy.SHA256},
 		{Name: reportPolicyPathEnvironment, Value: config.PolicyPath},
+		{Name: reportReferenceCountEnvironment, Value: "1"},
+		{Name: "PERFENG_REPORT_REFERENCE_0_ARTIFACT_ID", Value: plan.Baselines[0].Artifact.ID},
+		{Name: "PERFENG_REPORT_REFERENCE_0_URI", Value: plan.Baselines[0].Artifact.URI},
+		{Name: "PERFENG_REPORT_REFERENCE_0_SHA256", Value: plan.Baselines[0].Artifact.SHA256},
+		{
+			Name:  "PERFENG_REPORT_REFERENCE_0_SIZE_BYTES",
+			Value: strconv.FormatInt(plan.Baselines[0].Artifact.SizeBytes, 10),
+		},
+		{Name: "PERFENG_REPORT_REFERENCE_0_PATH", Value: referenceDirectory + "/normalized-result.json"},
+		{Name: "PERFENG_REPORT_REFERENCE_0_REFERENCE_PATH", Value: referenceDirectory + "/artifact-reference.json"},
+		{
+			Name:  "PERFENG_REPORT_REFERENCE_0_ARTIFACT_BASE64",
+			Value: base64.StdEncoding.EncodeToString(referenceJSON),
+		},
 	}
 	if inputContainer == nil || !reflect.DeepEqual(inputContainer.Env, wantEnvironment) {
 		t.Fatalf("input environment = %+v, want %+v", inputContainer, wantEnvironment)
@@ -175,11 +195,14 @@ func TestKubernetesReportJobResolverBuildsPolicyKeyedArguments(t *testing.T) {
 
 	container.Args[0] = "changed"
 	inputContainer.Env[1].Value = "changed"
+	inputContainer.Env[len(inputContainer.Env)-1].Value = "changed"
 	again, err := resolver.ResolveReportJob(
 		context.Background(), "principal-a", current, input,
 	)
 	if err != nil || jobContainer(again, "reporter").Args[0] != "--candidate" ||
-		jobInitContainer(again, "stage-inputs").Env[1].Value != plan.Candidate.ID {
+		jobInitContainer(again, "stage-inputs").Env[1].Value != plan.Candidate.ID ||
+		jobInitContainer(again, "stage-inputs").Env[len(wantEnvironment)-1].Value !=
+			base64.StdEncoding.EncodeToString(referenceJSON) {
 		t.Fatal("resolved Jobs share mutable state")
 	}
 }
@@ -225,6 +248,12 @@ func TestKubernetesReportJobResolverRejectsInvalidConfiguration(t *testing.T) {
 			config.Template.Spec.Template.Spec.InitContainers[0].Env = append(
 				config.Template.Spec.Template.Spec.InitContainers[0].Env,
 				corev1.EnvVar{Name: reportPolicySHA256Environment, Value: strings.Repeat("0", 64)},
+			)
+		}},
+		{name: "reserved reference environment", plans: validPlans, mutate: func(config *ReportJobConfig) {
+			config.Template.Spec.Template.Spec.InitContainers[0].Env = append(
+				config.Template.Spec.Template.Spec.InitContainers[0].Env,
+				corev1.EnvVar{Name: "PERFENG_REPORT_REFERENCE_7_URI", Value: "untrusted"},
 			)
 		}},
 		{name: "predefined command", plans: validPlans, mutate: func(config *ReportJobConfig) {
@@ -283,6 +312,14 @@ func TestKubernetesReportJobResolverValidatesResolvedPlanAndContext(t *testing.T
 		{name: "changed policy", principal: "principal-a", state: run.StateReporting, input: input, plan: func() ReportPlan {
 			plan := valid.Clone()
 			plan.PolicyBytes = append(plan.PolicyBytes, ' ')
+			return plan
+		}(), want: run.ErrValidation},
+		{name: "conflicting reference artifact", principal: "principal-a", state: run.StateReporting, input: input, plan: func() ReportPlan {
+			plan := valid.Clone()
+			artifact := *plan.Baselines[1].Artifact
+			artifact.URI = strings.TrimSuffix(artifact.URI, ".json") + "-other.json"
+			plan.Baselines[1].Artifact = &artifact
+
 			return plan
 		}(), want: run.ErrValidation},
 	} {

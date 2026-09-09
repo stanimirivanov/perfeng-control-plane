@@ -359,8 +359,10 @@ fixed candidate and artifact-reference destinations through reserved environment
 variables. It also receives the exact policy identity, version, SHA-256 digest
 and destination path, while policy bytes remain outside the Job specification.
 The template retains ownership of transfer mechanics, policy sourcing,
-credentials and volumes; baseline materialization remains separate composition
-work.
+credentials and volumes. Available baseline inputs are bound as a deterministic,
+deduplicated artifact set with indexed download metadata, destination paths and
+canonical artifact references. Missing baselines remain absent; different
+metadata claiming the same artifact ID is rejected.
 The S3 storage adapter supplies deterministic report-output
 publication discovery without accepting candidate locations.
 
