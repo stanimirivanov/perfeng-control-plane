@@ -43,6 +43,7 @@ coordination, not load generation or statistical decisions.
 - AWS SDK client construction through the standard credential provider chain.
 - Pinned, inert composition of raw, normalized and report evidence attestation.
 - Secret-safe PostgreSQL and bounded HTTP server runtime composition.
+- Strict mounted authentication configuration and inert HTTP API composition.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
