@@ -6,8 +6,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/kubernetes"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/policy"
@@ -36,7 +39,7 @@ func reportJobConfig() ReportJobConfig {
 	template.Spec.Template.Spec.Containers[0].Name = "reporter"
 
 	return ReportJobConfig{
-		Template: template, ContainerName: "reporter",
+		Template: template, ContainerName: "reporter", InputContainerName: "stage-inputs",
 		CandidatePath:         "/workspace/input/candidate/normalized-result.json",
 		CandidateArtifactPath: "/workspace/input/candidate/artifact-reference.json",
 		PolicyPath:            "/workspace/input/performance-policy.json",
@@ -137,16 +140,42 @@ func TestKubernetesReportJobResolverBuildsPolicyKeyedArguments(t *testing.T) {
 	if !reflect.DeepEqual(container.Args, want) {
 		t.Fatalf("arguments = %q, want %q", container.Args, want)
 	}
+	inputContainer := jobInitContainer(template, "stage-inputs")
+	wantEnvironment := []corev1.EnvVar{
+		{Name: "AWS_REGION", Value: "eu-west-1"},
+		{Name: reportCandidateArtifactIDEnvironment, Value: plan.Candidate.ID},
+		{Name: reportCandidateRunIDEnvironment, Value: plan.Candidate.RunID},
+		{Name: reportCandidateKindEnvironment, Value: plan.Candidate.Kind},
+		{Name: reportCandidateURIEnvironment, Value: plan.Candidate.URI},
+		{Name: reportCandidateSHA256Environment, Value: plan.Candidate.SHA256},
+		{
+			Name:  reportCandidateSizeEnvironment,
+			Value: strconv.FormatInt(plan.Candidate.SizeBytes, 10),
+		},
+		{Name: reportCandidateMediaTypeEnvironment, Value: plan.Candidate.MediaType},
+		{Name: reportCandidateFormatEnvironment, Value: plan.Candidate.Format},
+		{Name: reportCandidatePathEnvironment, Value: config.CandidatePath},
+		{Name: reportCandidateReferenceEnvironment, Value: config.CandidateArtifactPath},
+	}
+	if inputContainer == nil || !reflect.DeepEqual(inputContainer.Env, wantEnvironment) {
+		t.Fatalf("input environment = %+v, want %+v", inputContainer, wantEnvironment)
+	}
 	if original.Spec.Template.Spec.Containers[0].Args != nil ||
-		original.Spec.Template.Spec.Containers[0].Command != nil {
+		original.Spec.Template.Spec.Containers[0].Command != nil ||
+		!reflect.DeepEqual(
+			original.Spec.Template.Spec.InitContainers[0].Env,
+			[]corev1.EnvVar{{Name: "AWS_REGION", Value: "eu-west-1"}},
+		) {
 		t.Fatal("constructor changed its input template")
 	}
 
 	container.Args[0] = "changed"
+	inputContainer.Env[1].Value = "changed"
 	again, err := resolver.ResolveReportJob(
 		context.Background(), "principal-a", current, input,
 	)
-	if err != nil || jobContainer(again, "reporter").Args[0] != "--candidate" {
+	if err != nil || jobContainer(again, "reporter").Args[0] != "--candidate" ||
+		jobInitContainer(again, "stage-inputs").Env[1].Value != plan.Candidate.ID {
 		t.Fatal("resolved Jobs share mutable state")
 	}
 }
@@ -168,6 +197,25 @@ func TestKubernetesReportJobResolverRejectsInvalidConfiguration(t *testing.T) {
 		}},
 		{name: "container", plans: validPlans, mutate: func(config *ReportJobConfig) {
 			config.ContainerName = "missing"
+		}},
+		{name: "input container", plans: validPlans, mutate: func(config *ReportJobConfig) {
+			config.InputContainerName = "missing"
+		}},
+		{name: "duplicate input container", plans: validPlans, mutate: func(config *ReportJobConfig) {
+			container := config.Template.Spec.Template.Spec.InitContainers[0]
+			config.Template.Spec.Template.Spec.InitContainers = append(
+				config.Template.Spec.Template.Spec.InitContainers,
+				container,
+			)
+		}},
+		{name: "reserved input environment", plans: validPlans, mutate: func(config *ReportJobConfig) {
+			config.Template.Spec.Template.Spec.InitContainers[0].Env = append(
+				config.Template.Spec.Template.Spec.InitContainers[0].Env,
+				corev1.EnvVar{
+					Name:  reportCandidateURIEnvironment,
+					Value: "s3://untrusted/candidate.json",
+				},
+			)
 		}},
 		{name: "predefined command", plans: validPlans, mutate: func(config *ReportJobConfig) {
 			config.Template.Spec.Template.Spec.Containers[0].Command = []string{"other"}
