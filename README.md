@@ -122,6 +122,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/memory | Atomic process-local test adapter |
 | internal/postgres | Durable transactions, migrations and artifact-reference storage |
 | internal/httpapi | HTTP parsing, auth/approval seams, status/response mapping |
+| internal/authentication | Hashed static credentials for the isolated local API boundary |
 | internal/kubernetes | Deterministic Job dispatch, identity-checked observation, stop and Pod checks |
 | internal/objectstore | Approved S3 location policy and artifact-byte verification |
 | internal/jsondocument | Shared bounded, duplicate-safe contract JSON handling |
