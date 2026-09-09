@@ -288,6 +288,10 @@ The same storage boundary discovers report output only from
 `runs/<run-id>/analysis-result.json`; the report collector separately verifies
 its bytes and binds it to the normalized candidate, policy, producer and
 approved baseline evidence.
+`app.NewReconciliationWorker` composes validation, provisioning, bound execution,
+collection, analysis and reporting behind the lifecycle router and bounded
+worker. Construction validates the complete dependency graph without calling
+PostgreSQL, Kubernetes or object storage.
 
 ## Contract provenance
 
