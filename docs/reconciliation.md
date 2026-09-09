@@ -356,8 +356,11 @@ reuses deterministic paths when baseline identities share an artifact. Registry
 population and refresh remain separate work. A named input-staging init
 container receives the candidate's complete immutable artifact metadata and
 fixed candidate and artifact-reference destinations through reserved environment
-variables. The template retains ownership of transfer mechanics, credentials and
-volumes; policy and baseline materialization remain separate composition work.
+variables. It also receives the exact policy identity, version, SHA-256 digest
+and destination path, while policy bytes remain outside the Job specification.
+The template retains ownership of transfer mechanics, policy sourcing,
+credentials and volumes; baseline materialization remains separate composition
+work.
 The S3 storage adapter supplies deterministic report-output
 publication discovery without accepting candidate locations.
 
