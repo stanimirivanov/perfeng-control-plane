@@ -8,8 +8,14 @@ client is created.
 ## Static bearer authentication
 
 The first isolated local deployment uses a strict file-based credential
-registry. It is an executable-composition input rather than environment-variable
-content. The document has this shape:
+registry:
+
+| Variable | Meaning |
+| --- | --- |
+| `PERFENG_AUTHENTICATION_FILE` | Canonical absolute path to the mounted credential document |
+
+Credential content is never placed in an environment variable. The document
+has this shape:
 
 ~~~json
 {
@@ -35,7 +41,8 @@ Only SHA-256 token digests are read and retained. The bearer tokens themselves
 must be generated with sufficient entropy and delivered separately to clients;
 they do not belong in this document, process arguments, ordinary logs or the
 repository. The future executable will mount the document from a Kubernetes
-Secret and choose its path explicitly.
+Secret and supply its path explicitly. Startup reads the complete bounded file
+once and composes the resulting immutable authenticator with the HTTP handler.
 
 This adapter is intended for the isolated local vertical slice. It does not
 provide token issuance, revocation, expiry, rate limiting or federated identity.
