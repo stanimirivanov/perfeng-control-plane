@@ -218,6 +218,14 @@ func TestValidateReusableJobTemplateRejectsExecutionIdentity(t *testing.T) {
 	if err := ValidateReusableJobTemplate(jobTemplate()); err != nil {
 		t.Fatal(err)
 	}
+	withTaggedDigest := jobTemplate()
+	withTaggedDigest.Spec.Template.Spec.InitContainers = []corev1.Container{{
+		Name:  "stage-inputs",
+		Image: "amazon/aws-cli:2.36.37@sha256:" + strings.Repeat("b", 64),
+	}}
+	if err := ValidateReusableJobTemplate(withTaggedDigest); err != nil {
+		t.Fatalf("tagged digest image rejected: %v", err)
+	}
 	for name, mutate := range map[string]func(*batchv1.Job){
 		"name":      func(job *batchv1.Job) { job.Name = testRunID },
 		"namespace": func(job *batchv1.Job) { job.Namespace = "perf-runs" },

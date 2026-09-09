@@ -40,6 +40,16 @@ type AnalysisJobConfig struct {
 	OutputPath         string
 }
 
+// Validate checks the reusable template, owned containers and fixed distinct
+// workspace paths without modifying the Job.
+func (config AnalysisJobConfig) Validate() error {
+	if !validAnalysisJobConfig(config) {
+		return run.ErrValidation
+	}
+
+	return nil
+}
+
 // KubernetesAnalysisJobResolver converts an approved plan into one restricted Job template.
 type KubernetesAnalysisJobResolver struct {
 	plans  AnalysisPlanResolver
@@ -53,7 +63,7 @@ func NewKubernetesAnalysisJobResolver(
 	plans AnalysisPlanResolver,
 	config AnalysisJobConfig,
 ) (*KubernetesAnalysisJobResolver, error) {
-	if plans == nil || !validAnalysisJobConfig(config) {
+	if plans == nil || config.Validate() != nil {
 		return nil, run.ErrValidation
 	}
 

@@ -180,8 +180,18 @@ analysis configuration provides its reusable template, named normalizer and
 input-staging init container, and fixed manifest, source and output paths. The
 report configuration provides its reusable template, named input-staging init
 container and fixed candidate, candidate-artifact, policy, reference-directory
-and output paths. Structured
-Job templates are deployment inputs rather than environment-variable values.
+and output paths. Structured Job templates are deployment inputs selected
+through two explicit settings:
+
+| Variable | Meaning |
+| --- | --- |
+| `PERFENG_ANALYSIS_JOB_FILE` | Canonical absolute path to the reviewed normalization Job |
+| `PERFENG_REPORT_JOB_FILE` | Canonical absolute path to the reviewed reporting Job |
+
+Each file is bounded to 1 MiB and decoded as one strict YAML or JSON Job;
+duplicate and unknown fields are rejected. The two paths must be distinct.
+Container names and workspace paths are fixed by the control-plane staging
+protocol rather than independently configurable deployment values.
 
 Construction validates every dependency and template but does not resolve a
 plan, read a baseline, access object storage or call Kubernetes. During

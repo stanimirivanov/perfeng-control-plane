@@ -3,7 +3,6 @@ package app
 import (
 	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -21,10 +20,7 @@ type RegistryConfig struct {
 // Validate requires a canonical absolute bundle root and a portable relative
 // manifest path contained by that filesystem root.
 func (config RegistryConfig) Validate() error {
-	if !validRequiredValue(config.RootDirectory) ||
-		!filepath.IsAbs(config.RootDirectory) ||
-		filepath.Clean(config.RootDirectory) != config.RootDirectory ||
-		filepath.Dir(config.RootDirectory) == config.RootDirectory {
+	if !validCanonicalAbsolutePath(config.RootDirectory) {
 		return configurationError(registryRootVariable)
 	}
 	if !validRequiredValue(config.Manifest) || config.Manifest == "." ||

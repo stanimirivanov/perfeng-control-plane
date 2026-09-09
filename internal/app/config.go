@@ -4,6 +4,7 @@ package app
 import (
 	"errors"
 	"math"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -147,6 +148,11 @@ func configurationError(name string) error {
 func validRequiredValue(value string) bool {
 	return value != "" && strings.TrimSpace(value) == value &&
 		strings.IndexFunc(value, unicode.IsControl) < 0
+}
+
+func validCanonicalAbsolutePath(value string) bool {
+	return validRequiredValue(value) && filepath.IsAbs(value) &&
+		filepath.Clean(value) == value && filepath.Dir(value) != value
 }
 
 func validRuntimeDuration(duration time.Duration) bool {

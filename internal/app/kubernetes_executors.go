@@ -18,6 +18,15 @@ type KubernetesExecutorConfig struct {
 	Report   reconcile.ReportJobConfig
 }
 
+// Validate checks both reviewed executor templates and their staging layout.
+func (config KubernetesExecutorConfig) Validate() error {
+	if config.Analysis.Validate() != nil || config.Report.Validate() != nil {
+		return ErrInvalidConfiguration
+	}
+
+	return nil
+}
+
 // KubernetesExecutors contains the analysis and reporting lifecycle adapters.
 type KubernetesExecutors struct {
 	Analysis  *reconcile.KubernetesAnalysisExecutor
@@ -34,7 +43,8 @@ func NewKubernetesExecutors(
 	config KubernetesExecutorConfig,
 ) (KubernetesExecutors, error) {
 	if trust == nil || baselines == nil || controllers.Analysis == nil ||
-		controllers.Reporting == nil || collectors.Normalized == nil || collectors.Report == nil {
+		controllers.Reporting == nil || collectors.Normalized == nil || collectors.Report == nil ||
+		config.Validate() != nil {
 		return KubernetesExecutors{}, ErrInvalidConfiguration
 	}
 
