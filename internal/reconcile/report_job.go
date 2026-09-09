@@ -52,6 +52,16 @@ type ReportJobConfig struct {
 	OutputPath            string
 }
 
+// Validate checks the reusable template, owned containers and fixed distinct
+// workspace paths without modifying the Job.
+func (config ReportJobConfig) Validate() error {
+	if !validReportJobConfig(config) {
+		return run.ErrValidation
+	}
+
+	return nil
+}
+
 // KubernetesReportJobResolver converts a trusted report plan into one restricted Job template.
 type KubernetesReportJobResolver struct {
 	plans  ReportPlanResolver
@@ -65,7 +75,7 @@ func NewKubernetesReportJobResolver(
 	plans ReportPlanResolver,
 	config ReportJobConfig,
 ) (*KubernetesReportJobResolver, error) {
-	if plans == nil || !validReportJobConfig(config) {
+	if plans == nil || config.Validate() != nil {
 		return nil, run.ErrValidation
 	}
 

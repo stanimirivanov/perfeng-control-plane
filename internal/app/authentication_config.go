@@ -2,7 +2,6 @@ package app
 
 import (
 	"os"
-	"path/filepath"
 )
 
 const authenticationFileVariable = "PERFENG_AUTHENTICATION_FILE"
@@ -14,10 +13,7 @@ type AuthenticationConfig struct {
 
 // Validate rejects missing, relative and non-canonical credential paths.
 func (config AuthenticationConfig) Validate() error {
-	if !validRequiredValue(config.CredentialFile) ||
-		!filepath.IsAbs(config.CredentialFile) ||
-		filepath.Clean(config.CredentialFile) != config.CredentialFile ||
-		filepath.Dir(config.CredentialFile) == config.CredentialFile {
+	if !validCanonicalAbsolutePath(config.CredentialFile) {
 		return configurationError(authenticationFileVariable)
 	}
 
