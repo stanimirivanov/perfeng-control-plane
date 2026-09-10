@@ -49,6 +49,7 @@ coordination, not load generation or statistical decisions.
 - Structured reconciliation failure reporting without arbitrary error text.
 - Fail-fast aggregate loading of the complete environment-sourced startup policy.
 - Ordered startup resource acquisition with idempotent, secret-safe database cleanup.
+- Complete inert composition of the authenticated HTTP and reconciliation runtime.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
@@ -68,14 +69,14 @@ coordination, not load generation or statistical decisions.
 - Principal-scoped PostgreSQL baseline storage backed by completed, registered evidence.
 
 This is a library foundation, **not a deployable service**. There is intentionally
-no HTTP server executable, Docker image or Kubernetes deployment yet. The
+no process executable, Docker image or Kubernetes deployment yet. The
 administrative `cmd/migrate` command applies database migrations, and
 `cmd/validate-registry` validates reviewed runtime bundles offline. Reconciliation
-stages are not wired into a process. Catalogue and environment publication
-verification, concrete publication adapters, registry source attestation and refresh,
-analysis and report input/output transfer, and production execution composition are still missing, so no
-worker executes Jobs from accepted requests. Tests use synthetic contract
-fixtures, not approved deployable resources.
+stages are completely composed but are not started by a process. Catalogue and
+environment publication verification, registry source attestation and refresh,
+analysis and report input/output transfer, and a production process entry point
+are still missing, so no worker executes Jobs from accepted requests. Tests use
+synthetic contract fixtures, not approved deployable resources.
 
 The in-memory adapter loses runs and idempotency bindings on restart. It cannot
 meet the API's production durability guarantees for 201/202 responses. Do not

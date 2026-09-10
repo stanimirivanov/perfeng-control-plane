@@ -22,6 +22,13 @@ every other fallible step, and is the only resource owned by the returned
 `StartupResources`. Its concurrency-safe `Close` method releases that database
 exactly once and reduces shutdown failures to a value-free classification.
 
+`NewApplicationRuntime` is the inert service composition root. It connects the
+acquired resources to Kubernetes controllers, verified evidence collectors,
+analysis and reporting executors, the authenticated HTTP handler, structured
+worker reporting, every lifecycle stage and the HTTP/worker supervisor. It does
+not bind the listener, start a goroutine, query PostgreSQL, contact Kubernetes or
+read object storage.
+
 ## Static bearer authentication
 
 The first isolated local deployment uses a strict file-based credential
@@ -257,9 +264,8 @@ Job resolver; constructed Kubernetes controllers, artifact collectors and
 analysis/reporting executors; the event reporter; and both validated timing
 configurations. It connects CREATED through REPORTING to the existing router and
 bounded worker without reading PostgreSQL or object storage and without making a
-Kubernetes request. The future executable remains responsible for constructing
-those dependencies, running the worker, reporting safe operational events and
-coordinating shutdown with the HTTP server.
+Kubernetes request. `NewApplicationRuntime` supplies those dependencies from one
+validated resource bundle and coordinates this worker with the HTTP server.
 
 ## Operational event reporting
 
@@ -283,5 +289,6 @@ exits, and applies the configured shutdown timeout to HTTP shutdown and peer
 termination.
 Cancellation of the caller context is a successful graceful stop. Unexpected
 serve, worker or shutdown errors return the redacted `ErrRuntimeFailure`
-classification. Signal registration, exit-code policy and structured logger
-construction remain responsibilities of the future executable.
+classification. Signal registration, exit-code policy, structured logger
+construction, invoking `Runtime.Run` and closing `StartupResources` remain
+responsibilities of the future executable.
