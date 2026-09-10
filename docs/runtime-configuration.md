@@ -5,6 +5,16 @@ process environment. Configuration parsing is separate from dependency
 construction so malformed or contradictory policy fails before any network
 client is created.
 
+## Aggregate startup policy
+
+`LoadApplicationConfig` reads every required environment setting into one typed
+`ApplicationConfig`. It preserves the existing variable-specific, value-free
+configuration errors and cross-validates the worker lease against reconciliation
+policy. Loading does not open mounted files, connect to PostgreSQL, inspect the
+AWS credential chain or construct a Kubernetes client. The executable can
+therefore reject incomplete policy before it acquires resources; file-backed
+content and external dependencies remain explicit later construction phases.
+
 ## Static bearer authentication
 
 The first isolated local deployment uses a strict file-based credential
