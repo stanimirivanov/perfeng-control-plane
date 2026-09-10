@@ -35,6 +35,22 @@ jobs:
       - name: Fuzz JSON parser
         run: go test -vet=off ./internal/httpapi -run=^$ -fuzz=FuzzParseJSON -fuzztime=10s
 
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Build and verify standalone image
+        run: |
+          docker build --platform linux/amd64 --build-arg VCS_REF="$GITHUB_SHA" -t perfeng-control-plane:ci .
+          go run ./cmd/verify-image verify perfeng-control-plane:ci "$GITHUB_SHA"
+
   vulnerabilities:
     runs-on: ubuntu-latest
     timeout-minutes: 10
