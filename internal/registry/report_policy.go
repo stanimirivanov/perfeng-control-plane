@@ -270,7 +270,8 @@ func (registry *ReportPolicyRegistry) ResolveJob(
 		return nil, err
 	}
 	if registry == nil || principal == "" ||
-		(current.State != run.StateValidating && current.State != run.StateProvisioning) ||
+		(current.State != run.StateValidating && current.State != run.StateProvisioning &&
+			current.State != run.StateCancelling) ||
 		current.Request.Validate() != nil {
 		return nil, run.ErrValidation
 	}

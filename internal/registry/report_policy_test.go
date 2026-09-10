@@ -560,7 +560,11 @@ func TestReportPolicyRegistryResolvesIsolatedExecutionTemplate(t *testing.T) {
 	}
 	entry.ExecutionTemplate.Spec.Template.Spec.Containers[0].Args[0] = "changed-after-construction"
 
-	for _, state := range []run.State{run.StateValidating, run.StateProvisioning} {
+	for _, state := range []run.State{
+		run.StateValidating,
+		run.StateProvisioning,
+		run.StateCancelling,
+	} {
 		current.State = state
 		template, err := registry.ResolveJob(context.Background(), "alice", current)
 		if err != nil {

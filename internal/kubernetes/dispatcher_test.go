@@ -407,6 +407,55 @@ func TestEnsureJobRecoversAmbiguousCreate(t *testing.T) {
 	}
 }
 
+func TestFindJobAdoptsWithoutCreating(t *testing.T) {
+	client := &memoryJobs{}
+	dispatcher := newTestDispatcher(t, client)
+
+	if dispatch, found, err := dispatcher.FindJob(
+		context.Background(),
+		testRunID,
+		jobTemplate(),
+	); err != nil || found || dispatch != (Dispatch{}) || client.creates != 0 {
+		t.Fatalf("absent lookup = %+v, %v, %v", dispatch, found, err)
+	}
+
+	created, err := dispatcher.EnsureJob(context.Background(), testRunID, jobTemplate())
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundDispatch, found, err := dispatcher.FindJob(
+		context.Background(),
+		testRunID,
+		jobTemplate(),
+	)
+	if err != nil || !found || foundDispatch.Execution() != created.Execution() ||
+		foundDispatch.Created || client.creates != 1 {
+		t.Fatalf("existing lookup = %+v, %v, %v", foundDispatch, found, err)
+	}
+}
+
+func TestFindJobRejectsConflictAndPreservesErrors(t *testing.T) {
+	client := &memoryJobs{}
+	dispatcher := newTestDispatcher(t, client)
+	if _, err := dispatcher.EnsureJob(context.Background(), testRunID, jobTemplate()); err != nil {
+		t.Fatal(err)
+	}
+	client.job.Labels = nil
+	if _, found, err := dispatcher.FindJob(
+		context.Background(),
+		testRunID,
+		jobTemplate(),
+	); found || !errors.Is(err, ErrJobConflict) {
+		t.Fatalf("conflicting lookup = %v, %v", found, err)
+	}
+
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, found, err := dispatcher.FindJob(cancelled, testRunID, jobTemplate()); found || !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled lookup = %v, %v", found, err)
+	}
+}
+
 func TestEnsureJobRejectsIdentityAndSpecificationConflicts(t *testing.T) {
 	client := &memoryJobs{}
 	dispatcher := newTestDispatcher(t, client)
