@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -22,6 +23,12 @@ func TestNewApplicationRuntimeComposesCompleteInertService(t *testing.T) {
 	if !ok || server.Addr != config.HTTPServer.Address ||
 		runtime.worker == nil || runtime.shutdownTimeout != config.HTTPServer.ShutdownTimeout {
 		t.Fatal("application runtime is incomplete")
+	}
+	request := httptest.NewRequest(http.MethodGet, "/livez", nil)
+	response := httptest.NewRecorder()
+	server.Handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("liveness status = %d, want %d", response.Code, http.StatusOK)
 	}
 	if output.Len() != 0 {
 		t.Fatal("runtime construction emitted a log record")

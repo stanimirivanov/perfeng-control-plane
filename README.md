@@ -51,6 +51,7 @@ coordination, not load generation or statistical decisions.
 - Ordered startup resource acquisition with idempotent, secret-safe database cleanup.
 - Complete inert composition of the authenticated HTTP and reconciliation runtime.
 - Signal-aware process entry point with structured, value-free lifecycle reporting.
+- Unauthenticated liveness/readiness endpoints and fixed-cardinality Prometheus metrics.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
