@@ -15,6 +15,13 @@ AWS credential chain or construct a Kubernetes client. The executable can
 therefore reject incomplete policy before it acquires resources; file-backed
 content and external dependencies remain explicit later construction phases.
 
+`NewStartupResources` performs the next bounded startup phase. It loads the
+credential document, reviewed registry and executor templates before constructing
+the inert S3 and in-cluster Kubernetes clients. PostgreSQL is opened last, after
+every other fallible step, and is the only resource owned by the returned
+`StartupResources`. Its concurrency-safe `Close` method releases that database
+exactly once and reduces shutdown failures to a value-free classification.
+
 ## Static bearer authentication
 
 The first isolated local deployment uses a strict file-based credential
