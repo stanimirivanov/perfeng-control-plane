@@ -50,6 +50,7 @@ coordination, not load generation or statistical decisions.
 - Fail-fast aggregate loading of the complete environment-sourced startup policy.
 - Ordered startup resource acquisition with idempotent, secret-safe database cleanup.
 - Complete inert composition of the authenticated HTTP and reconciliation runtime.
+- Signal-aware process entry point with structured, value-free lifecycle reporting.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
@@ -68,15 +69,16 @@ coordination, not load generation or statistical decisions.
 - Versioned baseline candidates with revision-checked qualification, approval and retirement.
 - Principal-scoped PostgreSQL baseline storage backed by completed, registered evidence.
 
-This is a library foundation, **not a deployable service**. There is intentionally
-no process executable, Docker image or Kubernetes deployment yet. The
+The control-plane process entry point is implemented, but this repository does
+not yet publish a Docker image or Kubernetes deployment. The
 administrative `cmd/migrate` command applies database migrations, and
 `cmd/validate-registry` validates reviewed runtime bundles offline. Reconciliation
-stages are completely composed but are not started by a process. Catalogue and
+stages start only after complete configuration, mounted inputs and external
+dependencies have been validated. Catalogue and
 environment publication verification, registry source attestation and refresh,
-analysis and report input/output transfer, and a production process entry point
-are still missing, so no worker executes Jobs from accepted requests. Tests use
-synthetic contract fixtures, not approved deployable resources.
+and analysis/report input and output transfer are still missing from the
+repository-owned deployment. Tests use synthetic contract fixtures, not approved
+deployable resources.
 
 The in-memory adapter loses runs and idempotency bindings on restart. It cannot
 meet the API's production durability guarantees for 201/202 responses. Do not

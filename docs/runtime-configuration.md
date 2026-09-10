@@ -289,6 +289,18 @@ exits, and applies the configured shutdown timeout to HTTP shutdown and peer
 termination.
 Cancellation of the caller context is a successful graceful stop. Unexpected
 serve, worker or shutdown errors return the redacted `ErrRuntimeFailure`
-classification. Signal registration, exit-code policy, structured logger
-construction, invoking `Runtime.Run` and closing `StartupResources` remain
-responsibilities of the future executable.
+classification.
+
+## Process entry point
+
+`cmd/control-plane` completes the process lifecycle. It installs cancellation
+for interrupt and termination signals, constructs a JSON logger on standard
+error, loads configuration, acquires resources, composes the application, runs
+the supervised services and closes resources after they stop. Signal-driven
+cancellation is successful; startup, runtime and cleanup failures return a
+non-zero status.
+
+Process records use fixed messages and the stable fields `component`, `phase`
+and, for failures, `error_class`. Returned error text is never logged. Known
+configuration, dependency, runtime and resource-shutdown sentinels receive fixed
+classifications; all other errors become `unknown`.
