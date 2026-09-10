@@ -54,7 +54,7 @@ func TestRouterRoutesEveryActiveState(t *testing.T) {
 		{run.StateProvisioning, "provisioning"},
 		{run.StateWarmingUp, "bound"},
 		{run.StateRunning, "bound"},
-		{run.StateCancelling, "bound"},
+		{run.StateCancelling, "provisioning"},
 		{run.StateCollecting, "collection"},
 		{run.StateAnalyzing, "analysis"},
 		{run.StateReporting, "reporting"},

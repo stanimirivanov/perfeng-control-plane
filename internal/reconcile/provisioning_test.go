@@ -42,6 +42,23 @@ type provisioningStore struct {
 	events     []string
 	boundLease run.Lease
 	renewedTTL time.Duration
+	advanced   run.Change
+	advanceRev int64
+}
+
+func (store *provisioningStore) AdvanceClaim(
+	ctx context.Context,
+	lease run.Lease,
+	revision int64,
+	change run.Change,
+) (run.Run, error) {
+	store.events = append(store.events, "advance")
+	if err := ctx.Err(); err != nil {
+		return run.Run{}, err
+	}
+	store.advanced, store.advanceRev = change, revision
+
+	return store.claim.Run, nil
 }
 
 func (store *provisioningStore) GetExecution(ctx context.Context, lease run.Lease) (kubernetes.Execution, bool, error) {
@@ -211,6 +228,72 @@ func TestProvisioningRecoversAmbiguousCreate(t *testing.T) {
 	}
 }
 
+func TestProvisioningRecoversUnboundCancellationWithoutCreatingJob(t *testing.T) {
+	reconciler, store, jobs := provisioningFixture(t)
+	claim := store.claim
+	if _, err := reconciler.dispatcher.EnsureJob(
+		context.Background(),
+		claim.Run.ID,
+		provisioningTemplate(),
+	); err != nil {
+		t.Fatal(err)
+	}
+	store.claim.Run.State = run.StateCancelling
+	claim = store.claim
+	store.events = nil
+
+	if _, err := reconciler.Reconcile(context.Background(), claim); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"lookup", "resolve", "renew", "get-job", "bind"}
+	if jobs.creates != 1 || !store.found || !reflect.DeepEqual(store.events, want) {
+		t.Fatalf("recovery created or failed to bind the existing Job: %v, %v", jobs.creates, store.events)
+	}
+
+	store.events = nil
+	result, err := reconciler.Reconcile(context.Background(), claim)
+	if err != nil || result.RetryAfter != 7*time.Second ||
+		!reflect.DeepEqual(store.events, []string{"lookup", "bound"}) {
+		t.Fatalf("recovered cancellation was not routed to bound cleanup: %+v, %v, %v", result, err, store.events)
+	}
+}
+
+func TestProvisioningAbortsUnboundCancellationWhenJobIsAbsent(t *testing.T) {
+	reconciler, store, jobs := provisioningFixture(t)
+	store.claim.Run.State = run.StateCancelling
+	claim := store.claim
+
+	if _, err := reconciler.Reconcile(context.Background(), claim); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"lookup", "resolve", "renew", "get-job", "advance"}
+	if jobs.creates != 0 || !reflect.DeepEqual(store.events, want) ||
+		store.advanced.State != run.StateAborted || store.advanceRev != claim.Run.Revision {
+		t.Fatalf("absent recovery effects: creates=%d, events=%v, change=%+v", jobs.creates, store.events, store.advanced)
+	}
+}
+
+func TestProvisioningDoesNotBindConflictingJobDuringCancellationRecovery(t *testing.T) {
+	reconciler, store, jobs := provisioningFixture(t)
+	claim := store.claim
+	if _, err := reconciler.dispatcher.EnsureJob(
+		context.Background(),
+		claim.Run.ID,
+		provisioningTemplate(),
+	); err != nil {
+		t.Fatal(err)
+	}
+	jobs.job.Labels = nil
+	store.claim.Run.State = run.StateCancelling
+
+	if _, err := reconciler.Reconcile(context.Background(), store.claim); !errors.Is(err, kubernetes.ErrJobConflict) {
+		t.Fatalf("conflicting Job error = %v", err)
+	}
+	if store.found || store.advanced.State != "" || jobs.creates != 1 {
+		t.Fatal("conflicting Job was bound, deleted or replaced")
+	}
+}
+
 func TestProvisioningRecoversAmbiguousBinding(t *testing.T) {
 	for _, committed := range []bool{false, true} {
 		t.Run(map[bool]string{false: "not committed", true: "committed"}[committed], func(t *testing.T) {
@@ -362,7 +445,7 @@ func TestProvisioningPreservesLostOwnershipAndCancellationAfterCreate(t *testing
 }
 
 func TestProvisioningRefusesNonProvisioningAndInvalidClaims(t *testing.T) {
-	for _, state := range []run.State{run.StateCreated, run.StateValidating, run.StateRunning, run.StateCancelling, run.StateAborted} {
+	for _, state := range []run.State{run.StateCreated, run.StateValidating, run.StateRunning, run.StateAborted} {
 		reconciler, store, _ := provisioningFixture(t)
 		claim := store.claim
 		claim.Run.State = state

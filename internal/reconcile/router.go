@@ -54,7 +54,9 @@ func (router *Router) Reconcile(ctx context.Context, claim run.Claim) (worker.Re
 		return router.validation.Reconcile(ctx, claim)
 	case run.StateProvisioning:
 		return router.provisioning.Reconcile(ctx, claim)
-	case run.StateWarmingUp, run.StateRunning, run.StateCancelling:
+	case run.StateCancelling:
+		return router.provisioning.Reconcile(ctx, claim)
+	case run.StateWarmingUp, run.StateRunning:
 		return router.bound.Reconcile(ctx, claim)
 	case run.StateCollecting:
 		return router.collection.Reconcile(ctx, claim)

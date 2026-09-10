@@ -21,6 +21,9 @@ The dispatcher:
 
 `Dispatcher.ValidateJob` applies the same preparation and execution policy without
 calling the Kubernetes API. Validation does not mutate the supplied template.
+`Dispatcher.FindJob` applies the same identity and specification checks but only
+reads the deterministic Job. It never creates a missing Job. Cancellation recovery
+uses this boundary after an earlier create may have returned ambiguously.
 
 An existing Job with another owner, fingerprint or requested specification
 returns `ErrJobConflict`. It is never deleted, patched or replaced. This makes a
@@ -40,7 +43,7 @@ Runs. It checks durable bindings before dispatch, resolves a trusted template,
 rechecks the current lease/state, then creates or adopts and binds the returned
 identity. It bounds the attempt with a context deadline and never recreates an
 already-bound execution. See [provisioning reconciliation](reconciliation.md#provisioning-reconciliation)
-for ambiguous outcomes and the remaining unbound-cancellation recovery gap.
+for ambiguous outcomes and unbound-cancellation recovery.
 
 An opt-in integration test creates an isolated namespace against a real API
 server and verifies create, replay adoption and observation after defaulting. Set

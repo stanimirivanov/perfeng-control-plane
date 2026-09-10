@@ -112,8 +112,8 @@ from storage:
 | --- | --- |
 | CREATED | Lease-fenced advance to VALIDATING |
 | VALIDATING | Validation reconciler |
-| PROVISIONING | Provisioning reconciler |
-| WARMING_UP, RUNNING, CANCELLING | Bound-execution reconciler |
+| PROVISIONING, CANCELLING | Provisioning and cancellation-recovery reconciler |
+| WARMING_UP, RUNNING | Bound-execution reconciler |
 | COLLECTING | Raw-artifact collection reconciler |
 | ANALYZING | Analysis reconciler |
 | REPORTING | Reporting reconciler |
@@ -121,11 +121,9 @@ from storage:
 Terminal and unknown states are rejected; the storage contract must not claim
 terminal Runs.
 
-CANCELLING currently routes to bound-execution reconciliation and therefore
-requires a durable execution identity. Recovery for cancellation after an
-ambiguous create but before identity binding remains a production-composition
-gap; the router must not be wired into a production worker until that path has a
-dedicated recovery stage.
+CANCELLING first routes through cancellation recovery. Existing bindings delegate
+to bound execution immediately; unbound Runs use read-only Job discovery so the
+router cannot create work after cancellation.
 
 ## Raw-artifact collection
 
@@ -368,10 +366,10 @@ publication discovery without accepting candidate locations.
 
 ## Provisioning reconciliation
 
-`ProvisioningReconciler` accepts only PROVISIONING claims. It first loads the
-durable execution binding under the current lease. If a binding exists, it invokes
-the bound stage without resolving or creating a Job, even when that Job is absent
-from Kubernetes. A persisted execution must never be silently replaced.
+`ProvisioningReconciler` accepts PROVISIONING and CANCELLING claims. It first loads
+the durable execution binding under the current lease. If a binding exists, it
+invokes the bound stage without resolving or creating a Job, even when that Job is
+absent from Kubernetes. A persisted execution must never be silently replaced.
 
 For an unbound Run, `JobResolver` receives the principal and an independent Run
 snapshot. The resolver must authorize the pinned resources, verify their published
@@ -404,10 +402,13 @@ successful create, the returned identity is still bound when context and lease
 ownership permit, without overwriting CANCELLING.
 
 The pre-dispatch ownership check is not atomic with the Kubernetes request.
-Unbound cancellation after an ambiguous create remains an explicit recovery gap;
-this stage refuses CANCELLING claims and never creates a Job to cancel it. A full
-router must address that gap before production use. Migrations and public API
-behavior are unchanged by this stage.
+CANCELLING claims therefore route through this stage before bound reconciliation.
+An existing binding goes directly to UID-safe cleanup. Without a binding, the
+stage resolves the same approved immutable template, renews ownership, and calls
+the read-only `FindJob` boundary. A matching Job is bound without recreation; a
+confirmed absent Job advances to ABORTED; a changed or foreign Job is rejected and
+never deleted. The next claim routes a recovered binding through normal bound
+cancellation. Migrations and public API behavior are unchanged.
 
 ## Bound execution reconciliation
 
@@ -432,9 +433,8 @@ create from appearing later. Production composition still needs bounded dispatch
 requests and a durable stop-intent/admission strategy; the platform does not claim
 exactly-once execution.
 
-The reconciler intentionally rejects a missing execution binding. Approved
-template resolution, create/adopt and binding must run before this stage, with an
-explicit recovery policy for cancellation that races an ambiguous create.
+The reconciler intentionally rejects a missing execution binding. The provisioning
+stage resolves unbound cancellation before delegating here.
 
 ## Ownership and concurrency
 

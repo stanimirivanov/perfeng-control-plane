@@ -146,6 +146,37 @@ func (dispatcher *Dispatcher) EnsureJob(
 	return acceptedDispatch(desired, existing, runID, dispatcher.namespace, false)
 }
 
+// FindJob reads and adopts an existing matching Job without creating one. It is
+// used when cancellation may have raced an ambiguous create response.
+func (dispatcher *Dispatcher) FindJob(
+	ctx context.Context,
+	runID string,
+	template *batchv1.Job,
+) (Dispatch, bool, error) {
+	desired, err := dispatcher.prepare(runID, template)
+	if err != nil {
+		return Dispatch{}, false, err
+	}
+
+	existing, err := dispatcher.jobs.Get(ctx, desired.Name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return Dispatch{}, false, nil
+	}
+	if err != nil {
+		return Dispatch{}, false, classifyAPIError("get", err)
+	}
+	if !matchingJob(desired, existing) {
+		return Dispatch{}, false, ErrJobConflict
+	}
+
+	dispatch, err := acceptedDispatch(desired, existing, runID, dispatcher.namespace, false)
+	if err != nil {
+		return Dispatch{}, false, err
+	}
+
+	return dispatch, true, nil
+}
+
 func (dispatcher *Dispatcher) prepare(runID string, template *batchv1.Job) (*batchv1.Job, error) {
 	if !contract.ValidID(runID) || template == nil {
 		return nil, run.ErrValidation

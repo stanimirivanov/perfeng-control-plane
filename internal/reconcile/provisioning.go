@@ -25,6 +25,7 @@ type JobResolver interface {
 // keeping Kubernetes I/O outside storage transactions.
 type ProvisioningStore interface {
 	kubernetes.ExecutionStore
+	ClaimAdvancer
 	// RenewClaim rechecks ownership and returns the latest Run before dispatch.
 	RenewClaim(context.Context, run.Lease, time.Duration) (run.Claim, error)
 }
@@ -34,6 +35,8 @@ type ProvisioningStore interface {
 type JobDispatcher interface {
 	// EnsureJob creates or adopts the deterministic Job without replacing conflicts.
 	EnsureJob(context.Context, string, *batchv1.Job) (kubernetes.Dispatch, error)
+	// FindJob adopts a matching deterministic Job without creating one.
+	FindJob(context.Context, string, *batchv1.Job) (kubernetes.Dispatch, bool, error)
 }
 
 // ProvisioningConfig bounds resolution, ownership recheck, dispatch and binding
@@ -60,8 +63,8 @@ func (config ProvisioningConfig) Validate() error {
 	return nil
 }
 
-// ProvisioningReconciler handles only PROVISIONING. Existing bindings are routed
-// to the bound stage; absent bindings are resolved, dispatched and persisted.
+// ProvisioningReconciler handles PROVISIONING and recovers CANCELLING Runs that
+// may have lost a binding after an ambiguous create. Recovery never creates a Job.
 type ProvisioningReconciler struct {
 	store      ProvisioningStore
 	resolver   JobResolver
@@ -102,14 +105,14 @@ func (reconciler *ProvisioningReconciler) Reconcile(
 	if !claim.Lease.Valid() || claim.Lease.RunID != claim.Run.ID || claim.Run.Revision < 1 {
 		return worker.Result{}, run.ErrValidation
 	}
-	if claim.Run.State != run.StateProvisioning {
+	if claim.Run.State != run.StateProvisioning && claim.Run.State != run.StateCancelling {
 		return worker.Result{}, ErrStateNotHandled
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, reconciler.config.AttemptTimeout)
+	attemptContext, cancel := context.WithTimeout(ctx, reconciler.config.AttemptTimeout)
 	defer cancel()
 
-	execution, found, err := reconciler.store.GetExecution(ctx, claim.Lease)
+	execution, found, err := reconciler.store.GetExecution(attemptContext, claim.Lease)
 	if err != nil {
 		return worker.Result{}, err
 	}
@@ -118,10 +121,60 @@ func (reconciler *ProvisioningReconciler) Reconcile(
 			return worker.Result{}, run.ErrValidation
 		}
 
-		return reconciler.bound.Reconcile(ctx, claim)
+		if claim.Run.State == run.StateCancelling {
+			cancel()
+
+			return reconciler.bound.Reconcile(ctx, claim)
+		}
+
+		return reconciler.bound.Reconcile(attemptContext, claim)
+	}
+	if claim.Run.State == run.StateCancelling {
+		return reconciler.recoverCancellation(attemptContext, claim)
 	}
 
-	return worker.Result{}, reconciler.dispatchAndBind(ctx, claim)
+	return worker.Result{}, reconciler.dispatchAndBind(attemptContext, claim)
+}
+
+func (reconciler *ProvisioningReconciler) recoverCancellation(
+	ctx context.Context,
+	claim run.Claim,
+) (worker.Result, error) {
+	template, err := reconciler.resolver.ResolveJob(ctx, claim.Lease.Principal, claim.Run.Clone())
+	if err != nil {
+		return worker.Result{}, err
+	}
+	if template == nil {
+		return worker.Result{}, run.ErrValidation
+	}
+
+	current, err := reconciler.store.RenewClaim(ctx, claim.Lease, reconciler.config.LeaseTTL)
+	if err != nil {
+		return worker.Result{}, err
+	}
+	if current.Run.State != run.StateCancelling || current.Run.Revision != claim.Run.Revision {
+		return worker.Result{}, nil
+	}
+
+	dispatch, found, err := reconciler.dispatcher.FindJob(ctx, claim.Run.ID, template)
+	if err != nil {
+		return worker.Result{}, err
+	}
+	if !found {
+		return advanceOwnedClaim(
+			ctx,
+			reconciler.store,
+			current,
+			run.Change{State: run.StateAborted},
+		)
+	}
+
+	execution := dispatch.Execution()
+	if !execution.Valid() || execution.RunID != claim.Run.ID {
+		return worker.Result{}, run.ErrValidation
+	}
+
+	return worker.Result{}, reconciler.store.BindExecution(ctx, claim.Lease, execution)
 }
 
 func (reconciler *ProvisioningReconciler) dispatchAndBind(ctx context.Context, claim run.Claim) error {
