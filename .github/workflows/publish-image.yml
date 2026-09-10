@@ -1,0 +1,66 @@
+name: Build and optionally publish control-plane image
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the validated main-branch image to GHCR
+        type: boolean
+        default: false
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Test source
+        run: |
+          go mod verify
+          go test -vet=off -count=1 ./...
+      - name: Build and verify Linux AMD64 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+          image="$repository:sha-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "CONTROL_PLANE_REPOSITORY=$repository" >> "$GITHUB_ENV"
+          echo "CONTROL_PLANE_IMAGE=$image" >> "$GITHUB_ENV"
+          docker build --platform linux/amd64 --build-arg VCS_REF="$GITHUB_SHA" -t "$image" .
+          go run ./cmd/verify-image verify "$image" "$GITHUB_SHA"
+      - name: Authenticate only for an explicitly requested publication
+        if: inputs.publish
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Publish and verify registry-addressable bytes
+        if: inputs.publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker push "$CONTROL_PLANE_IMAGE"
+          reference="$(go run ./cmd/verify-image reference "$CONTROL_PLANE_IMAGE" "$CONTROL_PLANE_REPOSITORY")"
+          docker pull "$reference"
+          go run ./cmd/verify-image verify "$reference" "$GITHUB_SHA"
+          printf 'Verified control-plane image: %s\n\nSource revision: %s\n\nPlatform: linux/amd64\n' "$reference" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Build-only summary
+        if: ${{ !inputs.publish }}
+        run: echo "Build and tests passed. No image was published; no registry digest was allocated." >> "$GITHUB_STEP_SUMMARY"
+      - name: Log out
+        if: ${{ always() && inputs.publish }}
+        run: docker logout ghcr.io

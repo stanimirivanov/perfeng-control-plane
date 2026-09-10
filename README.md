@@ -69,10 +69,12 @@ coordination, not load generation or statistical decisions.
 - Versioned baseline candidates with revision-checked qualification, approval and retirement.
 - Principal-scoped PostgreSQL baseline storage backed by completed, registered evidence.
 
-The control-plane process entry point is implemented, but this repository does
-not yet publish a Docker image or Kubernetes deployment. The
-administrative `cmd/migrate` command applies database migrations, and
-`cmd/validate-registry` validates reviewed runtime bundles offline. Reconciliation
+The control-plane process is packaged as a minimal, non-root Linux AMD64 image,
+with manual, main-branch-only publication to GHCR. The same image includes the
+administrative `/usr/local/bin/migrate` command for an explicitly authorized
+migration Job and `/usr/local/bin/validate-registry` for offline bundle checks;
+its default entry point is `/usr/local/bin/control-plane`. This repository does
+not yet own a Kubernetes deployment. Reconciliation
 stages start only after complete configuration, mounted inputs and external
 dependencies have been validated. Catalogue and
 environment publication verification, registry source attestation and refresh,
@@ -93,6 +95,14 @@ at v0.37.0; and the S3 adapter uses AWS SDK for Go v2 core v1.46.0,
 config v1.33.3 and service/s3 v1.110.0.
 go.mod and go.sum pin all dependencies. This Go repository does not need Python,
 uv or Ruff.
+
+Pull requests build the container and verify its platform, non-root identity,
+entry point, source-revision label and offline registry validator. After a change
+has merged to `main`, run **Build and optionally publish control-plane image**
+manually with `publish=true`. The workflow pushes a unique run-scoped tag, pulls
+the registry digest back, verifies the published bytes, and prints the immutable
+GHCR reference for the environment repository. It does not publish mutable
+release or `latest` tags.
 
 Start with [contributing and Go code-quality standards](CONTRIBUTING.md) for
 pinned tool installation, the review checklist and the complete local checks.
