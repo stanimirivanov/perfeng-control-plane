@@ -244,11 +244,27 @@ Kubernetes request. The future executable remains responsible for constructing
 those dependencies, running the worker, reporting safe operational events and
 coordinating shutdown with the HTTP server.
 
+## Operational event reporting
+
+`NewWorkerEventReporter` adapts worker failures to a concurrency-safe structured
+logger. Each error-level record uses the fixed message
+`reconciliation operation failed` and the fixed fields `component`, `operation`
+and `error_class`. A `run_id` field is included only when it satisfies the Run
+contract. Arbitrary error text, invalid operation values and malformed Run IDs
+are never passed to the logger, preventing wrapped provider responses, database
+details and credentials from becoming ordinary diagnostics.
+
+Known domain failures receive stable classifications such as `unavailable`,
+`lease_lost`, `job_conflict`, `artifacts_not_ready`, `analysis_failed` and
+`report_failed`; unclassified errors use `unknown`. Logger handler, output
+destination, retention and redaction of attributes added outside this adapter
+remain executable and deployment policy.
+
 `NewRuntime` supervises the constructed HTTP server and reconciliation worker as
 one process lifetime. `Runtime.Run` starts both loops, cancels the peer when one
 exits, and applies the configured shutdown timeout to HTTP shutdown and peer
 termination.
 Cancellation of the caller context is a successful graceful stop. Unexpected
 serve, worker or shutdown errors return the redacted `ErrRuntimeFailure`
-classification. Signal registration, exit-code policy and diagnostic logging
-remain responsibilities of the future executable.
+classification. Signal registration, exit-code policy and structured logger
+construction remain responsibilities of the future executable.
