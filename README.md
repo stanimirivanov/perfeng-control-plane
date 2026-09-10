@@ -48,6 +48,7 @@ coordination, not load generation or statistical decisions.
 - Strict loading of reviewed analysis and reporting Job templates.
 - Structured reconciliation failure reporting without arbitrary error text.
 - Fail-fast aggregate loading of the complete environment-sourced startup policy.
+- Ordered startup resource acquisition with idempotent, secret-safe database cleanup.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
