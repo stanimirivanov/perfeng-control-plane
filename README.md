@@ -46,6 +46,7 @@ coordination, not load generation or statistical decisions.
 - Strict mounted authentication configuration and inert HTTP API composition.
 - Mounted reviewed-registry loading cross-checked with artifact contracts.
 - Strict loading of reviewed analysis and reporting Job templates.
+- Structured reconciliation failure reporting without arbitrary error text.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
