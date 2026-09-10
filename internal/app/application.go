@@ -1,6 +1,10 @@
 package app
 
-import "log/slog"
+import (
+	"log/slog"
+
+	"github.com/stanimirivanov/perfeng-control-plane/internal/httpapi"
+)
 
 // NewApplicationRuntime composes the complete HTTP and reconciliation service
 // from acquired resources without starting loops or accessing external systems.
@@ -44,7 +48,11 @@ func NewApplicationRuntime(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
-	server, err := NewHTTPServer(handler, config.HTTPServer)
+	serviceHandler, err := httpapi.NewServiceHandler(handler)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
+	server, err := NewHTTPServer(serviceHandler, config.HTTPServer)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
