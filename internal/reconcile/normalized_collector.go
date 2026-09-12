@@ -104,7 +104,7 @@ func (collector *VerifiedNormalizedCollector) CollectNormalizedArtifact(
 		return run.Artifact{}, classifyAnalysisEvidence(err)
 	}
 	manifest, err := normalizedresult.Parse(content, current.ID, collector.contractsVersion)
-	if err != nil || !sameArtifacts(manifest.SourceArtifacts, input.Sources) {
+	if err != nil || !artifactSubset(manifest.SourceArtifacts, input.Sources) {
 		return run.Artifact{}, ErrAnalysisFailed
 	}
 	rawManifest, err := collector.readRawManifest(ctx, current.ID, input)
@@ -175,6 +175,28 @@ func sameArtifacts(actual, expected []run.Artifact) bool {
 	}
 
 	return len(wanted) == 0
+}
+
+func artifactSubset(actual, expected []run.Artifact) bool {
+	if len(actual) == 0 || len(actual) > len(expected) {
+		return false
+	}
+	wanted := make(map[run.Artifact]struct{}, len(expected))
+	for _, artifact := range expected {
+		wanted[artifact] = struct{}{}
+	}
+	seen := make(map[run.Artifact]struct{}, len(actual))
+	for _, artifact := range actual {
+		if _, exists := wanted[artifact]; !exists {
+			return false
+		}
+		if _, exists := seen[artifact]; exists {
+			return false
+		}
+		seen[artifact] = struct{}{}
+	}
+
+	return true
 }
 
 func classifyAnalysisEvidence(err error) error {

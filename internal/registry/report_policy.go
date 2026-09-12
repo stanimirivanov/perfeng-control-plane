@@ -210,15 +210,9 @@ func (registry *ReportPolicyRegistry) ResolveAnalysisPlan(
 		return reconcile.AnalysisPlan{}, run.ErrForbidden
 	}
 
-	var source run.Artifact
-	for _, artifact := range input.Sources {
-		if artifact.Format != entry.normalization.SourceFormat {
-			continue
-		}
-		if source.ID != "" {
-			return reconcile.AnalysisPlan{}, run.ErrForbidden
-		}
-		source = artifact
+	source, selected := analysisSource(input.Sources, entry.normalization.SourceFormat)
+	if !selected {
+		return reconcile.AnalysisPlan{}, run.ErrForbidden
 	}
 	plan := reconcile.AnalysisPlan{
 		Source: source, Producer: entry.normalizerProducer.Clone(), Spec: entry.normalization,
@@ -250,10 +244,14 @@ func (registry *ReportPolicyRegistry) ApproveNormalizedManifest(
 	}
 
 	entry, exists := registry.lookup(principal, current.Request)
-	if !exists || manifest.ContractsVersion != entry.contractsVersion ||
+	if !exists {
+		return run.ErrForbidden
+	}
+	source, selected := analysisSource(input.Sources, entry.normalization.SourceFormat)
+	if manifest.ContractsVersion != entry.contractsVersion ||
 		manifest.TestID != current.Request.TestSuite || manifest.Workload != entry.workload ||
 		!manifest.Producer.Equal(entry.normalizerProducer) ||
-		!sameArtifactSet(manifest.SourceArtifacts, input.Sources) {
+		!selected || !sameArtifactSet(manifest.SourceArtifacts, []run.Artifact{source}) {
 		return run.ErrForbidden
 	}
 
@@ -387,6 +385,21 @@ func validCandidate(runID string, artifact run.Artifact) bool {
 	return artifact.Validate() == nil && artifact.RunID == runID &&
 		artifact.Kind == "normalized" && artifact.MediaType == "application/json" &&
 		artifact.Format == "normalized-result/v1"
+}
+
+func analysisSource(artifacts []run.Artifact, format string) (run.Artifact, bool) {
+	var source run.Artifact
+	for _, artifact := range artifacts {
+		if artifact.Format != format {
+			continue
+		}
+		if source.ID != "" {
+			return run.Artifact{}, false
+		}
+		source = artifact
+	}
+
+	return source, source.ID != ""
 }
 
 func cloneSelections(selections []baseline.Selection) []baseline.Selection {

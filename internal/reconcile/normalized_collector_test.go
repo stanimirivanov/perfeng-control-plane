@@ -260,27 +260,38 @@ func TestVerifiedNormalizedCollectorRejectsInvalidReferenceBeforeRead(t *testing
 	}
 }
 
-func TestVerifiedNormalizedCollectorBindsExactSourceSet(t *testing.T) {
+func TestVerifiedNormalizedCollectorAcceptsOnlyTrustedSourceSubsets(t *testing.T) {
 	t.Parallel()
 
 	current, input, reference, manifest := normalizedCollectorFixture()
-	tests := map[string]func(*normalizedresult.Manifest){
-		"missing source": func(m *normalizedresult.Manifest) { m.SourceArtifacts = m.SourceArtifacts[1:] },
-		"changed source": func(m *normalizedresult.Manifest) {
-			m.SourceArtifacts[0].SHA256 = strings.Repeat("f", 64)
+	tests := map[string]struct {
+		mutate  func(*normalizedresult.Manifest)
+		wantErr bool
+	}{
+		"source subset": {
+			mutate: func(m *normalizedresult.Manifest) { m.SourceArtifacts = m.SourceArtifacts[:1] },
 		},
-		"reordered sources": func(m *normalizedresult.Manifest) {
-			m.SourceArtifacts[0], m.SourceArtifacts[1] = m.SourceArtifacts[1], m.SourceArtifacts[0]
+		"changed source": {
+			mutate: func(m *normalizedresult.Manifest) {
+				m.SourceArtifacts[0].SHA256 = strings.Repeat("f", 64)
+			},
+			wantErr: true,
+		},
+		"reordered sources": {
+			mutate: func(m *normalizedresult.Manifest) {
+				m.SourceArtifacts[0], m.SourceArtifacts[1] =
+					m.SourceArtifacts[1], m.SourceArtifacts[0]
+			},
 		},
 	}
 
-	for name, mutate := range tests {
-		mutate := mutate
+	for name, test := range tests {
+		test := test
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			changed := manifest
 			changed.SourceArtifacts = append([]run.Artifact(nil), manifest.SourceArtifacts...)
-			mutate(&changed)
+			test.mutate(&changed)
 			collector := newVerifiedNormalizedCollector(
 				t,
 				fixedNormalizedResolver(reference),
@@ -292,10 +303,10 @@ func TestVerifiedNormalizedCollectorBindsExactSourceSet(t *testing.T) {
 			_, err := collector.CollectNormalizedArtifact(
 				context.Background(), "worker-a", current, input,
 			)
-			if name == "reordered sources" && err != nil {
+			if !test.wantErr && err != nil {
 				t.Fatal(err)
 			}
-			if name != "reordered sources" && !errors.Is(err, ErrAnalysisFailed) {
+			if test.wantErr && !errors.Is(err, ErrAnalysisFailed) {
 				t.Fatalf("error = %v", err)
 			}
 		})

@@ -464,6 +464,35 @@ func TestReportPolicyRegistryApprovesNormalizedManifestProvenance(t *testing.T) 
 	}
 }
 
+func TestReportPolicyRegistryApprovesOnlyTheSelectedNormalizationSource(t *testing.T) {
+	entry, current, _ := reportPolicyFixture(t)
+	current.State = run.StateAnalyzing
+	input, manifest := normalizedManifestFixture(entry, current)
+	points := input.Sources[0]
+	points.ID = "44444444-4444-4444-8444-444444444444"
+	points.URI = "s3://perfeng/runs/" + current.ID + "/points.jsonl"
+	points.SHA256 = strings.Repeat("c", 64)
+	points.MediaType = "application/x-ndjson"
+	points.Format = "k6-json-points"
+	input.Sources = append(input.Sources, points)
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.ApproveNormalizedManifest(
+		context.Background(), "alice", current, input, manifest,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	manifest.SourceArtifacts = []run.Artifact{points}
+	if err := registry.ApproveNormalizedManifest(
+		context.Background(), "alice", current, input, manifest,
+	); !errors.Is(err, run.ErrForbidden) {
+		t.Fatalf("unselected source error = %v", err)
+	}
+}
+
 func TestReportPolicyRegistryRejectsUnapprovedNormalizedManifest(t *testing.T) {
 	for _, test := range []struct {
 		name   string
