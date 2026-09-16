@@ -1,5 +1,18 @@
 # Artifact object verification
 
+## TL;DR
+
+- PostgreSQL references are accepted only after exact object bytes, metadata,
+  size and SHA-256 are verified through the shared reader boundary.
+- Artifact locations are restricted to the configured S3 bucket and the owning
+  Run's canonical namespace.
+- Discovery uses deterministic keys and bounded metadata; it never lists or
+  follows caller-supplied URLs.
+- Missing objects, unavailable storage, invalid locations and corrupt evidence
+  remain distinct secret-safe failures.
+- Storage authentication and endpoint policy come from trusted runtime
+  configuration, not artifact documents.
+
 PostgreSQL stores immutable artifact references; object storage contains the
 referenced bytes. Neither the reference nor an S3 success response is sufficient
 evidence by itself. `internal/objectstore.Reader` is the shared verification

@@ -1,5 +1,17 @@
 # Report-policy registry
 
+## TL;DR
+
+- The registry is the immutable in-process authority for admission, execution,
+  producer provenance and report trust.
+- Entries bind exact policy, catalogue, environment, workload, producer,
+  template, candidate-image and principal identities.
+- Construction validates the whole registry before work is accepted; runtime
+  resolution performs exact allowlist matching.
+- The registry does not fetch remote configuration, refresh itself or expose a
+  mutable administration API.
+- Policy identity and test identity remain independent reviewed decisions.
+
 `internal/registry.ReportPolicyRegistry` is the concrete in-process authority
 for Run admission, execution templates, producer provenance and report trust. A
 service constructs it from reviewed startup entries before accepting work. The

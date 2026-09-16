@@ -1,5 +1,18 @@
 # Reconciliation work claims
 
+## TL;DR
+
+- PostgreSQL leases and revisions provide bounded, restart-safe reconciliation
+  ownership across worker processes.
+- A worker claims only available capacity, renews active leases and performs one
+  idempotent lifecycle attempt at a time.
+- Kubernetes execution identity is persisted and fenced before later workers
+  observe, stop or advance a Run.
+- Cancellation, retries, partial evidence and terminal failures follow explicit
+  state policy rather than backend error strings.
+- Changes to claim queries, lock order, clock reads, lease timing or revision
+  checks require concurrency-focused regression tests.
+
 The PostgreSQL reconciliation store and `worker.Worker` provide restart-safe,
 bounded reconciliation attempts. Runs are discovered without an in-memory queue
 or a caller-provided list of run IDs. This is coordination infrastructure, not a

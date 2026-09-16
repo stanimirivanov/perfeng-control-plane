@@ -1,5 +1,18 @@
 # Runtime configuration
 
+## TL;DR
+
+- Startup policy is parsed and cross-validated before external resources are
+  acquired.
+- Mounted credentials, registries and Job templates are strict, bounded and
+  validated without exposing sensitive values.
+- PostgreSQL, Kubernetes and S3 clients are composed only after configuration
+  succeeds; construction remains inert until runtime start.
+- Configuration errors are value-free and fail closed before serving traffic or
+  starting reconciliation.
+- Deployment supplies credentials and reviewed inputs; this repository defines
+  their runtime contract.
+
 The future control-plane executable reads deployment configuration from its
 process environment. Configuration parsing is separate from dependency
 construction so malformed or contradictory policy fails before any network

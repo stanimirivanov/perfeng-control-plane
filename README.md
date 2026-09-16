@@ -1,5 +1,19 @@
 # Performance control plane
 
+## TL;DR
+
+- This repository owns authenticated run coordination, durable lifecycle state,
+  reconciliation, baselines, artifact registration and control-plane runtime
+  composition.
+- It does not own workload execution code, statistical analysis, shared
+  contract definitions or environment deployment composition.
+- PostgreSQL provides durable state; reconciliation uses leases, revisions and
+  persisted Kubernetes execution identity for restart safety.
+- External HTTP, JSON, registry, object-store and Kubernetes data is validated
+  before domain policy uses it.
+- Start with the contributor harness and use `make validate` or the listed Go
+  commands before review.
+
 Go implementation of the candidate run-management API and lifecycle from
 performance-platform proposal sections 12-13. The control plane owns run
 coordination, not load generation or statistical decisions.
@@ -107,6 +121,13 @@ release or `latest` tags.
 
 Start with [contributing and Go code-quality standards](CONTRIBUTING.md) for
 pinned tool installation, the review checklist and the complete local checks.
+The [repository working agreement](AGENTS.md),
+[engineering standards](docs/development/engineering-standards.md),
+[SQL migration policy](docs/development/sql-migrations.md),
+[architecture decisions](docs/decisions/README.md), [security policy](SECURITY.md)
+and [code of conduct](CODE_OF_CONDUCT.md) define the rest of the contributor
+harness. Cross-repository sequencing remains in the centralized
+[perfeng roadmap](https://github.com/stanimirivanov/perfeng-environment/blob/main/docs/roadmap/milestones.md).
 From this repository in PowerShell or a shell:
 
 ~~~sh
@@ -116,6 +137,10 @@ gofmt -l .
 go test -vet=off -race ./...
 go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 ~~~
+
+On systems with Make, `make validate` runs the same non-live formatting, lint,
+module, race, fuzz and vulnerability checks. The individual commands remain the
+portable, authoritative interface.
 
 Lint findings, including vet, are informational: review them and decide which
 changes improve the code. The separate gofmt check must print nothing.

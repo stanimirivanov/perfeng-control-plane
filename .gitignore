@@ -1,9 +1,13 @@
 /.idea/
+.DS_Store
+Thumbs.db
 /bin/
 /.local/
 *.test
 *.exe
 /coverage.out
+*.log
+*.tmp
 .env
 .env.*
 !.env.example

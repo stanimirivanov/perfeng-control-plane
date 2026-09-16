@@ -1,5 +1,17 @@
 # PostgreSQL storage
 
+## TL;DR
+
+- The control plane exclusively owns the `perfeng_control` schema; infrastructure
+  owns the PostgreSQL service, backups and credentials.
+- Transactions enforce principal scope, idempotent creation, lifecycle revision
+  checks, worker leases and immutable Kubernetes/artifact identities.
+- Migrations are explicit, embedded, checksummed, transactional and serialized
+  by an advisory lock; opening the repository never migrates automatically.
+- Storage changes require disposable PostgreSQL integration, concurrency and
+  restart tests.
+- Follow the separate SQL migration policy before adding a migration.
+
 The control plane owns the `perfeng_control` schema. Infrastructure owns the
 PostgreSQL service, backups, database and login provisioning; analysis and
 runners do not write these tables directly.
