@@ -1,4 +1,186 @@
-# Contributing
+# Contributing to perfeng-control-plane
+
+## TL;DR
+
+- Deliver one coherent, verified control-plane outcome per issue and pull
+  request.
+- Use MUST, SHOULD and MAY as defined below; lowercase wording is explanatory.
+- Proceed on documented, reversible assumptions and stop for decisions that
+  materially affect behavior, compatibility, persistence, security or external
+  state.
+- Prepare requested changes without staging or committing, then print issue
+  content for the repository owner.
+- Keep lint findings informational; never add suppression comments merely to
+  make the report quiet.
+- Run the exact repository checks and report unavailable checks as not run.
+- Use exact published milestone titles in the form `MNN — Outcome`.
+
+## Policy language and sources of truth
+
+- **MUST** and **MUST NOT** identify requirements. A deviation needs an explicit
+  reviewer-approved exception recorded in the issue or pull request.
+- **SHOULD** and **SHOULD NOT** identify strong defaults. A deviation is allowed
+  only when its reason and trade-off are recorded.
+- **MAY** identifies an optional choice.
+
+Lowercase words such as “prefer,” “avoid” and “may” provide guidance and do not
+silently create another normative level.
+
+| Concern | Canonical source |
+|:--|:--|
+| Contributor workflow, issue timing, escalation and completion | This document |
+| Concise contributor and agent entry point | [AGENTS.md](AGENTS.md) |
+| Architecture and Go engineering | [docs/development/engineering-standards.md](docs/development/engineering-standards.md) and repository-specific rules below |
+| PostgreSQL schema evolution | [docs/development/sql-migrations.md](docs/development/sql-migrations.md) |
+| Architecture decisions | [docs/decisions](docs/decisions/README.md) |
+| Cross-repository milestones | [perfeng-environment roadmap](https://github.com/stanimirivanov/perfeng-environment/blob/main/docs/roadmap/milestones.md) |
+| Current capabilities and exact commands | [README.md](README.md) and checked-in tool configuration |
+
+When sources conflict, the narrower source governs its stated concern. An
+accepted ADR governs its decision until superseded. A contributor MUST surface
+an unresolved conflict rather than quietly choosing the convenient rule.
+
+## Before starting
+
+A contributor MUST inspect the branch and working tree and preserve unrelated
+changes; read affected code, tests, operational guides, standards and ADRs;
+identify the smallest independently reviewable outcome; identify affected APIs,
+contracts, migrations, security boundaries, concurrency and operations; and
+select the workflow under [Issue timing](#issue-timing).
+
+A contributor MUST NOT discard, overwrite, reformat or incorporate unrelated
+work merely to obtain a clean diff. Destructive operations and externally
+visible writes outside the stated task require explicit authorization.
+
+An ADR MUST be proposed when a change establishes or revises a durable decision
+about compatibility, persistence or data meaning, security, deployment
+topology, foundational technology, ownership or cross-component behavior.
+
+## Ambiguity and escalation
+
+Before escalating, a contributor SHOULD inspect relevant code, tests, fixtures,
+documentation, ADRs and issue history and perform safe read-only investigation.
+
+A contributor MAY proceed with a documented assumption only when the choice is
+within scope, local, reversible and inexpensive; does not alter public contracts,
+persisted meaning, security, external state or destructive behavior; does not
+weaken acceptance or verification; and would not materially change what
+reviewers believe they are approving. Record the assumption and consequence.
+
+A contributor MUST stop and request a decision when missing information could
+materially change the outcome, milestone, compatibility, data meaning or loss,
+security, authorization, an irreversible action, external state, operational
+ownership, deployment topology or a choice between materially different
+designs. State the exact decision, evidence checked, options and consequences,
+and work that can safely continue.
+
+## Issue timing
+
+- When an issue number is supplied, the contributor MUST follow its scope and
+  milestone. A material mismatch follows the escalation rules.
+- When no issue number is supplied, prepare the smallest coherent requested
+  change and print a complete proposed issue in the completion report. The
+  owner creates the issue and then creates or renames the branch so it contains
+  the issue number.
+- Contributors acting for the owner MUST NOT stage, commit, push, create or
+  modify issues, create pull requests, publish images or releases, run database
+  migrations, or change milestones unless explicitly requested.
+- Read-only investigation and scoping MAY occur before an issue exists.
+
+Creating or modifying a GitHub record, image, release, cluster or database is an
+externally visible write and requires explicit authority.
+
+## Milestones and required issue
+
+Use exact published milestone titles in the form `MNN — Short outcome`.
+Published milestones MUST NOT be reused, renumbered or casually renamed. GitHub
+is authoritative for live assignment; the centralized
+[roadmap](https://github.com/stanimirivanov/perfeng-environment/blob/main/docs/roadmap/milestones.md)
+owns intended outcomes and sequencing.
+
+Every implementation issue uses:
+
+~~~markdown
+**Repository:** perfeng-control-plane
+**Milestone:** MNN — Outcome
+
+## Goal
+
+Describe the problem and observable result.
+
+## Scope
+
+- Included behavior and boundaries.
+
+## Design decisions
+
+- Choices, assumptions, compatibility, concurrency, persistence and ADRs.
+
+## Security and operations
+
+- Trust boundaries, credentials, external effects, rollout and recovery.
+
+## Acceptance criteria
+
+- [ ] Observable behavior and verification evidence.
+- [ ] Relevant rejection, concurrency and failure behavior.
+- [ ] Documentation, migration and operational effects.
+
+## Verification
+
+- Required, focused integration, race and live checks.
+
+## Out of scope
+
+- Explicit exclusions and deferred work.
+~~~
+
+Acceptance criteria MUST describe observable behavior or verifiable invariants,
+not implementation activities. Known limitations MUST be visible.
+
+## Pull-request-sized work
+
+A pull request MUST solve one coherent problem, leave the repository buildable,
+include implementation, tests, documentation and migrations required for that
+outcome, and contain evidence for expected and important failure behavior.
+
+Split independent behavior, broad cleanup, dependency upgrades, schema redesign
+and unrelated formatting. A thin vertical slice may legitimately touch domain,
+application, adapters, persistence and tests. Placeholder abstractions and
+future configuration MUST NOT be added merely to make a roadmap appear complete.
+
+## Development workflow
+
+1. Select the workflow defined in [Issue timing](#issue-timing).
+2. Prepare one focused change without staging, committing or pushing for the
+   owner.
+3. Add or update tests with the behavior.
+4. Implement the smallest coherent solution and update documentation.
+5. Format and run the exact repository checks.
+6. Review the diff for secrets, generated churn, contract changes, assumptions,
+   migration safety and unrelated edits.
+7. Print the canonical [completion report](#completion-report).
+8. The owner creates or confirms the issue and branch, may adjust the change,
+   commits with `[#N]`, pushes and opens the pull request.
+
+Do not store task-specific issue bodies, PR descriptions or handoff notes in
+the repository.
+
+## External operations and destructive actions
+
+Read-only inspection is allowed when relevant. Filesystem, database, cluster,
+registry, GitHub and other mutations MUST remain within the requested scope and
+granted authority.
+
+- Tests MUST use disposable PostgreSQL and Kubernetes resources, never
+  production systems.
+- Database migrations, image publication, releases and cluster mutation require
+  explicit execution paths and authorization.
+- Credentials MUST NOT appear in arguments, logs, fixtures or Git.
+- Data deletion, schema contraction, credential rotation, resource replacement,
+  pruning and history changes require explicit authorization and exact targets.
+- A partial operation MUST retain enough non-secret evidence for diagnosis and
+  safe retry.
 
 ## Toolchain and local checks
 
@@ -69,6 +251,29 @@ Ordinary tests skip live PostgreSQL tests without `PERFENG_TEST_DATABASE_URL`.
 Follow [the isolated database instructions](docs/postgresql.md) for storage
 changes. CI runs these tests against a disposable pinned PostgreSQL service,
 including restart and concurrency checks. Never use a production database.
+
+## Verification and constrained environments
+
+A contributor MUST run every applicable required check supported by the current
+environment. `make validate` wraps the non-live formatting, lint report, module,
+race, fuzz and vulnerability checks. Focused PostgreSQL, Kubernetes and image
+checks remain required when the changed boundary needs them.
+
+Narrower checks MAY provide interim feedback but MUST NOT be presented as the
+complete suite. When a required check cannot execute because of platform,
+sandbox, network, credentials, missing compiler, unavailable disposable service
+or another environmental constraint, the contributor MUST:
+
+1. report the exact command as **not run**;
+2. state the blocker and safe attempts made;
+3. list checks that did run;
+4. state residual risk and where the missing check should run; and
+5. avoid weakening the check merely to make the environment pass.
+
+An unexecuted check MUST NOT be reported as passed. A failure MUST be reported
+even when it appears unrelated; identify a verified pre-existing failure
+separately with evidence. Informational lint findings are not failures, while a
+broken linter invocation or configuration is a failure.
 
 ## Automated policy
 
@@ -159,6 +364,27 @@ Keep source comments for useful contracts and non-obvious, local invariants.
 Shared conventions belong in this guide or package documentation. Do not add
 comments that merely restate standard library behavior or silence a linter.
 
+## Documentation
+
+Every long narrative document MUST contain a `## TL;DR` immediately after its
+title and status metadata. A document is long when it has at least 800 words,
+more than five second-level sections, or is an architecture, security,
+compatibility, migration or operational guide readers consult selectively.
+Issue and pull-request templates are excluded.
+
+The TL;DR SHOULD state purpose, intended reader, important outcome and next
+action in three to seven bullets. Public APIs, persistence, configuration,
+migrations, operational behavior and troubleshooting guidance change with the
+code that makes them inaccurate. Accepted ADRs are historical records;
+supersede rather than rewrite them.
+
+## Pull request description
+
+A pull request MUST state the linked issue and milestone; problem, outcome and
+exclusions; assumptions and unresolved questions; API, contract, persistence,
+concurrency and security effects; verification including checks not run;
+migration, rollout, rollback and recovery; and known limitations.
+
 ## Review checklist
 
 - Does the code read in logical phases with clear names and manageable nesting?
@@ -180,3 +406,11 @@ Further guidance:
 [Go documentation comments](https://go.dev/doc/comment),
 [golangci-lint configuration](https://golangci-lint.run/docs/configuration/file/),
 [Go vulnerability management](https://go.dev/doc/security/vuln/).
+
+## Completion report
+
+After every work item, print the repository, exact milestone, proposed issue
+title, complete issue body, assumptions and limitations, verification outcomes
+distinguished as passed/failed/not run, and a suggested `[#N]` commit subject.
+When an issue exists, repeat or amend its content so delivered scope is auditable.
+Printing the report does not publish external records.

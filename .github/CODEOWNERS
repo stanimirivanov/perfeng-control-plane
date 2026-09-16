@@ -1,0 +1,3 @@
+# Repository-wide review ownership. Enforcement also requires branch protection
+# and a listed owner with repository write access.
+* @stanimirivanov

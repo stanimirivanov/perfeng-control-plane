@@ -1,5 +1,18 @@
 # Baseline administration
 
+## TL;DR
+
+- Baselines are immutable exact versions backed by completed, registered
+  normalized evidence.
+- Authentication determines the principal and separate create/read/transition
+  permissions; request bodies cannot select lifecycle actors.
+- Qualification, approval and retirement are forward-only, revision-checked
+  transitions with append-only evidence.
+- Reads and analysis selection always use an exact version; there is no mutable
+  latest alias or automatic promotion.
+- Failed or uncertain requests are retried through documented idempotency and
+  conflict behavior, not by deleting evidence.
+
 The baseline API creates and administers exact, immutable baseline versions.
 It does not choose a latest version, promote automatically, delete evidence or
 decide whether measurements are statistically suitable.

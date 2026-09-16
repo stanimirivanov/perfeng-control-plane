@@ -1,5 +1,16 @@
 # Duplicate-safe Kubernetes Job dispatch
 
+## TL;DR
+
+- Each Run has one deterministic, ownership-labelled Kubernetes Job identity.
+- Reconciliation creates or adopts only an exact matching Job; foreign or
+  changed resources produce a conflict and are never replaced implicitly.
+- Observation and cancellation remain bound to the persisted Job UID and
+  specification fingerprint.
+- API-server defaulting is normalized only for documented fields verified by
+  live integration tests.
+- Public requests never supply arbitrary Kubernetes manifests.
+
 The Kubernetes dispatcher establishes one execution identity per Run before a
 long-running reconciliation worker is introduced. A Run ID is also its Job name.
 Retrying a Run therefore means reconciling the same Job; executing the workload
