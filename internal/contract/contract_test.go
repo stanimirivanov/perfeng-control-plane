@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"io/fs"
+	"strings"
 	"testing"
 )
 
@@ -14,17 +16,40 @@ func TestPinnedSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	var lock struct {
-		Commit        string
-		BundleVersion string
-		APIVersion    string
-		SHA256        map[string]string
+		Commit                  string
+		BundleVersion           string
+		RunManagementAPIVersion string
+		NativeWorkerAPIVersion  string
+		SHA256                  map[string]string
 	}
 	if err := json.Unmarshal(b, &lock); err != nil {
 		t.Fatal(err)
 	}
-	if lock.Commit != "20bf128ab3f38cdd66a167ccfc5d76be045db3ea" ||
-		lock.BundleVersion != "0.9.0" || lock.APIVersion != "0.4.0" || len(lock.SHA256) != 8 {
+	if lock.Commit != "4a076973f05d78cbc4e1fc62a6ca26d68de3794c" ||
+		lock.BundleVersion != "0.15.0" || lock.RunManagementAPIVersion != "0.4.0" ||
+		lock.NativeWorkerAPIVersion != "1.0.0" || len(lock.SHA256) != 36 {
 		t.Fatal("unexpected contract provenance")
+	}
+	actualFiles := make(map[string]struct{}, len(lock.SHA256))
+	if err := fs.WalkDir(Files, "snapshot", func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || path == "snapshot/lock.json" {
+			return nil
+		}
+		name := strings.TrimPrefix(path, "snapshot/")
+		if _, exists := lock.SHA256[name]; !exists {
+			t.Fatalf("snapshot file is absent from checksum ledger: %s", name)
+		}
+		actualFiles[name] = struct{}{}
+
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(actualFiles) != len(lock.SHA256) {
+		t.Fatal("checksum ledger contains an absent snapshot file")
 	}
 	for name, expected := range lock.SHA256 {
 		b, err := Files.ReadFile("snapshot/" + name)
@@ -34,6 +59,86 @@ func TestPinnedSnapshot(t *testing.T) {
 		actual := sha256.Sum256(b)
 		if hex.EncodeToString(actual[:]) != expected {
 			t.Fatalf("snapshot checksum mismatch: %s", name)
+		}
+	}
+}
+
+func TestNativeWorkerSnapshotInventory(t *testing.T) {
+	verifyNativeWorkerOpenAPI(t)
+	verifyNativeWorkerFixtures(t)
+}
+
+func verifyNativeWorkerOpenAPI(t *testing.T) {
+	t.Helper()
+
+	b, err := Files.ReadFile("snapshot/api/native-worker/v1/openapi.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		OpenAPI string
+		Info    struct{ Version string }
+		Paths   map[string]struct {
+			Post struct {
+				OperationID string `json:"operationId"`
+			}
+		}
+	}
+	if err := json.Unmarshal(b, &document); err != nil {
+		t.Fatal(err)
+	}
+	if document.OpenAPI != "3.1.1" || document.Info.Version != "1.0.0" ||
+		len(document.Paths) != 7 {
+		t.Fatal("unexpected Native Worker API identity or path inventory")
+	}
+	for _, path := range document.Paths {
+		if path.Post.OperationID == "" {
+			t.Fatal("Native Worker path lacks its POST operation")
+		}
+	}
+}
+
+func verifyNativeWorkerFixtures(t *testing.T) {
+	t.Helper()
+
+	examples, err := fs.Glob(Files, "snapshot/api/native-worker/v1/examples/*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rejections, err := fs.Glob(Files, "snapshot/api/native-worker/v1/rejections/*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(examples) != 16 || len(rejections) != 10 {
+		t.Fatal("unexpected Native Worker conformance fixture inventory")
+	}
+
+	b, err := Files.ReadFile("snapshot/api/native-worker/v1/http-cases.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cases []struct {
+		OperationID string `json:"operationId"`
+		Request     string
+		Response    string
+	}
+	if err := json.Unmarshal(b, &cases); err != nil {
+		t.Fatal(err)
+	}
+	if len(cases) != 10 {
+		t.Fatal("unexpected Native Worker HTTP fixture inventory")
+	}
+	for _, fixture := range cases {
+		if fixture.OperationID == "" || fixture.Request == "" {
+			t.Fatal("Native Worker HTTP fixture lacks operation or request")
+		}
+		if _, err := Files.ReadFile("snapshot/api/native-worker/v1/examples/" + fixture.Request + ".json"); err != nil {
+			t.Fatal(err)
+		}
+		if fixture.Response != "" {
+			if _, err := Files.ReadFile("snapshot/api/native-worker/v1/examples/" + fixture.Response + ".json"); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 }

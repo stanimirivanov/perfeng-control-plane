@@ -1,0 +1,31 @@
+{
+  "schema": "WorkerPresence",
+  "value": {
+    "protocolVersion": 1,
+    "agentVersion": "1.0.0",
+    "workerId": "caller-selected",
+    "availability": "AVAILABLE",
+    "capabilities": {
+      "capacity": 1,
+      "tool": "playwright",
+      "operatingSystem": "windows",
+      "architecture": "x64",
+      "browsers": ["edge"],
+      "runnerContract": 1,
+      "executionArtifacts": ["source-checkout"],
+      "artifactKinds": ["measurements"],
+      "diagnosticModes": ["lightweight"]
+    },
+    "qualificationEvidence": {
+      "environmentId": "windows-mainstream",
+      "environmentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "runner": {
+        "kind": "source-checkout",
+        "repository": "https://example.invalid/perfeng-playwright.git",
+        "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "lockfile": "pnpm-lock.yaml",
+        "lockfileSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    }
+  }
+}
