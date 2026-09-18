@@ -25,6 +25,7 @@ runners do not write these tables directly.
 | reconciliation_leases | Worker ownership tokens, lease expiry and retry availability |
 | kubernetes_executions | Immutable Job UID and specification identity per Run |
 | baselines | Principal-owned baseline versions and lifecycle snapshots |
+| native_worker_presence | Last authenticated capability and qualification report per native worker |
 
 Snapshots are JSONB using the accepted API field names, with relational identity,
 ownership, uniqueness and foreign-key constraints. This keeps optional API
@@ -89,14 +90,16 @@ GRANT SELECT, INSERT, UPDATE ON perfeng_control.runs TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.create_bindings TO perfeng_runtime;
 GRANT SELECT, INSERT ON perfeng_control.artifacts TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.baselines TO perfeng_runtime;
+GRANT SELECT, INSERT, UPDATE ON perfeng_control.native_worker_presence TO perfeng_runtime;
 ~~~
 
 Only the trusted reconciliation worker role additionally needs SELECT, INSERT
 and UPDATE on `perfeng_control.reconciliation_leases`, plus SELECT and INSERT on
 `perfeng_control.kubernetes_executions`. It also needs the Run table privileges
 above. Do not grant the worker interfaces to tenant/API callers. Migration 0002
-adds leases, migration 0003 adds immutable execution identity, and migration
-0004 adds baseline storage without altering earlier migrations or existing data.
+adds leases, migration 0003 adds immutable execution identity, migration 0004
+adds baseline storage, and migration 0005 adds last-seen native-worker presence
+without altering earlier migrations or existing data.
 See [worker-claim semantics](reconciliation.md).
 
 Provision that role/login through infrastructure; the migration does not create

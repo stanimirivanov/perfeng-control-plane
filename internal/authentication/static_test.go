@@ -13,6 +13,7 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/httpapi"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
@@ -60,6 +61,56 @@ func TestStaticAuthenticatesExactTokenAndPermissions(t *testing.T) {
 	}
 }
 
+func TestStaticKeepsWorkerAndUserCredentialAudiencesSeparate(t *testing.T) {
+	document := credentialDocument{
+		SchemaVersion: 1,
+		Credentials: []credentialConfig{{
+			TokenSHA256: tokenDigest("user-token"), Principal: "alice",
+			Permissions: []string{permissionReadRun},
+		}},
+		NativeWorkers: []nativeWorkerCredentialConfig{{
+			TokenSHA256: tokenDigest("worker-token"), WorkerID: "windows-laptop-01",
+			AuthorizedToAcquire: true, QualificationEvidence: workerEvidence(t),
+		}},
+	}
+	authenticator, err := LoadStatic(documentFS(t, document), credentialPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := authenticator.AuthenticateWorker(context.Background(), "worker-token")
+	if err != nil || identity.WorkerID != "windows-laptop-01" ||
+		!identity.AuthorizedToAcquire || len(identity.QualificationEvidence) == 0 {
+		t.Fatalf("AuthenticateWorker() = %#v, %v", identity, err)
+	}
+	if _, err := authenticator.AuthenticateWorker(context.Background(), "user-token"); !errors.Is(err, ErrUnauthenticated) {
+		t.Fatalf("worker authentication accepted user token: %v", err)
+	}
+	if _, err := authenticator.Authenticate(context.Background(), "worker-token"); !errors.Is(err, ErrUnauthenticated) {
+		t.Fatalf("user authentication accepted worker token: %v", err)
+	}
+	identity.QualificationEvidence[0] = 'x'
+	again, err := authenticator.AuthenticateWorker(context.Background(), "worker-token")
+	if err != nil || again.QualificationEvidence[0] == 'x' {
+		t.Fatal("worker identity returned mutable configured evidence")
+	}
+}
+
+func workerEvidence(t *testing.T) json.RawMessage {
+	t.Helper()
+	b, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/presence.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var presence struct {
+		QualificationEvidence json.RawMessage `json:"qualificationEvidence"`
+	}
+	if err := json.Unmarshal(b, &presence); err != nil {
+		t.Fatal(err)
+	}
+
+	return presence.QualificationEvidence
+}
+
 func TestStaticSupportsIdentityPreservingTokenRotation(t *testing.T) {
 	permissions := []string{permissionReadRun, permissionCreateRun}
 	source := credentialFixture(t, []credentialConfig{
@@ -78,6 +129,36 @@ func TestStaticSupportsIdentityPreservingTokenRotation(t *testing.T) {
 	newIdentity, newErr := authenticator.Authenticate(context.Background(), "new-token")
 	if oldErr != nil || newErr != nil || oldIdentity != newIdentity {
 		t.Fatalf("rotated identities = %#v/%v and %#v/%v", oldIdentity, oldErr, newIdentity, newErr)
+	}
+}
+
+func TestStaticSupportsWorkerIdentityPreservingTokenRotation(t *testing.T) {
+	evidence := workerEvidence(t)
+	document := credentialDocument{
+		SchemaVersion: 1,
+		Credentials: []credentialConfig{{
+			TokenSHA256: tokenDigest("user-token"), Principal: "alice",
+			Permissions: []string{permissionReadRun},
+		}},
+		NativeWorkers: []nativeWorkerCredentialConfig{
+			{
+				TokenSHA256: tokenDigest("old-worker-token"), WorkerID: "windows-laptop-01",
+				AuthorizedToAcquire: true, QualificationEvidence: evidence,
+			},
+			{
+				TokenSHA256: tokenDigest("new-worker-token"), WorkerID: "windows-laptop-01",
+				AuthorizedToAcquire: true, QualificationEvidence: evidence,
+			},
+		},
+	}
+	authenticator, err := LoadStatic(documentFS(t, document), credentialPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldIdentity, oldErr := authenticator.AuthenticateWorker(context.Background(), "old-worker-token")
+	newIdentity, newErr := authenticator.AuthenticateWorker(context.Background(), "new-worker-token")
+	if oldErr != nil || newErr != nil || !sameWorkerIdentity(oldIdentity, newIdentity) {
+		t.Fatalf("rotated worker identities = %#v/%v and %#v/%v", oldIdentity, oldErr, newIdentity, newErr)
 	}
 }
 
@@ -168,6 +249,22 @@ func TestLoadStaticRejectsMalformedConfiguration(t *testing.T) {
 				TokenSHA256: tokenDigest("replacement"), Principal: "alice",
 				Permissions: []string{permissionCreateRun},
 			},
+		})},
+		{name: "credential reused across audiences", source: documentFS(t, credentialDocument{
+			SchemaVersion: 1,
+			Credentials:   []credentialConfig{valid},
+			NativeWorkers: []nativeWorkerCredentialConfig{{
+				TokenSHA256: valid.TokenSHA256, WorkerID: "windows-laptop-01",
+				QualificationEvidence: workerEvidence(t),
+			}},
+		})},
+		{name: "invalid worker qualification evidence", source: documentFS(t, credentialDocument{
+			SchemaVersion: 1,
+			Credentials:   []credentialConfig{valid},
+			NativeWorkers: []nativeWorkerCredentialConfig{{
+				TokenSHA256: tokenDigest("worker"), WorkerID: "windows-laptop-01",
+				QualificationEvidence: json.RawMessage(`{"environmentId":"unreviewed"}`),
+			}},
 		})},
 		{name: "duplicate JSON field", source: fstest.MapFS{credentialPath: &fstest.MapFile{
 			Data: []byte(`{"schemaVersion":1,"schemaVersion":1,"credentials":[]}`),

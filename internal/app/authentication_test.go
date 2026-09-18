@@ -109,3 +109,4 @@ func TestNewAPIHandlerRejectsMissingBoundaries(t *testing.T) {
 }
 
 var _ BearerAuthenticator = (*authentication.Static)(nil)
+var _ NativeWorkerAuthenticator = (*authentication.Static)(nil)

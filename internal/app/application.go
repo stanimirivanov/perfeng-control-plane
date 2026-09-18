@@ -48,7 +48,14 @@ func NewApplicationRuntime(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
-	serviceHandler, err := httpapi.NewServiceHandler(handler)
+	nativeWorkerHandler, err := NewNativeWorkerAPIHandler(
+		resources.Database,
+		resources.Authentication,
+	)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
+	serviceHandler, err := httpapi.NewServiceHandler(handler, nativeWorkerHandler)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}

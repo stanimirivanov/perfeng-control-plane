@@ -236,6 +236,22 @@ func ValidateWorkerPresence(value any) error {
 	return validateWithSchemas(nativeWorkerSchemas["WorkerPresence"], value, nativeWorkerSchemas)
 }
 
+// ValidateWorkerQualificationEvidence checks server-configured evidence against
+// the same pinned schema used by WorkerPresence.
+func ValidateWorkerQualificationEvidence(value any) error {
+	return validateWithSchemas(
+		nativeWorkerSchemas["QualificationEvidence"],
+		value,
+		nativeWorkerSchemas,
+	)
+}
+
+// ValidNativeWorkerIdentifier reports whether value satisfies the shared
+// Native Worker API v1 Identifier schema.
+func ValidNativeWorkerIdentifier(value string) bool {
+	return validateWithSchemas(nativeWorkerSchemas["Identifier"], value, nativeWorkerSchemas) == nil
+}
+
 func validate(s schema, value any) error {
 	return validateWithSchemas(s, value, schemas)
 }

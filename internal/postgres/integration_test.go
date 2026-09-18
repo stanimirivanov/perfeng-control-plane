@@ -22,6 +22,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/httpapi"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
@@ -124,6 +125,47 @@ func artifactFor(id string) run.Artifact {
 	return run.Artifact{ID: "1cfa0000-0000-4000-8000-000000000001", RunID: id, Kind: "raw",
 		URI: "s3://perfeng-artifacts/runs/" + id + "/summary.json", SHA256: strings.Repeat("a", 64),
 		SizeBytes: 42, MediaType: "application/json", Format: "k6-summary/v1"}
+}
+
+func TestNativeWorkerPresencePersistence(t *testing.T) {
+	dsn := testDatabase(t)
+	first, second := openTest(t, dsn), openTest(t, dsn)
+	if err := first.Migrate(testContext); err != nil {
+		t.Fatal(err)
+	}
+	presence, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/presence.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstObservedAt, err := first.RecordNativeWorkerPresence(
+		testContext,
+		httpapi.NativeWorkerPresenceRecord{
+			WorkerID: "windows-laptop-01", ObservedDocument: presence,
+			Availability: "AVAILABLE", Qualified: true, AuthorizedToAcquire: true,
+		},
+	)
+	if err != nil || firstObservedAt.IsZero() {
+		t.Fatal("native worker presence was not recorded", err)
+	}
+	secondObservedAt, err := second.RecordNativeWorkerPresence(
+		testContext,
+		httpapi.NativeWorkerPresenceRecord{
+			WorkerID: "windows-laptop-01", ObservedDocument: presence,
+			Availability: "AVAILABLE", Qualified: false, AuthorizedToAcquire: true,
+		},
+	)
+	if err != nil || secondObservedAt.Before(firstObservedAt) {
+		t.Fatal("native worker presence was not replaced", err)
+	}
+	var count int
+	var qualified bool
+	err = second.db.QueryRow(`
+		SELECT count(*),bool_and(qualified)
+		FROM perfeng_control.native_worker_presence
+		WHERE worker_id='windows-laptop-01'`).Scan(&count, &qualified)
+	if err != nil || count != 1 || qualified {
+		t.Fatal("unexpected native worker presence state", count, qualified, err)
+	}
 }
 
 func TestPostgresIntegration(t *testing.T) {
@@ -402,7 +444,7 @@ func TestConcurrentMigrationAndTerminalSnapshots(t *testing.T) {
 		return
 	}
 	var count int
-	if err := first.db.QueryRow("SELECT count(*) FROM perfeng_control.schema_migrations").Scan(&count); err != nil || count != 4 {
+	if err := first.db.QueryRow("SELECT count(*) FROM perfeng_control.schema_migrations").Scan(&count); err != nil || count != 5 {
 		t.Fatal("concurrent migration duplicated ledger", err)
 	}
 	a := accepted(t, first, "terminal", "request-key-terminal")

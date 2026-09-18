@@ -94,11 +94,36 @@ func TestServiceMetricsAreConcurrencySafe(t *testing.T) {
 	}
 }
 
+func TestServiceRoutesNativeWorkerAudienceSeparately(t *testing.T) {
+	userAPI := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+	})
+	workerAPI := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	service, err := NewServiceHandler(userAPI, workerAPI)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, expected := range map[string]int{
+		"/v1/runs/example":               http.StatusTeapot,
+		"/native-worker/v1/presence":     http.StatusNoContent,
+		"/native-worker/v1/unknown-path": http.StatusNoContent,
+	} {
+		response := httptest.NewRecorder()
+		service.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+		if response.Code != expected {
+			t.Fatalf("%s status = %d, want %d", path, response.Code, expected)
+		}
+	}
+}
+
 func newTestService(t *testing.T) *ServiceHandler {
 	t.Helper()
-	service, err := NewServiceHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	rejected := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-	}))
+	})
+	service, err := NewServiceHandler(rejected, rejected)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +131,11 @@ func newTestService(t *testing.T) *ServiceHandler {
 }
 
 func TestNewServiceHandlerRejectsMissingAPI(t *testing.T) {
-	if _, err := NewServiceHandler(nil); err == nil {
-		t.Fatal("NewServiceHandler(nil) succeeded")
+	valid := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
+	if _, err := NewServiceHandler(nil, valid); err == nil {
+		t.Fatal("NewServiceHandler(nil, valid) succeeded")
+	}
+	if _, err := NewServiceHandler(valid, nil); err == nil {
+		t.Fatal("NewServiceHandler(valid, nil) succeeded")
 	}
 }
