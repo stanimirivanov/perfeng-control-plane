@@ -19,6 +19,13 @@ type BearerAuthenticator interface {
 	Authenticate(context.Context, string) (httpapi.Identity, error)
 }
 
+// NativeWorkerAuthenticator verifies credentials from the isolated worker audience.
+type NativeWorkerAuthenticator interface {
+	// AuthenticateWorker returns server-owned identity and policy. User API
+	// credentials must not be accepted by this operation.
+	AuthenticateWorker(context.Context, string) (httpapi.WorkerIdentity, error)
+}
+
 // RunApprover authorizes one exact Run request for an authenticated principal.
 type RunApprover interface {
 	// ApproveRun returns nil only when all referenced immutable resources and the
@@ -54,6 +61,23 @@ func NewAPIHandler(
 		return nil, ErrInvalidConfiguration
 	}
 	handler, err := httpapi.New(repository, authenticator.Authenticate, approver.ApproveRun)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
+
+	return handler, nil
+}
+
+// NewNativeWorkerAPIHandler composes worker authentication and durable
+// presence storage without sharing the user-facing authorization identity.
+func NewNativeWorkerAPIHandler(
+	store httpapi.NativeWorkerPresenceStore,
+	authenticator NativeWorkerAuthenticator,
+) (http.Handler, error) {
+	if store == nil || authenticator == nil {
+		return nil, ErrInvalidConfiguration
+	}
+	handler, err := httpapi.NewNativeWorkerHandler(store, authenticator.AuthenticateWorker)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}

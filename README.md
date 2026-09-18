@@ -66,8 +66,8 @@ coordination, not load generation or statistical decisions.
 - Complete inert composition of the authenticated HTTP and reconciliation runtime.
 - Signal-aware process entry point with structured, value-free lifecycle reporting.
 - Unauthenticated liveness/readiness endpoints and fixed-cardinality Prometheus metrics.
-- Reviewed Native Worker API v1 bytes, examples, rejection cases and HTTP
-  exchanges pinned into the binary as the implementation boundary for M03.
+- Independently authenticated Native Worker presence with strict contract
+  validation, server-owned qualification and durable last-seen PostgreSQL state.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
@@ -167,9 +167,9 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/contract | Embedded, reviewed Run Management, Native Worker and data-contract snapshot |
 | internal/run | Request/run types, lifecycle rules, repository contract |
 | internal/memory | Atomic process-local test adapter |
-| internal/postgres | Durable transactions, migrations and artifact-reference storage |
-| internal/httpapi | HTTP parsing, auth/approval seams, status/response mapping |
-| internal/authentication | Hashed static credentials for the isolated local API boundary |
+| internal/postgres | Durable transactions, migrations, native-worker presence and artifact-reference storage |
+| internal/httpapi | User and Native Worker HTTP parsing, isolated auth seams and response mapping |
+| internal/authentication | Hashed static credentials with isolated user and native-worker audiences |
 | internal/kubernetes | Deterministic Job dispatch, identity-checked observation, stop and Pod checks |
 | internal/objectstore | Approved S3 location policy and artifact-byte verification |
 | internal/jsondocument | Shared bounded, duplicate-safe contract JSON handling |
@@ -359,10 +359,10 @@ contract content is Apache-2.0, as in this repository.
 
 Review contract updates explicitly, refresh the snapshot and checksums, and
 rerun tests. The current runtime validator implements only the schema features
-reached by CreateRun, CreateBaseline and BaselineTransition, not arbitrary JSON
-Schema or full response validation. The Native Worker files are pinned for the
-next authentication and presence implementation slice but are not yet routed
-by the HTTP server; this provenance change alone does not expose a worker API.
+reached by CreateRun, CreateBaseline, BaselineTransition and WorkerPresence, not
+arbitrary JSON Schema or full response validation. The authenticated
+`/native-worker/v1/presence` route is implemented; lease and artifact operations
+remain unavailable until their later M03 slices.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.

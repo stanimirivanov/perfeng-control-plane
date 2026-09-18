@@ -13,6 +13,7 @@ import (
 // reconciliation worker. The owner must close it during process shutdown.
 type Database interface {
 	httpapi.Repository
+	httpapi.NativeWorkerPresenceStore
 	run.ArtifactRepository
 	run.ReconciliationStore
 	kubernetes.ExecutionStore

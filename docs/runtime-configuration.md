@@ -63,6 +63,24 @@ has this shape:
       "principal": "local-operator",
       "permissions": ["runs:create", "runs:read"]
     }
+  ],
+  "nativeWorkers": [
+    {
+      "tokenSha256": "<64 lowercase hexadecimal characters>",
+      "workerId": "windows-laptop-01",
+      "authorizedToAcquire": true,
+      "qualificationEvidence": {
+        "environmentId": "windows-mainstream",
+        "environmentSha256": "<reviewed SHA-256>",
+        "runner": {
+          "kind": "source-checkout",
+          "repository": "https://github.com/example/perfeng-playwright.git",
+          "revision": "<40 lowercase hexadecimal characters>",
+          "lockfile": "pnpm-lock.yaml",
+          "lockfileSha256": "<reviewed SHA-256>"
+        }
+      }
+    }
   ]
 }
 ~~~
@@ -73,6 +91,22 @@ rejects unknown or duplicate fields, digests and permissions. It
 also rejects two credentials for the same principal when their permissions
 differ. Consequently, overlapping old and new token hashes can rotate a
 credential without changing the durable principal or its authorization.
+
+`nativeWorkers` is optional until a native agent is provisioned. Its tokens are
+an independent authentication audience: user credentials cannot call the Native
+Worker API, and worker credentials cannot call Run or baseline administration.
+The request cannot select `workerId`, qualification or acquisition authorization.
+The server compares reported evidence with the exact reviewed evidence above;
+availability, qualification and authorization remain separate values. Repeated
+entries may overlap tokens during rotation only when their worker identity and
+policy are identical.
+
+`POST /native-worker/v1/presence` records the most recent authenticated report
+using PostgreSQL time. The initial policy requests another heartbeat after 30
+seconds and qualifies matching evidence for two minutes. These values are
+server-owned; the worker cannot extend them. Lease acquisition is not yet
+implemented and will independently require current availability, qualification
+and authorization.
 
 Only SHA-256 token digests are read and retained. The bearer tokens themselves
 must be generated with sufficient entropy and delivered separately to clients;

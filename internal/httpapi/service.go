@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"strings"
 )
 
 const (
@@ -14,24 +15,27 @@ const (
 // ServiceHandler serves operational endpoints beside the authenticated API.
 // Operational responses contain no dependency or request-specific details.
 type ServiceHandler struct {
-	api     http.Handler
-	metrics httpMetrics
+	api          http.Handler
+	nativeWorker http.Handler
+	metrics      httpMetrics
 }
 
 // NewServiceHandler constructs the complete service HTTP boundary.
-func NewServiceHandler(api http.Handler) (*ServiceHandler, error) {
-	if api == nil {
-		return nil, errors.New("API handler is required")
+func NewServiceHandler(api, nativeWorker http.Handler) (*ServiceHandler, error) {
+	if api == nil || nativeWorker == nil {
+		return nil, errors.New("API and native worker handlers are required")
 	}
-	return &ServiceHandler{api: api}, nil
+	return &ServiceHandler{api: api, nativeWorker: nativeWorker}, nil
 }
 
 func (handler *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch r.URL.Path {
-	case livenessPath, readinessPath:
+	switch {
+	case r.URL.Path == livenessPath || r.URL.Path == readinessPath:
 		serveHealth(w, r)
-	case metricsPath:
+	case r.URL.Path == metricsPath:
 		handler.serveMetrics(w, r)
+	case strings.HasPrefix(r.URL.Path, "/native-worker/"):
+		handler.metrics.observe(handler.nativeWorker, w, r)
 	default:
 		handler.metrics.observe(handler.api, w, r)
 	}
