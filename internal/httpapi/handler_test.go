@@ -54,11 +54,11 @@ func setup(t *testing.T) (*Handler, *memory.Repository) {
 		default:
 			return Identity{}, errors.New("secret authentication diagnostic")
 		}
-	}, func(_ context.Context, _ string, r run.Request) error {
+	}, func(_ context.Context, _ string, r run.Request) (run.ExecutionTarget, error) {
 		if r != approved {
-			return run.ErrValidation
+			return "", run.ErrValidation
 		}
-		return nil
+		return run.ExecutionTargetKubernetes, nil
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -184,7 +184,9 @@ func TestCancelAfterDispatchReturnsAccepted(t *testing.T) {
 	if err := json.Unmarshal(fixture(t), &request); err != nil {
 		t.Fatal(err)
 	}
-	accepted, err := repo.Accept(context.Background(), "alice", "request-key-00000002", request)
+	accepted, err := repo.Accept(
+		context.Background(), "alice", "request-key-00000002", request, run.ExecutionTargetKubernetes,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -355,7 +357,9 @@ func TestConflictTerminalAndDependencyFailures(t *testing.T) {
 	first := call(h, "POST", "/v1/runs", "alice-token", fixture(t))
 	r := decodeRun(t, first)
 	// Explicit test stub, not a production resource-approval adapter.
-	h.approve = func(context.Context, string, run.Request) error { return nil }
+	h.approve = func(context.Context, string, run.Request) (run.ExecutionTarget, error) {
+		return run.ExecutionTargetKubernetes, nil
+	}
 	changed := bytes.Replace(fixture(t), []byte("smoke"), []byte("soak"), 1)
 	checkError(t, call(h, "POST", "/v1/runs", "alice-token", changed), 409, "IDEMPOTENCY_CONFLICT")
 	for _, state := range []run.State{
@@ -385,7 +389,9 @@ func TestConflictTerminalAndDependencyFailures(t *testing.T) {
 		{context.Canceled, 503, "UNAVAILABLE"}, {context.DeadlineExceeded, 503, "UNAVAILABLE"},
 		{errors.New("secret connection string"), 500, "INTERNAL_ERROR"},
 	} {
-		h.approve = func(context.Context, string, run.Request) error { return c.err }
+		h.approve = func(context.Context, string, run.Request) (run.ExecutionTarget, error) {
+			return "", c.err
+		}
 		checkError(t, call(h, "POST", "/v1/runs", "alice-token", fixture(t)), c.status, c.code)
 	}
 	if _, err := New(repo, nil, h.approve); err == nil {

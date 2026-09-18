@@ -33,7 +33,7 @@ func request(t *testing.T) run.Request {
 }
 func create(t *testing.T, m *Repository) run.Accepted {
 	t.Helper()
-	a, err := m.Accept(ctx, "alice", key, request(t))
+	a, err := m.Accept(ctx, "alice", key, request(t), run.ExecutionTargetKubernetes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,6 +62,11 @@ func TestReplayScopeExpiryAndIsolation(t *testing.T) {
 	if replay.Run != a.Run || replay.ExpiresAt != a.ExpiresAt {
 		t.Fatal("replay not original")
 	}
+	if _, err := m.Accept(
+		ctx, "alice", key, request(t), run.ExecutionTargetNativeWindows,
+	); !errors.Is(err, run.ErrConflict) {
+		t.Fatal("execution target changed on replay", err)
+	}
 	got, err := m.Get(ctx, "alice", a.Run.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -71,10 +76,10 @@ func TestReplayScopeExpiryAndIsolation(t *testing.T) {
 	}
 	changed := request(t)
 	changed.Profile = "soak"
-	if _, err := m.Accept(ctx, "alice", key, changed); !errors.Is(err, run.ErrConflict) {
+	if _, err := m.Accept(ctx, "alice", key, changed, run.ExecutionTargetKubernetes); !errors.Is(err, run.ErrConflict) {
 		t.Fatal(err)
 	}
-	other, err := m.Accept(ctx, "bob", key, request(t))
+	other, err := m.Accept(ctx, "bob", key, request(t), run.ExecutionTargetKubernetes)
 	if err != nil || other.Run.ID == a.Run.ID {
 		t.Fatal("principal scope collision")
 	}
@@ -104,7 +109,7 @@ func TestConcurrentAcceptAndPreDispatchCancel(t *testing.T) {
 	ids := make(chan string, 64)
 	for range 64 {
 		wg.Go(func() {
-			a, err := m.Accept(ctx, "alice", key, req)
+			a, err := m.Accept(ctx, "alice", key, req, run.ExecutionTargetKubernetes)
 			if err != nil {
 				t.Error(err)
 				return
@@ -193,12 +198,15 @@ func TestRejectedAcceptDoesNotReserveKey(t *testing.T) {
 	m := New(nil)
 	bad := request(t)
 	bad.Profile = ""
-	if _, err := m.Accept(ctx, "alice", key, bad); !errors.Is(err, run.ErrValidation) {
+	if _, err := m.Accept(ctx, "alice", key, bad, run.ExecutionTargetKubernetes); !errors.Is(err, run.ErrValidation) {
 		t.Fatal(err)
+	}
+	if _, err := m.Accept(ctx, "alice", key, request(t), "OTHER"); !errors.Is(err, run.ErrValidation) {
+		t.Fatal("invalid execution target accepted", err)
 	}
 	cancelled, cancel := context.WithCancel(ctx)
 	cancel()
-	if _, err := m.Accept(cancelled, "alice", key, request(t)); !errors.Is(err, context.Canceled) {
+	if _, err := m.Accept(cancelled, "alice", key, request(t), run.ExecutionTargetKubernetes); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
 	}
 	create(t, m)

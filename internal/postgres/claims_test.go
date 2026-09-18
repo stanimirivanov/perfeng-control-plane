@@ -47,6 +47,38 @@ func oneClaim(t *testing.T, r *Repository, worker string) run.Claim {
 	return claims[0]
 }
 
+func TestClaimRunsSelectsOnlyKubernetesExecutionTarget(t *testing.T) {
+	r, _ := claimsDB(t)
+	request := testRequest(t)
+	native, err := r.Accept(
+		testContext,
+		"alice",
+		"request-key-native-target",
+		request,
+		run.ExecutionTargetNativeWindows,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claims := claimBatch(t, r, "kubernetes-worker", 10); len(claims) != 0 {
+		t.Fatalf("native Run %s was claimed by Kubernetes reconciliation", native.Run.ID)
+	}
+	kubernetes, err := r.Accept(
+		testContext,
+		"alice",
+		"request-key-kubernetes-target",
+		request,
+		run.ExecutionTargetKubernetes,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim := oneClaim(t, r, "kubernetes-worker")
+	if claim.Run.ID != kubernetes.Run.ID {
+		t.Fatalf("claimed Run = %s, want %s", claim.Run.ID, kubernetes.Run.ID)
+	}
+}
+
 func TestClaimsLifecycle(t *testing.T) {
 	r, dsn := claimsDB(t)
 	other := openTest(t, dsn)

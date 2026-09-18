@@ -65,6 +65,23 @@ const (
 	StateTestFailure State = "TEST_FAILURE"
 )
 
+// ExecutionTarget identifies the trusted transport that owns a Run's execution.
+// It is selected during admission and is not part of the caller-controlled Run
+// snapshot.
+type ExecutionTarget string
+
+const (
+	// ExecutionTargetKubernetes is reconciled through an approved Kubernetes Job.
+	ExecutionTargetKubernetes ExecutionTarget = "KUBERNETES"
+	// ExecutionTargetNativeWindows is leased to an approved native Windows worker.
+	ExecutionTargetNativeWindows ExecutionTarget = "NATIVE_WINDOWS"
+)
+
+// Valid reports whether target is a supported server-owned execution target.
+func (target ExecutionTarget) Valid() bool {
+	return target == ExecutionTargetKubernetes || target == ExecutionTargetNativeWindows
+}
+
 // FailureCode identifies the safe failure category persisted with a failed Run.
 type FailureCode string
 
@@ -260,15 +277,16 @@ type Accepted struct {
 }
 
 // Repository methods are atomic. Accept binds principal + key to an immutable
-// original snapshot for >=24h. Replays never reset the current Run. A durable
-// adapter must commit the run and binding in one transaction before returning.
+// original snapshot and execution target for >=24h. Replays never reset the
+// current Run. A durable adapter must commit the run and binding in one
+// transaction before returning.
 // Cancel and Advance serialize against each other; Advance uses revision CAS.
 // All returned values must be isolated copies. NotFound includes invisible runs.
 type Repository interface {
 	// Accept atomically creates a Run and binds principal and key for at least 24
-	// hours. A live replay with the same Request returns the original Accepted
-	// value; a different Request returns ErrConflict.
-	Accept(ctx context.Context, principal, key string, request Request) (Accepted, error)
+	// hours. A live replay with the same Request and execution target returns the
+	// original Accepted value; a different Request or target returns ErrConflict.
+	Accept(ctx context.Context, principal, key string, request Request, target ExecutionTarget) (Accepted, error)
 
 	// Get returns the current snapshot visible to principal. ErrNotFound includes
 	// absent and cross-principal Runs.

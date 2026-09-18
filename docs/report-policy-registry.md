@@ -59,9 +59,11 @@ non-REPORTING states and malformed candidate artifacts return
 
 `ApproveRun` has the `httpapi.Approve` signature and uses the same exact lookup.
 It additionally requires the request's candidate image digest to appear in the
-entry's allowlist. Entries with native source-checkout or release-archive
-producers remain forbidden until a native admission and dispatch path is wired.
-The candidate Git
+entry's allowlist and returns the server-owned execution target. A validated
+OCI producer with a reviewed Job template selects `KUBERNETES`; a validated
+source-checkout or release-archive producer without a Job template selects
+`NATIVE_WINDOWS`. Admission persists that decision outside the caller-controlled
+Run snapshot. The candidate Git
 SHA remains part of the validated immutable Run request, but this registry does
 not claim to attest the relationship between that revision and the published
 image. An unmatched context or image is forbidden; malformed input is a

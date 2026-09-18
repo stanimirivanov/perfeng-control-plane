@@ -114,7 +114,7 @@ func testRequest(t *testing.T) run.Request {
 }
 func accepted(t *testing.T, r *Repository, principal, key string) run.Accepted {
 	t.Helper()
-	a, err := r.Accept(testContext, principal, key, testRequest(t))
+	a, err := r.Accept(testContext, principal, key, testRequest(t), run.ExecutionTargetKubernetes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,13 +191,26 @@ func TestPostgresIntegration(t *testing.T) {
 	if replay != a {
 		t.Fatal("original acceptance replay changed")
 	}
+	if _, err := other.Accept(
+		testContext, "alice", "request-key-00000001", request, run.ExecutionTargetNativeWindows,
+	); !errors.Is(err, run.ErrConflict) {
+		t.Fatal("execution target changed on replay", err)
+	}
+	var executionTarget run.ExecutionTarget
+	if err := other.db.QueryRow(
+		"SELECT execution_target FROM perfeng_control.runs WHERE run_id=$1", a.Run.ID,
+	).Scan(&executionTarget); err != nil || executionTarget != run.ExecutionTargetKubernetes {
+		t.Fatal("unexpected persisted execution target", executionTarget, err)
+	}
 	got, err := other.Get(testContext, "alice", a.Run.ID)
 	if err != nil || got != current {
 		t.Fatal("separate connection did not see committed state")
 	}
 	changed := request
 	changed.Profile = "soak"
-	if _, err := other.Accept(testContext, "alice", "request-key-00000001", changed); !errors.Is(err, run.ErrConflict) {
+	if _, err := other.Accept(
+		testContext, "alice", "request-key-00000001", changed, run.ExecutionTargetKubernetes,
+	); !errors.Is(err, run.ErrConflict) {
 		t.Fatal("missing payload conflict", err)
 	}
 	b := accepted(t, other, "bob", "request-key-00000001")
@@ -275,7 +288,9 @@ func TestPostgresIntegration(t *testing.T) {
 				repository = other
 			}
 			wg.Go(func() {
-				a, err := repository.Accept(testContext, "concurrent", "request-key-00000002", request)
+				a, err := repository.Accept(
+					testContext, "concurrent", "request-key-00000002", request, run.ExecutionTargetKubernetes,
+				)
 				if err != nil {
 					t.Error(err)
 					return
@@ -366,7 +381,9 @@ func TestPostgresIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, acceptErr := r.Accept(testContext, "rollback", "request-key-rollback", request)
+		_, acceptErr := r.Accept(
+			testContext, "rollback", "request-key-rollback", request, run.ExecutionTargetKubernetes,
+		)
 		if _, err := r.db.Exec("DROP TRIGGER reject_binding ON perfeng_control.create_bindings; DROP FUNCTION perfeng_control.reject_binding()"); err != nil {
 			t.Fatal(err)
 		}
@@ -390,7 +407,9 @@ func TestPostgresIntegration(t *testing.T) {
 		}
 		ctx, cancel := context.WithTimeout(testContext, 100*time.Millisecond)
 		defer cancel()
-		if _, err := other.Accept(ctx, "deadline", "request-key-deadline", request); !errors.Is(err, context.DeadlineExceeded) {
+		if _, err := other.Accept(
+			ctx, "deadline", "request-key-deadline", request, run.ExecutionTargetKubernetes,
+		); !errors.Is(err, context.DeadlineExceeded) {
 			t.Fatal("lock wait did not preserve the caller deadline", err)
 		}
 		if err := tx.Rollback(); err != nil {
@@ -444,7 +463,7 @@ func TestConcurrentMigrationAndTerminalSnapshots(t *testing.T) {
 		return
 	}
 	var count int
-	if err := first.db.QueryRow("SELECT count(*) FROM perfeng_control.schema_migrations").Scan(&count); err != nil || count != 5 {
+	if err := first.db.QueryRow("SELECT count(*) FROM perfeng_control.schema_migrations").Scan(&count); err != nil || count != 6 {
 		t.Fatal("concurrent migration duplicated ledger", err)
 	}
 	a := accepted(t, first, "terminal", "request-key-terminal")

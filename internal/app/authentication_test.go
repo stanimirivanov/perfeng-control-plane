@@ -29,8 +29,8 @@ func (authenticatorStub) Authenticate(
 
 type approverStub struct{}
 
-func (approverStub) ApproveRun(context.Context, string, run.Request) error {
-	return nil
+func (approverStub) ApproveRun(context.Context, string, run.Request) (run.ExecutionTarget, error) {
+	return run.ExecutionTargetKubernetes, nil
 }
 
 func TestNewAuthenticationLoadsMountedCredentialDocument(t *testing.T) {

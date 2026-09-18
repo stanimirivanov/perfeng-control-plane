@@ -38,9 +38,10 @@ type Authenticate func(context.Context, string) (Identity, error)
 
 // Approve resolves approved immutable resources, verifies exact published-byte
 // hashes, suite/profile support, candidate authorization, environment access and
-// observe/inform policy mode. Return ErrValidation/ErrForbidden/ErrUnavailable.
-// It is a required seam, not an implicit allowlist or a network-fetch mechanism.
-type Approve func(context.Context, string, run.Request) error
+// observe/inform policy mode. It returns the server-owned execution target or
+// ErrValidation/ErrForbidden/ErrUnavailable. It is a required seam, not an
+// implicit allowlist or a network-fetch mechanism.
+type Approve func(context.Context, string, run.Request) (run.ExecutionTarget, error)
 
 // Repository contains the principal-scoped run and artifact reads exposed by
 // the HTTP API together with run mutation operations.
@@ -267,11 +268,12 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request, principal strin
 		fail(w, 422, "VALIDATION_FAILED")
 		return
 	}
-	if err := h.approve(r.Context(), principal, request); err != nil {
+	target, err := h.approve(r.Context(), principal, request)
+	if err != nil {
 		failRepository(w, err)
 		return
 	}
-	accepted, err := h.repository.Accept(r.Context(), principal, keys[0], request)
+	accepted, err := h.repository.Accept(r.Context(), principal, keys[0], request, target)
 	if err != nil {
 		failRepository(w, err)
 		return

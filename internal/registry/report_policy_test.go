@@ -169,8 +169,12 @@ func TestReportPolicyRegistryApprovesExactRunRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := registry.ApproveRun(context.Background(), "alice", current.Request); err != nil {
+	target, err := registry.ApproveRun(context.Background(), "alice", current.Request)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if target != run.ExecutionTargetKubernetes {
+		t.Fatalf("target = %q", target)
 	}
 }
 
@@ -209,7 +213,7 @@ func TestReportPolicyRegistryRejectsUnapprovedRunRequest(t *testing.T) {
 			if test.mutate != nil {
 				test.mutate(&current.Request)
 			}
-			if err := registry.ApproveRun(
+			if _, err := registry.ApproveRun(
 				context.Background(), test.principal, current.Request,
 			); !errors.Is(err, run.ErrForbidden) {
 				t.Fatalf("error = %v", err)
@@ -224,25 +228,25 @@ func TestReportPolicyRegistryValidatesRunApprovalContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := registry.ApproveRun(
+	if _, err := registry.ApproveRun(
 		context.Background(), "", current.Request,
 	); !errors.Is(err, run.ErrValidation) {
 		t.Fatalf("principal error = %v", err)
 	}
 	invalid := current.Request
 	invalid.Candidate.Image = "latest"
-	if err := registry.ApproveRun(
+	if _, err := registry.ApproveRun(
 		context.Background(), "alice", invalid,
 	); !errors.Is(err, run.ErrValidation) {
 		t.Fatalf("request error = %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := registry.ApproveRun(ctx, "alice", current.Request); !errors.Is(err, context.Canceled) {
+	if _, err := registry.ApproveRun(ctx, "alice", current.Request); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancellation error = %v", err)
 	}
 	var nilRegistry *ReportPolicyRegistry
-	if err := nilRegistry.ApproveRun(
+	if _, err := nilRegistry.ApproveRun(
 		context.Background(), "alice", current.Request,
 	); !errors.Is(err, run.ErrValidation) {
 		t.Fatalf("nil registry error = %v", err)
@@ -408,7 +412,7 @@ func TestReportPolicyRegistryRejectsChangedReleaseArchiveProvenance(t *testing.T
 	}
 }
 
-func TestReportPolicyRegistryKeepsNativeEntriesOffKubernetesDispatch(t *testing.T) {
+func TestReportPolicyRegistryRoutesNativeEntriesAwayFromKubernetes(t *testing.T) {
 	for _, kind := range []string{"source-checkout", "release-archive"} {
 		t.Run(kind, func(t *testing.T) {
 			entry, current := v2RawPolicyFixture(t, kind)
@@ -416,10 +420,14 @@ func TestReportPolicyRegistryKeepsNativeEntriesOffKubernetesDispatch(t *testing.
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := registry.ApproveRun(
+			target, err := registry.ApproveRun(
 				context.Background(), "alice", current.Request,
-			); !errors.Is(err, run.ErrForbidden) {
+			)
+			if err != nil {
 				t.Fatalf("ApproveRun() error = %v", err)
+			}
+			if target != run.ExecutionTargetNativeWindows {
+				t.Fatalf("target = %q", target)
 			}
 			current.State = run.StateValidating
 			if _, err := registry.ResolveJob(
