@@ -36,11 +36,13 @@ type schema struct {
 	Minimum              *float64          `json:"minimum"`
 	Maximum              *float64          `json:"maximum"`
 	MinItems             *int              `json:"minItems"`
+	MaxItems             *int              `json:"maxItems"`
 	UniqueItems          bool              `json:"uniqueItems"`
 	pattern              *regexp.Regexp
 }
 
 var schemas map[string]schema
+var nativeWorkerSchemas map[string]schema
 var transitions map[string][]string
 
 func init() {
@@ -67,6 +69,19 @@ func init() {
 		panic(err)
 	}
 	schemas = prepared
+	var nativeWorkerDocument struct {
+		Components struct {
+			Schemas map[string]schema `json:"schemas"`
+		} `json:"components"`
+	}
+	read("api/native-worker/v1/openapi.json", &nativeWorkerDocument)
+	nativeWorkerSchemas, err = prepareSchemas(
+		nativeWorkerDocument.Components.Schemas,
+		"WorkerPresence",
+	)
+	if err != nil {
+		panic(err)
+	}
 	read("transitions.json", &transitions)
 }
 
@@ -177,7 +192,8 @@ func validateSupportedSchema(
 	switch definition.Type {
 	case "object", "":
 		if definition.Type == "" && len(definition.Properties) == 0 {
-			if definition.Const == nil && len(definition.AllOf) == 0 && len(definition.OneOf) == 0 {
+			if definition.Const == nil && len(definition.Enum) == 0 &&
+				len(definition.AllOf) == 0 && len(definition.OneOf) == 0 {
 				return fmt.Errorf("unsupported empty schema")
 			}
 
@@ -214,16 +230,26 @@ func ValidateBaselineTransition(value any) error {
 	return validate(schemas["BaselineTransition"], value)
 }
 
+// ValidateWorkerPresence checks a decoded value against the pinned Native
+// Worker API v1 WorkerPresence schema.
+func ValidateWorkerPresence(value any) error {
+	return validateWithSchemas(nativeWorkerSchemas["WorkerPresence"], value, nativeWorkerSchemas)
+}
+
 func validate(s schema, value any) error {
+	return validateWithSchemas(s, value, schemas)
+}
+
+func validateWithSchemas(s schema, value any, all map[string]schema) error {
 	for _, child := range s.AllOf {
-		if err := validate(child, value); err != nil {
+		if err := validateWithSchemas(child, value, all); err != nil {
 			return err
 		}
 	}
 	if len(s.OneOf) > 0 {
 		matches := 0
 		for _, child := range s.OneOf {
-			if validate(child, value) == nil {
+			if validateWithSchemas(child, value, all) == nil {
 				matches++
 			}
 		}
@@ -236,15 +262,23 @@ func validate(s schema, value any) error {
 		if !ok {
 			return fmt.Errorf("unsupported reference")
 		}
-		resolved, ok := schemas[name]
+		resolved, ok := all[name]
 		if !ok {
 			return fmt.Errorf("unknown reference")
 		}
 
-		return validate(resolved, value)
+		return validateWithSchemas(resolved, value, all)
 	}
 	if s.Const != nil && fmt.Sprint(value) != fmt.Sprint(s.Const) {
 		return fmt.Errorf("invalid value")
+	}
+	if s.Type == "" && len(s.Enum) > 0 {
+		str, ok := value.(string)
+		if !ok || !slices.Contains(s.Enum, str) {
+			return fmt.Errorf("invalid value")
+		}
+
+		return nil
 	}
 	switch s.Type {
 	case "object", "":
@@ -268,7 +302,7 @@ func validate(s schema, value any) error {
 				}
 				continue
 			}
-			if err := validate(property, child); err != nil {
+			if err := validateWithSchemas(property, child, all); err != nil {
 				return err
 			}
 		}
@@ -313,10 +347,13 @@ func validate(s schema, value any) error {
 		if s.MinItems != nil && len(array) < *s.MinItems {
 			return fmt.Errorf("too few items")
 		}
+		if s.MaxItems != nil && len(array) > *s.MaxItems {
+			return fmt.Errorf("too many items")
+		}
 		seen := make(map[string]struct{}, len(array))
 		for _, item := range array {
 			if s.Items != nil {
-				if err := validate(*s.Items, item); err != nil {
+				if err := validateWithSchemas(*s.Items, item, all); err != nil {
 					return err
 				}
 			}

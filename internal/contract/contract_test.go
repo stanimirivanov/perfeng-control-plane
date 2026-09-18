@@ -68,6 +68,63 @@ func TestNativeWorkerSnapshotInventory(t *testing.T) {
 	verifyNativeWorkerFixtures(t)
 }
 
+func TestNativeWorkerPresenceRuntimeValidation(t *testing.T) {
+	presence := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/presence.json")
+	if err := ValidateWorkerPresence(presence); err != nil {
+		t.Fatal(err)
+	}
+
+	rejections, err := fs.Glob(Files, "snapshot/api/native-worker/v1/rejections/*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	validated := 0
+	for _, path := range rejections {
+		fixture := decodeContractValue(t, path)
+		if fixture["schema"] != "WorkerPresence" {
+			continue
+		}
+		validated++
+		if ValidateWorkerPresence(fixture["value"]) == nil {
+			t.Fatalf("accepted rejected WorkerPresence fixture: %s", path)
+		}
+	}
+	if validated != 3 {
+		t.Fatalf("validated %d WorkerPresence rejections, want 3", validated)
+	}
+
+	capabilities := presence["capabilities"].(map[string]any)
+	capabilities["browsers"] = []any{"edge", "chrome", "chromium", "edge"}
+	if ValidateWorkerPresence(presence) == nil {
+		t.Fatal("accepted a duplicate browser capability")
+	}
+
+	presence = decodeContractValue(t, "snapshot/api/native-worker/v1/examples/presence.json")
+	capabilities = presence["capabilities"].(map[string]any)
+	capabilities["artifactKinds"] = []any{
+		"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q",
+	}
+	if ValidateWorkerPresence(presence) == nil {
+		t.Fatal("accepted an oversized artifact-kind capability list")
+	}
+}
+
+func decodeContractValue(t *testing.T, path string) map[string]any {
+	t.Helper()
+	b, err := Files.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var value map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(b))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		t.Fatal(err)
+	}
+
+	return value
+}
+
 func verifyNativeWorkerOpenAPI(t *testing.T) {
 	t.Helper()
 
