@@ -1,0 +1,475 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Performance Engineering Native Worker API",
+    "version": "1.0.0",
+    "description": "Authenticated outbound-pull protocol for qualified native workers. Worker identity is derived only from the bearer credential. Lease capabilities and upload grants are transported only in headers and must not be logged or persisted as evidence."
+  },
+  "servers": [{"url": "https://control.perfeng.invalid"}],
+  "security": [{"workerBearer": []}],
+  "paths": {
+    "/native-worker/v1/presence": {
+      "post": {
+        "operationId": "reportWorkerPresence",
+        "summary": "Report availability, capabilities, and qualification evidence",
+        "description": "The authenticated principal selects the worker identity. Capabilities and evidence are untrusted scheduling inputs; the response reports the server's separate qualification and authorization decisions.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerPresence"}}}},
+        "responses": {
+          "200": {"description": "Current server interpretation of worker state", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PresenceStatus"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "429": {"$ref": "#/components/responses/RateLimited"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/native-worker/v1/leases": {
+      "post": {
+        "operationId": "acquireNativeLease",
+        "summary": "Acquire one compatible native execution lease",
+        "description": "Returns work only when presence, qualification, capability, availability, authorization, and policy all permit acquisition. A 204 response means no compatible work is currently available.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AcquireLease"}}}},
+        "responses": {
+          "200": {
+            "description": "Lease acquired",
+            "headers": {"X-Perfeng-Lease": {"required": true, "description": "Opaque capability for this lease. Never include it in JSON, logs, or evidence.", "schema": {"$ref": "#/components/schemas/LeaseCapability"}}},
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Lease"}}}
+          },
+          "204": {"description": "No compatible work", "headers": {"Retry-After": {"required": true, "schema": {"type": "integer", "minimum": 1, "maximum": 60}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "429": {"$ref": "#/components/responses/RateLimited"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/native-worker/v1/leases/{leaseId}/renew": {
+      "parameters": [{"$ref": "#/components/parameters/LeaseId"}, {"$ref": "#/components/parameters/LeaseCapability"}],
+      "post": {
+        "operationId": "renewNativeLease",
+        "summary": "Renew a current lease and observe cancellation",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/RenewLease"}}}},
+        "responses": {
+          "200": {"description": "Renewed lease and current cancellation state", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LeaseRenewal"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "410": {"$ref": "#/components/responses/LeaseGone"},
+          "429": {"$ref": "#/components/responses/RateLimited"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/native-worker/v1/leases/{leaseId}/release": {
+      "parameters": [{"$ref": "#/components/parameters/LeaseId"}, {"$ref": "#/components/parameters/LeaseCapability"}],
+      "post": {
+        "operationId": "releaseNativeLease",
+        "summary": "Release a current lease without reporting ordinary completion",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ReleaseLease"}}}},
+        "responses": {
+          "204": {"description": "Lease released; duplicate release is idempotent"},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "410": {"$ref": "#/components/responses/LeaseGone"},
+          "429": {"$ref": "#/components/responses/RateLimited"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/native-worker/v1/leases/{leaseId}/upload-grants": {
+      "parameters": [{"$ref": "#/components/parameters/LeaseId"}, {"$ref": "#/components/parameters/LeaseCapability"}],
+      "post": {
+        "operationId": "createNativeUploadGrant",
+        "summary": "Create a short-lived exact-object upload grant",
+        "description": "The server selects the object key from the assigned artifact slot. The grant authorizes one bounded write and no listing, deletion, or arbitrary key selection.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UploadGrantRequest"}}}},
+        "responses": {
+          "201": {
+            "description": "Upload grant created",
+            "headers": {"X-Perfeng-Upload-Grant": {"required": true, "description": "Opaque authorization material for the exact upload. Never include it in JSON, logs, or evidence.", "schema": {"$ref": "#/components/schemas/UploadCapability"}}},
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UploadGrant"}}}
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "410": {"$ref": "#/components/responses/LeaseGone"},
+          "429": {"$ref": "#/components/responses/RateLimited"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/native-worker/v1/leases/{leaseId}/artifacts": {
+      "parameters": [{"$ref": "#/components/parameters/LeaseId"}, {"$ref": "#/components/parameters/LeaseCapability"}],
+      "post": {
+        "operationId": "registerNativeArtifact",
+        "summary": "Register a verified immutable uploaded artifact",
+        "description": "Registration is conditional on the current lease, attempt, and run revision. The server verifies bytes at the server-selected object key before accepting the reference.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/RegisterArtifact"}}}},
+        "responses": {
+          "201": {"description": "Artifact verified and registered", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ArtifactReference"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "410": {"$ref": "#/components/responses/LeaseGone"},
+          "429": {"$ref": "#/components/responses/RateLimited"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/native-worker/v1/leases/{leaseId}/terminal": {
+      "parameters": [{"$ref": "#/components/parameters/LeaseId"}, {"$ref": "#/components/parameters/LeaseCapability"}],
+      "post": {
+        "operationId": "reportNativeTerminal",
+        "summary": "Report completed or failed execution for the current attempt",
+        "description": "Completion names the manifest registered last. Duplicate identical reports are acknowledged; conflicting or stale reports are rejected.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TerminalReport"}}}},
+        "responses": {
+          "200": {"description": "Terminal report accepted or previously accepted", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TerminalAck"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "410": {"$ref": "#/components/responses/LeaseGone"},
+          "429": {"$ref": "#/components/responses/RateLimited"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "workerBearer": {"type": "http", "scheme": "bearer", "bearerFormat": "opaque worker credential", "description": "Pre-provisioned per-worker credential. The authenticated principal is the worker identity."}
+    },
+    "parameters": {
+      "LeaseId": {"name": "leaseId", "in": "path", "required": true, "schema": {"$ref": "#/components/schemas/Uuid"}},
+      "LeaseCapability": {"name": "X-Perfeng-Lease", "in": "header", "required": true, "description": "Opaque capability bound to the authenticated worker and this lease.", "schema": {"$ref": "#/components/schemas/LeaseCapability"}}
+    },
+    "responses": {
+      "BadRequest": {"description": "Malformed or structurally invalid request", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+      "Unauthorized": {"description": "Missing or invalid worker credential", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+      "Forbidden": {"description": "Authenticated worker is not authorized for the operation", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+      "Conflict": {"description": "Expected attempt or Run revision is stale, or the report conflicts with an accepted mutation", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+      "LeaseGone": {"description": "Lease expired, was released, or no longer belongs to the current attempt", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+      "RateLimited": {"description": "Polling or mutation rate exceeded", "headers": {"Retry-After": {"required": true, "schema": {"type": "integer", "minimum": 1, "maximum": 60}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+      "InternalError": {"description": "Unexpected control-plane failure", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+      "Unavailable": {"description": "Control-plane dependency unavailable", "headers": {"Retry-After": {"required": true, "schema": {"type": "integer", "minimum": 1, "maximum": 60}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+    },
+    "schemas": {
+      "Uuid": {"type": "string", "format": "uuid"},
+      "Timestamp": {"type": "string", "format": "date-time"},
+      "Sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+      "Identifier": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$"},
+      "SemanticVersion": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$"},
+      "RunId": {"type": "string", "pattern": "^perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$"},
+      "LeaseCapability": {"type": "string", "minLength": 32, "maxLength": 4096, "writeOnly": true},
+      "UploadCapability": {"type": "string", "minLength": 32, "maxLength": 8192, "writeOnly": true},
+      "AttemptFence": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["attemptId", "expectedRunRevision"],
+        "properties": {
+          "attemptId": {"$ref": "#/components/schemas/Uuid"},
+          "expectedRunRevision": {"type": "integer", "minimum": 1}
+        }
+      },
+      "ExecutionArtifact": {
+        "oneOf": [
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["kind", "repository", "revision", "lockfile", "lockfileSha256"],
+            "properties": {
+              "kind": {"const": "source-checkout"},
+              "repository": {"type": "string", "format": "uri", "pattern": "^https://"},
+              "revision": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+              "lockfile": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+              "lockfileSha256": {"$ref": "#/components/schemas/Sha256"}
+            }
+          },
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["kind", "url", "archiveSha256", "executableSha256"],
+            "properties": {
+              "kind": {"const": "release-archive"},
+              "url": {"type": "string", "format": "uri", "pattern": "^https://[^?#]+$"},
+              "archiveSha256": {"$ref": "#/components/schemas/Sha256"},
+              "executableSha256": {"$ref": "#/components/schemas/Sha256"}
+            }
+          }
+        ]
+      },
+      "WorkerCapabilities": {
+        "type": "object", "additionalProperties": false,
+        "required": ["capacity", "tool", "operatingSystem", "architecture", "browsers", "runnerContract", "executionArtifacts", "artifactKinds", "diagnosticModes"],
+        "properties": {
+          "capacity": {"const": 1, "description": "Native Worker API v1 permits one active browser measurement lease."},
+          "tool": {"const": "playwright"},
+          "operatingSystem": {"const": "windows"},
+          "architecture": {"enum": ["x64", "arm64"]},
+          "browsers": {"type": "array", "minItems": 1, "maxItems": 4, "uniqueItems": true, "items": {"enum": ["chromium", "chrome", "edge"]}},
+          "runnerContract": {"const": 1},
+          "executionArtifacts": {"type": "array", "minItems": 1, "maxItems": 2, "uniqueItems": true, "items": {"enum": ["source-checkout", "release-archive"]}},
+          "artifactKinds": {"type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true, "items": {"$ref": "#/components/schemas/Identifier"}},
+          "diagnosticModes": {"type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": {"enum": ["lightweight", "trace", "heap", "cpu-profile"]}}
+        }
+      },
+      "QualificationEvidence": {
+        "type": "object", "additionalProperties": false,
+        "required": ["environmentId", "environmentSha256", "runner"],
+        "properties": {
+          "environmentId": {"$ref": "#/components/schemas/Identifier"},
+          "environmentSha256": {"$ref": "#/components/schemas/Sha256"},
+          "runner": {"$ref": "#/components/schemas/ExecutionArtifact"}
+        },
+        "description": "Immutable evidence claimed by the worker. It does not let the worker declare itself qualified."
+      },
+      "WorkerPresence": {
+        "type": "object", "additionalProperties": false,
+        "required": ["protocolVersion", "agentVersion", "availability", "capabilities", "qualificationEvidence"],
+        "properties": {
+          "protocolVersion": {"const": 1},
+          "agentVersion": {"$ref": "#/components/schemas/SemanticVersion"},
+          "availability": {"enum": ["AVAILABLE", "DRAINING", "UNAVAILABLE"]},
+          "capabilities": {"$ref": "#/components/schemas/WorkerCapabilities"},
+          "qualificationEvidence": {"$ref": "#/components/schemas/QualificationEvidence"}
+        }
+      },
+      "QualificationDecision": {
+        "type": "object", "additionalProperties": false,
+        "required": ["status", "reasons"],
+        "properties": {
+          "status": {"enum": ["QUALIFIED", "UNQUALIFIED", "STALE"]},
+          "reasons": {"type": "array", "maxItems": 16, "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+          "validUntil": {"$ref": "#/components/schemas/Timestamp"}
+        },
+        "allOf": [
+          {"if": {"properties": {"status": {"const": "QUALIFIED"}}, "required": ["status"]}, "then": {"required": ["validUntil"]}},
+          {"if": {"properties": {"status": {"enum": ["UNQUALIFIED", "STALE"]}}, "required": ["status"]}, "then": {"properties": {"reasons": {"minItems": 1}}}}
+        ]
+      },
+      "PresenceStatus": {
+        "type": "object", "additionalProperties": false,
+        "required": ["workerId", "serverTime", "nextHeartbeatSeconds", "availability", "qualification", "authorizedToAcquire"],
+        "properties": {
+          "workerId": {"$ref": "#/components/schemas/Identifier"},
+          "serverTime": {"$ref": "#/components/schemas/Timestamp"},
+          "nextHeartbeatSeconds": {"type": "integer", "minimum": 5, "maximum": 300},
+          "availability": {"enum": ["AVAILABLE", "DRAINING", "UNAVAILABLE"]},
+          "qualification": {"$ref": "#/components/schemas/QualificationDecision"},
+          "authorizedToAcquire": {"type": "boolean"}
+        }
+      },
+      "AcquireLease": {
+        "type": "object", "additionalProperties": false,
+        "required": ["protocolVersion", "maxWaitSeconds"],
+        "properties": {
+          "protocolVersion": {"const": 1},
+          "maxWaitSeconds": {"type": "integer", "minimum": 0, "maximum": 30}
+        }
+      },
+      "ArtifactPlan": {
+        "type": "object", "additionalProperties": false,
+        "required": ["slot", "kind", "mediaType", "format", "maximumBytes", "required"],
+        "properties": {
+          "slot": {"$ref": "#/components/schemas/Identifier"},
+          "kind": {"$ref": "#/components/schemas/Identifier"},
+          "mediaType": {"type": "string", "pattern": "^[a-z0-9.+-]+/[a-z0-9.+-]+$"},
+          "format": {"$ref": "#/components/schemas/Identifier"},
+          "maximumBytes": {"type": "integer", "minimum": 1, "maximum": 536870912},
+          "required": {"type": "boolean"}
+        }
+      },
+      "Lease": {
+        "type": "object", "additionalProperties": false,
+        "required": ["leaseId", "attemptId", "runId", "runRevision", "issuedAt", "expiresAt", "renewAfterSeconds", "assignment", "artifactPlan"],
+        "properties": {
+          "leaseId": {"$ref": "#/components/schemas/Uuid"},
+          "attemptId": {"$ref": "#/components/schemas/Uuid"},
+          "runId": {"$ref": "#/components/schemas/RunId"},
+          "runRevision": {"type": "integer", "minimum": 1},
+          "issuedAt": {"$ref": "#/components/schemas/Timestamp"},
+          "expiresAt": {"$ref": "#/components/schemas/Timestamp"},
+          "renewAfterSeconds": {"type": "integer", "minimum": 5, "maximum": 300},
+          "assignment": {
+            "type": "object", "additionalProperties": false,
+            "required": ["catalogueTestId", "workloadId", "profile", "target", "browser", "diagnosticMode", "executionArtifact"],
+            "properties": {
+              "catalogueTestId": {"$ref": "#/components/schemas/Identifier"},
+              "workloadId": {"$ref": "#/components/schemas/Identifier"},
+              "profile": {"$ref": "#/components/schemas/Identifier"},
+              "target": {
+                "type": "object", "additionalProperties": false,
+                "required": ["environmentId", "baseUrl"],
+                "properties": {
+                  "environmentId": {"$ref": "#/components/schemas/Identifier"},
+                  "baseUrl": {"type": "string", "format": "uri", "pattern": "^https://[^/?#]+(?:/[^?#]*)?$"}
+                },
+                "description": "Server-resolved reviewed target. It is not supplied by the Run caller or selected by the worker."
+              },
+              "browser": {"enum": ["chromium", "chrome", "edge"]},
+              "diagnosticMode": {"enum": ["lightweight", "trace", "heap", "cpu-profile"]},
+              "executionArtifact": {"$ref": "#/components/schemas/ExecutionArtifact"}
+            }
+          },
+          "artifactPlan": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/components/schemas/ArtifactPlan"}}
+        }
+      },
+      "RenewLease": {
+        "type": "object", "additionalProperties": false,
+        "required": ["attemptId", "expectedRunRevision", "phase"],
+        "properties": {
+          "attemptId": {"$ref": "#/components/schemas/Uuid"},
+          "expectedRunRevision": {"type": "integer", "minimum": 1},
+          "phase": {"enum": ["PREPARING", "RUNNING", "UPLOADING", "FINALIZING"]}
+        }
+      },
+      "LeaseRenewal": {
+        "type": "object", "additionalProperties": false,
+        "required": ["leaseId", "attemptId", "runRevision", "serverTime", "expiresAt", "renewAfterSeconds", "cancellationRequested"],
+        "properties": {
+          "leaseId": {"$ref": "#/components/schemas/Uuid"},
+          "attemptId": {"$ref": "#/components/schemas/Uuid"},
+          "runRevision": {"type": "integer", "minimum": 1},
+          "serverTime": {"$ref": "#/components/schemas/Timestamp"},
+          "expiresAt": {"$ref": "#/components/schemas/Timestamp"},
+          "renewAfterSeconds": {"type": "integer", "minimum": 5, "maximum": 300},
+          "cancellationRequested": {"type": "boolean"},
+          "stopBy": {"$ref": "#/components/schemas/Timestamp"}
+        },
+        "if": {"properties": {"cancellationRequested": {"const": true}}, "required": ["cancellationRequested"]},
+        "then": {"required": ["stopBy"]},
+        "else": {"not": {"required": ["stopBy"]}}
+      },
+      "ReleaseLease": {
+        "type": "object", "additionalProperties": false,
+        "required": ["attemptId", "expectedRunRevision", "reason"],
+        "properties": {
+          "attemptId": {"$ref": "#/components/schemas/Uuid"},
+          "expectedRunRevision": {"type": "integer", "minimum": 1},
+          "reason": {"enum": ["CANCELLATION_REQUESTED", "LEASE_LOST", "WORKER_SHUTDOWN", "PREPARATION_FAILED"]},
+          "message": {"type": "string", "minLength": 1, "maxLength": 512}
+        }
+      },
+      "UploadGrantRequest": {
+        "type": "object", "additionalProperties": false,
+        "required": ["attemptId", "expectedRunRevision", "slot", "size", "sha256", "mediaType"],
+        "properties": {
+          "attemptId": {"$ref": "#/components/schemas/Uuid"},
+          "expectedRunRevision": {"type": "integer", "minimum": 1},
+          "slot": {"$ref": "#/components/schemas/Identifier"},
+          "size": {"type": "integer", "minimum": 1, "maximum": 536870912},
+          "sha256": {"$ref": "#/components/schemas/Sha256"},
+          "mediaType": {"type": "string", "pattern": "^[a-z0-9.+-]+/[a-z0-9.+-]+$"}
+        }
+      },
+      "UploadGrant": {
+        "type": "object", "additionalProperties": false,
+        "required": ["grantId", "leaseId", "attemptId", "runId", "slot", "objectKey", "uploadUrl", "method", "expiresAt", "maximumBytes", "sha256"],
+        "properties": {
+          "grantId": {"$ref": "#/components/schemas/Uuid"},
+          "leaseId": {"$ref": "#/components/schemas/Uuid"},
+          "attemptId": {"$ref": "#/components/schemas/Uuid"},
+          "runId": {"$ref": "#/components/schemas/RunId"},
+          "slot": {"$ref": "#/components/schemas/Identifier"},
+          "objectKey": {"type": "string", "pattern": "^runs/perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}/attempts/[0-9a-f-]{36}/[a-z][a-z0-9-]{1,62}$"},
+          "uploadUrl": {"type": "string", "format": "uri", "pattern": "^https://[^/?#]+/upload/runs/[^?#]+$", "description": "Credential-free exact-object endpoint. Authorization remains only in X-Perfeng-Upload-Grant."},
+          "method": {"const": "PUT"},
+          "expiresAt": {"$ref": "#/components/schemas/Timestamp"},
+          "maximumBytes": {"type": "integer", "minimum": 1, "maximum": 536870912},
+          "sha256": {"$ref": "#/components/schemas/Sha256"}
+        }
+      },
+      "RegisterArtifact": {
+        "type": "object", "additionalProperties": false,
+        "required": ["attemptId", "expectedRunRevision", "grantId", "slot", "size", "sha256"],
+        "properties": {
+          "attemptId": {"$ref": "#/components/schemas/Uuid"},
+          "expectedRunRevision": {"type": "integer", "minimum": 1},
+          "grantId": {"$ref": "#/components/schemas/Uuid"},
+          "slot": {"$ref": "#/components/schemas/Identifier"},
+          "size": {"type": "integer", "minimum": 1, "maximum": 536870912},
+          "sha256": {"$ref": "#/components/schemas/Sha256"}
+        }
+      },
+      "ArtifactReference": {
+        "type": "object", "additionalProperties": false,
+        "required": ["artifactId", "runId", "attemptId", "slot", "kind", "uri", "size", "sha256", "mediaType", "registeredAt"],
+        "properties": {
+          "artifactId": {"$ref": "#/components/schemas/Uuid"},
+          "runId": {"$ref": "#/components/schemas/RunId"},
+          "attemptId": {"$ref": "#/components/schemas/Uuid"},
+          "slot": {"$ref": "#/components/schemas/Identifier"},
+          "kind": {"$ref": "#/components/schemas/Identifier"},
+          "uri": {"type": "string", "format": "uri", "pattern": "^s3://[^/?#]+/runs/[^?#]+$"},
+          "size": {"type": "integer", "minimum": 1, "maximum": 536870912},
+          "sha256": {"$ref": "#/components/schemas/Sha256"},
+          "mediaType": {"type": "string", "pattern": "^[a-z0-9.+-]+/[a-z0-9.+-]+$"},
+          "registeredAt": {"$ref": "#/components/schemas/Timestamp"}
+        }
+      },
+      "TerminalReport": {
+        "oneOf": [
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["kind", "attemptId", "expectedRunRevision", "manifestArtifactId"],
+            "properties": {
+              "kind": {"const": "COMPLETED"},
+              "attemptId": {"$ref": "#/components/schemas/Uuid"},
+              "expectedRunRevision": {"type": "integer", "minimum": 1},
+              "manifestArtifactId": {"$ref": "#/components/schemas/Uuid"}
+            }
+          },
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["kind", "attemptId", "expectedRunRevision", "failure"],
+            "properties": {
+              "kind": {"const": "FAILED"},
+              "attemptId": {"$ref": "#/components/schemas/Uuid"},
+              "expectedRunRevision": {"type": "integer", "minimum": 1},
+              "failure": {
+                "type": "object", "additionalProperties": false,
+                "required": ["code", "message", "retryable"],
+                "properties": {
+                  "code": {"enum": ["PREPARATION_FAILED", "TOOL_FAILED", "CAPTURE_FAILED", "UPLOAD_FAILED", "HOST_BECAME_UNQUALIFIED"]},
+                  "message": {"type": "string", "minLength": 1, "maxLength": 1024},
+                  "retryable": {"type": "boolean"}
+                }
+              }
+            }
+          }
+        ]
+      },
+      "TerminalAck": {
+        "type": "object", "additionalProperties": false,
+        "required": ["attemptId", "runRevision", "disposition"],
+        "properties": {
+          "attemptId": {"$ref": "#/components/schemas/Uuid"},
+          "runRevision": {"type": "integer", "minimum": 1},
+          "disposition": {"enum": ["ACCEPTED", "ALREADY_ACCEPTED"]}
+        }
+      },
+      "Error": {
+        "type": "object", "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": {"enum": ["INVALID_REQUEST", "UNAUTHENTICATED", "NOT_AUTHORIZED", "NOT_QUALIFIED", "NOT_AVAILABLE", "CAPABILITY_MISMATCH", "STALE_ATTEMPT", "REVISION_CONFLICT", "LEASE_EXPIRED", "LEASE_RELEASED", "ARTIFACT_MISMATCH", "DUPLICATE_CONFLICT", "RATE_LIMITED", "INTERNAL_ERROR", "DEPENDENCY_UNAVAILABLE"]},
+          "message": {"type": "string", "minLength": 1, "maxLength": 512},
+          "requestId": {"$ref": "#/components/schemas/Uuid"}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schema": "UploadGrantRequest",
+  "value": {
+    "attemptId": "22222222-2222-4222-8222-222222222222",
+    "expectedRunRevision": 5,
+    "slot": "measurements",
+    "objectKey": "arbitrary/key",
+    "size": 4096,
+    "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "mediaType": "application/json"
+  }
+}

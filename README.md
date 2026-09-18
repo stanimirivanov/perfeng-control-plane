@@ -66,6 +66,8 @@ coordination, not load generation or statistical decisions.
 - Complete inert composition of the authenticated HTTP and reconciliation runtime.
 - Signal-aware process entry point with structured, value-free lifecycle reporting.
 - Unauthenticated liveness/readiness endpoints and fixed-cardinality Prometheus metrics.
+- Reviewed Native Worker API v1 bytes, examples, rejection cases and HTTP
+  exchanges pinned into the binary as the implementation boundary for M03.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
@@ -162,7 +164,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 
 | Package | Responsibility |
 | --- | --- |
-| internal/contract | Embedded, reviewed API schema/transition snapshot |
+| internal/contract | Embedded, reviewed Run Management, Native Worker and data-contract snapshot |
 | internal/run | Request/run types, lifecycle rules, repository contract |
 | internal/memory | Atomic process-local test adapter |
 | internal/postgres | Durable transactions, migrations and artifact-reference storage |
@@ -345,17 +347,22 @@ signal, authentication or deployment policy.
 ## Contract provenance
 
 The [snapshot lock](internal/contract/snapshot/lock.json) pins perfeng-contracts
-commit `20bf128ab3f38cdd66a167ccfc5d76be045db3ea`, candidate bundle 0.9.0,
-API 0.4.0. The OpenAPI document, transitions, run fixtures and baseline request
-fixtures, plus the performance-policy schema and browser example, are copied
-byte-for-byte from that commit; lock hashes cover these local bytes.
-Tests verify checksums. There is no sibling-checkout or network dependency at
-build/test/runtime. Imported contract content is Apache-2.0, as in this repository.
+commit `4a076973f05d78cbc4e1fc62a6ca26d68de3794c`, candidate bundle 0.15.0,
+Run Management API 0.4.0 and Native Worker API 1.0.0. The Run Management
+OpenAPI document, transitions and selected request fixtures; the current
+generated performance-policy schema and browser example; and the complete
+Native Worker OpenAPI, examples, rejection cases and HTTP exchanges are copied
+byte-for-byte from that commit. The checksum ledger covers exactly every local
+snapshot file, and tests reject undeclared or absent files. There is no
+sibling-checkout or network dependency at build, test or runtime. Imported
+contract content is Apache-2.0, as in this repository.
 
-Review contract updates explicitly, regenerate the snapshot and checksums, and
-rerun tests. The request validator implements only the schema features reached
-by CreateRun, CreateBaseline and BaselineTransition, not arbitrary JSON Schema
-or full response validation.
+Review contract updates explicitly, refresh the snapshot and checksums, and
+rerun tests. The current runtime validator implements only the schema features
+reached by CreateRun, CreateBaseline and BaselineTransition, not arbitrary JSON
+Schema or full response validation. The Native Worker files are pinned for the
+next authentication and presence implementation slice but are not yet routed
+by the HTTP server; this provenance change alone does not expose a worker API.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.

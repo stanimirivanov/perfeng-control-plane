@@ -1,4 +1,4 @@
-// Package contract holds the reviewed, pinned run-management boundary.
+// Package contract holds reviewed, pinned API and data-contract boundaries.
 package contract
 
 import (
@@ -13,7 +13,7 @@ import (
 	"unicode/utf8"
 )
 
-// Files contains the reviewed run-management contract snapshot embedded into
+// Files contains the reviewed contract snapshot embedded into
 // the control-plane binary; callers must use paths below snapshot/.
 //
 //go:embed snapshot

@@ -1,0 +1,12 @@
+{
+  "workerId": "windows-laptop-01",
+  "serverTime": "2026-09-18T12:00:00Z",
+  "nextHeartbeatSeconds": 30,
+  "availability": "AVAILABLE",
+  "qualification": {
+    "status": "QUALIFIED",
+    "reasons": [],
+    "validUntil": "2026-09-19T12:00:00Z"
+  },
+  "authorizedToAcquire": true
+}
