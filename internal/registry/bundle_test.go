@@ -63,7 +63,7 @@ func TestLoadReportPolicyRegistryBuildsExactImmutableAuthority(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := registry.ApproveRun(context.Background(), "alice", current.Request); err != nil {
+	if _, err := registry.ApproveRun(context.Background(), "alice", current.Request); err != nil {
 		t.Fatal(err)
 	}
 	validating := current

@@ -39,8 +39,14 @@ func scopeLock(principal, key string) int64 {
 
 // Accept serializes a principal/key scope with an advisory transaction lock and
 // uses database time for both Run identity and binding expiry.
-func (r *Repository) Accept(ctx context.Context, principal, key string, request run.Request) (run.Accepted, error) {
-	if principal == "" || !run.ValidKey(key) || request.Validate() != nil {
+func (r *Repository) Accept(
+	ctx context.Context,
+	principal string,
+	key string,
+	request run.Request,
+	target run.ExecutionTarget,
+) (run.Accepted, error) {
+	if principal == "" || !run.ValidKey(key) || request.Validate() != nil || !target.Valid() {
 		return run.Accepted{}, run.ErrValidation
 	}
 	ctx, cancel := context.WithTimeout(ctx, operationTimeout)
@@ -60,9 +66,13 @@ func (r *Repository) Accept(ctx context.Context, principal, key string, request 
 	}
 	var original []byte
 	var expiry time.Time
+	var previousTarget run.ExecutionTarget
 	err = tx.QueryRowContext(ctx, `
-		SELECT original_snapshot,expires_at FROM perfeng_control.create_bindings
-		WHERE principal=$1 AND idempotency_key=$2`, principal, key).Scan(&original, &expiry)
+		SELECT b.original_snapshot,b.expires_at,r.execution_target
+		FROM perfeng_control.create_bindings AS b
+		JOIN perfeng_control.runs AS r
+			ON r.principal=b.principal AND r.run_id=b.run_id
+		WHERE b.principal=$1 AND b.idempotency_key=$2`, principal, key).Scan(&original, &expiry, &previousTarget)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return run.Accepted{}, storageError(err)
 	}
@@ -71,7 +81,7 @@ func (r *Repository) Accept(ctx context.Context, principal, key string, request 
 		if err != nil {
 			return run.Accepted{}, err
 		}
-		if previous.Request != request {
+		if previous.Request != request || previousTarget != target {
 			return run.Accepted{}, run.ErrConflict
 		}
 		// No mutation. Rollback releases the lock without touching the binding.
@@ -85,7 +95,7 @@ func (r *Repository) Accept(ctx context.Context, principal, key string, request 
 	if err != nil {
 		return run.Accepted{}, err
 	}
-	if _, err = tx.ExecContext(ctx, "INSERT INTO perfeng_control.runs(run_id,principal,snapshot) VALUES ($1,$2,$3)", id, principal, snapshot); err != nil {
+	if _, err = tx.ExecContext(ctx, "INSERT INTO perfeng_control.runs(run_id,principal,execution_target,snapshot) VALUES ($1,$2,$3,$4)", id, principal, target, snapshot); err != nil {
 		// An extremely rare ID collision rolls back with no key reservation.
 		return run.Accepted{}, storageError(err)
 	}

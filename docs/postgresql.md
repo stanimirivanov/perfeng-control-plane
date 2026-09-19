@@ -19,7 +19,7 @@ runners do not write these tables directly.
 | Table | Purpose |
 | --- | --- |
 | schema_migrations | Applied forward migrations and SHA-256 checksums |
-| runs | Principal-owned current run snapshots |
+| runs | Principal-owned current Run snapshots and server-selected execution targets |
 | create_bindings | Original acceptance snapshot and 24-hour key expiration |
 | artifacts | Immutable identities for raw/normalized object references |
 | reconciliation_leases | Worker ownership tokens, lease expiry and retry availability |
@@ -37,8 +37,10 @@ belongs to the Go domain; direct table writes are not an alternate public API.
 Create serializes on a transaction-scoped advisory lock derived from the
 unambiguously encoded create operation, principal and key. The full database
 primary key determines identity; a hash collision only causes extra waiting.
-The run and acceptance binding commit together. The database clock is read after
-acquiring the lock; expiry is not calculated from a stale transaction-start time.
+The Run, its server-selected execution target and acceptance binding commit
+together. The database clock is read after acquiring the lock; expiry is not
+calculated from a stale transaction-start time. A live idempotency replay must
+match both the original request and execution target.
 
 Replays return the original CREATED snapshot and expiration, even after the run
 has progressed. Expired keys may bind to new runs without deleting old evidence.

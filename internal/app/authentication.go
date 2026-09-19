@@ -28,9 +28,9 @@ type NativeWorkerAuthenticator interface {
 
 // RunApprover authorizes one exact Run request for an authenticated principal.
 type RunApprover interface {
-	// ApproveRun returns nil only when all referenced immutable resources and the
-	// candidate image are approved for the principal.
-	ApproveRun(context.Context, string, run.Request) error
+	// ApproveRun returns the server-owned execution target only when all referenced
+	// immutable resources and the candidate image are approved for the principal.
+	ApproveRun(context.Context, string, run.Request) (run.ExecutionTarget, error)
 }
 
 // NewAuthentication loads the mounted static credential document into

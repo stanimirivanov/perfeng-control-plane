@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -45,6 +46,38 @@ func oneClaim(t *testing.T, r *Repository, worker string) run.Claim {
 	}
 
 	return claims[0]
+}
+
+func TestClaimRunsSelectsOnlyKubernetesExecutionTarget(t *testing.T) {
+	r, _ := claimsDB(t)
+	request := testRequest(t)
+	native, err := r.Accept(
+		testContext,
+		"alice",
+		"request-key-native-target",
+		request,
+		run.ExecutionTargetNativeWindows,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claims := claimBatch(t, r, "kubernetes-worker", 10); len(claims) != 0 {
+		t.Fatalf("native Run %s was claimed by Kubernetes reconciliation", native.Run.ID)
+	}
+	kubernetes, err := r.Accept(
+		testContext,
+		"alice",
+		"request-key-kubernetes-target",
+		request,
+		run.ExecutionTargetKubernetes,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim := oneClaim(t, r, "kubernetes-worker")
+	if claim.Run.ID != kubernetes.Run.ID {
+		t.Fatalf("claimed Run = %s, want %s", claim.Run.ID, kubernetes.Run.ID)
+	}
 }
 
 func TestClaimsLifecycle(t *testing.T) {
@@ -317,7 +350,36 @@ func TestReconciliationMigrationUpgrade(t *testing.T) {
 	if _, err := r.db.Exec("INSERT INTO perfeng_control.schema_migrations(version,sha256) VALUES ($1,$2)", "0001_initial.sql", hex.EncodeToString(digest[:])); err != nil {
 		t.Fatal(err)
 	}
-	a := accepted(t, r, "upgrade", "request-key-upgrade")
+	var now time.Time
+	if err := r.db.QueryRow("SELECT clock_timestamp()").Scan(&now); err != nil {
+		t.Fatal(err)
+	}
+	now = now.UTC()
+	legacyRun := run.Run{
+		ID:    "perf-" + now.Format("20060102-150405") + "-12345678",
+		State: run.StateCreated, Revision: 1,
+		Request: testRequest(t), CreatedAt: now, UpdatedAt: now,
+	}
+	snapshot, err := json.Marshal(legacyRun)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expiresAt := now.Add(24 * time.Hour)
+	if _, err := r.db.Exec(
+		"INSERT INTO perfeng_control.runs(run_id,principal,snapshot) VALUES ($1,$2,$3)",
+		legacyRun.ID, "upgrade", snapshot,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.db.Exec(`
+		INSERT INTO perfeng_control.create_bindings(
+			principal,idempotency_key,run_id,original_snapshot,expires_at
+		) VALUES ($1,$2,$3,$4,$5)`,
+		"upgrade", "request-key-upgrade", legacyRun.ID, snapshot, expiresAt,
+	); err != nil {
+		t.Fatal(err)
+	}
+	a := run.Accepted{Run: legacyRun, ExpiresAt: expiresAt}
 	artifact := artifactFor(a.Run.ID)
 	if err := r.RegisterArtifact(testContext, "upgrade", artifact); err != nil {
 		t.Fatal(err)
@@ -327,6 +389,12 @@ func TestReconciliationMigrationUpgrade(t *testing.T) {
 	}
 	if err := r.Migrate(testContext); err != nil {
 		t.Fatal(err)
+	}
+	var executionTarget run.ExecutionTarget
+	if err := r.db.QueryRow(
+		"SELECT execution_target FROM perfeng_control.runs WHERE run_id=$1", a.Run.ID,
+	).Scan(&executionTarget); err != nil || executionTarget != run.ExecutionTargetKubernetes {
+		t.Fatal("legacy Run execution target was not backfilled", executionTarget, err)
 	}
 	claim := oneClaim(t, r, "upgrade-worker")
 	if !reflect.DeepEqual(claim.Run, a.Run) {

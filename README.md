@@ -188,6 +188,11 @@ All dependencies are mandatory and must be concurrency-safe. HTTP tests show
 composition with an exact-fixture approval stub.
 `registry.ReportPolicyRegistry.ApproveRun` is the concrete immutable admission
 adapter; production composition must populate it from reviewed, attested entries.
+Approval also selects the server-owned execution target from producer provenance:
+reviewed OCI Job execution is `KUBERNETES`, while reviewed source checkouts and
+release archives are `NATIVE_WINDOWS`. The repository persists this decision
+outside the public Run snapshot, and the Kubernetes reconciler claims only its
+own target.
 
 Authentication must verify the bearer credential and return a stable principal
 with explicit Run and baseline operation permissions. Token rotation must

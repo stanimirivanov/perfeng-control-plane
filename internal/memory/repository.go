@@ -15,8 +15,13 @@ import (
 type ownedRun struct {
 	principal string
 	run       run.Run
+	target    run.ExecutionTarget
 }
 type bindingKey struct{ principal, key string }
+type binding struct {
+	accepted run.Accepted
+	target   run.ExecutionTarget
+}
 type baselineKey struct{ principal, id, version string }
 
 // Repository is a concurrency-safe process-local implementation of run.Repository.
@@ -25,7 +30,7 @@ type Repository struct {
 	mu        sync.Mutex
 	now       func() time.Time
 	runs      map[string]ownedRun
-	bindings  map[bindingKey]run.Accepted
+	bindings  map[bindingKey]binding
 	artifacts map[string]run.Artifact
 	baselines map[baselineKey]baseline.Record
 }
@@ -43,7 +48,7 @@ func New(now func() time.Time) *Repository {
 	return &Repository{
 		now:       now,
 		runs:      make(map[string]ownedRun),
-		bindings:  make(map[bindingKey]run.Accepted),
+		bindings:  make(map[bindingKey]binding),
 		artifacts: make(map[string]run.Artifact),
 		baselines: make(map[baselineKey]baseline.Record),
 	}
@@ -51,8 +56,14 @@ func New(now func() time.Time) *Repository {
 
 // Accept serializes all in-memory creates and preserves the original acceptance
 // snapshot for a live idempotency binding.
-func (m *Repository) Accept(ctx context.Context, principal, key string, request run.Request) (run.Accepted, error) {
-	if principal == "" || !run.ValidKey(key) || request.Validate() != nil {
+func (m *Repository) Accept(
+	ctx context.Context,
+	principal string,
+	key string,
+	request run.Request,
+	target run.ExecutionTarget,
+) (run.Accepted, error) {
+	if principal == "" || !run.ValidKey(key) || request.Validate() != nil || !target.Valid() {
 		return run.Accepted{}, run.ErrValidation
 	}
 	m.mu.Lock()
@@ -62,10 +73,11 @@ func (m *Repository) Accept(ctx context.Context, principal, key string, request 
 	}
 	now := m.now().UTC()
 	scope := bindingKey{principal, key}
-	if accepted, ok := m.bindings[scope]; ok && now.Before(accepted.ExpiresAt) {
-		if accepted.Run.Request != request {
+	if existing, ok := m.bindings[scope]; ok && now.Before(existing.accepted.ExpiresAt) {
+		if existing.accepted.Run.Request != request || existing.target != target {
 			return run.Accepted{}, run.ErrConflict
 		}
+		accepted := existing.accepted
 		accepted.Run = accepted.Run.Clone()
 
 		return accepted, nil
@@ -83,8 +95,8 @@ func (m *Repository) Accept(ctx context.Context, principal, key string, request 
 	}
 	created := run.Run{ID: id, State: run.StateCreated, Revision: 1, Request: request, CreatedAt: now, UpdatedAt: now}
 	accepted := run.Accepted{Run: created, ExpiresAt: now.Add(24 * time.Hour)}
-	m.runs[id] = ownedRun{principal, created}
-	m.bindings[scope] = accepted
+	m.runs[id] = ownedRun{principal: principal, run: created, target: target}
+	m.bindings[scope] = binding{accepted: accepted, target: target}
 
 	return accepted, nil
 }
@@ -125,7 +137,9 @@ func (m *Repository) Cancel(ctx context.Context, principal, id string) (run.Run,
 	if err != nil {
 		return run.Run{}, err
 	}
-	m.runs[id] = ownedRun{principal, next}
+	record := m.runs[id]
+	record.run = next
+	m.runs[id] = record
 
 	return next.Clone(), nil
 }
@@ -145,7 +159,9 @@ func (m *Repository) Advance(ctx context.Context, principal, id string, revision
 	if err != nil {
 		return run.Run{}, err
 	}
-	m.runs[id] = ownedRun{principal, next}
+	record := m.runs[id]
+	record.run = next
+	m.runs[id] = record
 
 	return next.Clone(), nil
 }

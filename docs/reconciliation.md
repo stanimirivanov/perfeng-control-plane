@@ -460,7 +460,9 @@ The PostgreSQL implementation keeps that sequence visible in three layers:
 
 1. `ClaimRuns` owns the timeout, transaction, batch loop and single commit.
 2. `lockClaimCandidates` selects and locks Run rows, decodes their snapshots,
-   and closes query rows before any further statement uses the transaction.
+   and closes query rows before any further statement uses the transaction. It
+   selects only Runs whose persisted execution target is `KUBERNETES`; native
+   work belongs to the separate native-worker lease path.
 3. `tryAcquireClaim` reads database time, rechecks one candidate's current
    lease, and writes its replacement when eligible.
 

@@ -61,6 +61,7 @@ type reportPolicyValue struct {
 	normalization      reconcile.NormalizationSpec
 	reportProducer     rawresult.Producer
 	executionTemplate  *batchv1.Job
+	executionTarget    run.ExecutionTarget
 	workload           rawresult.Identity
 	baselines          []baseline.Selection
 	candidates         map[string]struct{}
@@ -108,11 +109,12 @@ func (registry *ReportPolicyRegistry) ValidateContractsVersion(version string) e
 }
 
 func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
+	executionTarget, validExecution := classifyExecution(entry.RawProducer, entry.ExecutionTemplate)
 	document, err := policy.Parse(entry.PolicyBytes)
 	if err != nil || !rawresult.ValidResourceID(entry.TestID) ||
 		!rawresult.ValidContractsVersion(entry.ContractsVersion) ||
 		!validReference(entry.Catalogue) || !rawresult.ValidResourceID(entry.Profile) ||
-		!validRawExecution(entry.RawProducer, entry.ExecutionTemplate) ||
+		!validExecution ||
 		entry.NormalizerProducer.Validate() != nil ||
 		entry.Normalization.Validate() != nil ||
 		entry.ReportProducer.Validate() != nil ||
@@ -177,6 +179,7 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 			normalization:      entry.Normalization,
 			reportProducer:     entry.ReportProducer.Clone(),
 			executionTemplate:  cloneJob(entry.ExecutionTemplate),
+			executionTarget:    executionTarget,
 			workload:           entry.Workload,
 			baselines:          cloneSelections(baselines),
 			candidates:         cloneSet(candidates),
@@ -316,23 +319,23 @@ func (registry *ReportPolicyRegistry) ApproveRun(
 	ctx context.Context,
 	principal string,
 	request run.Request,
-) error {
+) (run.ExecutionTarget, error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return "", err
 	}
 	if registry == nil || principal == "" || request.Validate() != nil {
-		return run.ErrValidation
+		return "", run.ErrValidation
 	}
 
 	entry, exists := registry.lookup(principal, request)
-	if !exists || entry.executionTemplate == nil {
-		return run.ErrForbidden
+	if !exists {
+		return "", run.ErrForbidden
 	}
 	if _, approved := entry.candidates[request.Candidate.Image]; !approved {
-		return run.ErrForbidden
+		return "", run.ErrForbidden
 	}
 
-	return nil
+	return entry.executionTarget, nil
 }
 
 // ResolveReportTrust returns exact policy, producer and comparison context for a Run.
@@ -447,19 +450,23 @@ func jobUsesImage(template *batchv1.Job, image string) bool {
 	return false
 }
 
-func validRawExecution(producer rawresult.Producer, template *batchv1.Job) bool {
+func classifyExecution(
+	producer rawresult.Producer,
+	template *batchv1.Job,
+) (run.ExecutionTarget, bool) {
 	image := producer.Image
 	if producer.Validate() != nil {
 		if producer.ValidateExecution() != nil {
-			return false
+			return "", false
 		}
 		if producer.Artifact.Kind != "oci-image" {
-			return template == nil
+			return run.ExecutionTargetNativeWindows, template == nil
 		}
 		image = producer.Artifact.Image
 	}
 
-	return kubernetes.ValidateReusableJobTemplate(template) == nil && jobUsesImage(template, image)
+	return run.ExecutionTargetKubernetes,
+		kubernetes.ValidateReusableJobTemplate(template) == nil && jobUsesImage(template, image)
 }
 
 func cloneJob(template *batchv1.Job) *batchv1.Job {
