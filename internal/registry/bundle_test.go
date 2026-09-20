@@ -92,6 +92,44 @@ func TestLoadReportPolicyRegistryBuildsExactImmutableAuthority(t *testing.T) {
 	}
 }
 
+func TestLoadReportPolicyRegistryBuildsNativeAssignment(t *testing.T) {
+	entry, current := v2RawPolicyFixture(t, "source-checkout")
+	current.State = run.StateCreated
+	bundle := reportPolicyBundle{
+		SchemaVersion: 1,
+		Entries: []reportPolicyBundleEntry{{
+			Policy: registryPolicyPath, TestID: entry.TestID,
+			ContractsVersion: entry.ContractsVersion,
+			Catalogue:        entry.Catalogue, Profile: entry.Profile,
+			RawProducer: entry.RawProducer, NormalizerProducer: entry.NormalizerProducer,
+			Normalization: normalizationBundleConfig{
+				SourceFormat: entry.Normalization.SourceFormat,
+				Layout:       entry.Normalization.Layout,
+			},
+			ReportProducer: entry.ReportProducer, NativeAssignment: entry.NativeAssignment,
+			Workload: entry.Workload, Environment: entry.Environment, Dataset: entry.Dataset,
+			CandidateImages: entry.CandidateImages, Principals: entry.Principals,
+		}},
+	}
+	manifest, err := json.Marshal(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := fstest.MapFS{
+		registryManifestPath: &fstest.MapFile{Data: manifest, Mode: 0o444},
+		registryPolicyPath:   &fstest.MapFile{Data: entry.PolicyBytes, Mode: 0o444},
+	}
+	registry, err := LoadReportPolicyRegistry(source, registryManifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := registry.ResolveNativePlan(context.Background(), "alice", current)
+	if err != nil || plan.Assignment.Target.BaseURL != entry.NativeAssignment.BaseURL ||
+		plan.Assignment.ExecutionArtifact.Repository != entry.RawProducer.Artifact.Repository {
+		t.Fatalf("plan = %#v, error = %v", plan, err)
+	}
+}
+
 func TestLoadReportPolicyRegistryRejectsMalformedBundles(t *testing.T) {
 	for _, test := range []struct {
 		name       string

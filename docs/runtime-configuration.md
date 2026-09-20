@@ -180,6 +180,42 @@ every entry uses `PERFENG_CONTRACTS_VERSION`. Registry paths and content are not
 included in returned configuration errors. Signing, attestation and refresh
 policy remain deployment responsibilities.
 
+A source-checkout or release-archive entry must include `nativeAssignment`:
+
+~~~json
+{
+  "baseUrl": "https://sut.perfeng.invalid/search",
+  "browser": "edge",
+  "diagnosticMode": "trace",
+  "artifactPlan": [
+    {
+      "slot": "measurements",
+      "kind": "measurements",
+      "mediaType": "application/json",
+      "format": "playwright-measurements-v2",
+      "maximumBytes": 1048576,
+      "required": true
+    },
+    {
+      "slot": "manifest",
+      "kind": "manifest",
+      "mediaType": "application/json",
+      "format": "raw-result-v2",
+      "maximumBytes": 1048576,
+      "required": true
+    }
+  ]
+}
+~~~
+
+The registry derives test, workload, profile, environment and execution-artifact
+identity from the already reviewed entry. Native Worker API v1 accepts only the
+Playwright producer. The registry also rejects a native assignment on a
+Kubernetes entry, a missing assignment on native provenance, non-HTTPS targets,
+unsupported browsers or diagnostics, duplicate slots and unbounded artifacts.
+This configuration is resolved before native lease acquisition; workers and Run
+callers cannot supply or override it.
+
 ## PostgreSQL
 
 `PERFENG_DATABASE_URL` is required and treated as a secret. Configuration and

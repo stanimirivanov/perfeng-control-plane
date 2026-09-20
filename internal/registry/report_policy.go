@@ -11,6 +11,7 @@ import (
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/kubernetes"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/nativeworker"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/normalizedresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/policy"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/rawresult"
@@ -30,6 +31,7 @@ type ReportPolicyEntry struct {
 	Normalization      reconcile.NormalizationSpec
 	ReportProducer     rawresult.Producer
 	ExecutionTemplate  *batchv1.Job
+	NativeAssignment   *nativeworker.AssignmentTemplate
 	Workload           rawresult.Identity
 	Environment        baseline.Environment
 	Dataset            baseline.Dataset
@@ -62,6 +64,7 @@ type reportPolicyValue struct {
 	reportProducer     rawresult.Producer
 	executionTemplate  *batchv1.Job
 	executionTarget    run.ExecutionTarget
+	nativeAssignment   *nativeworker.AssignmentTemplate
 	workload           rawresult.Identity
 	baselines          []baseline.Selection
 	candidates         map[string]struct{}
@@ -110,11 +113,12 @@ func (registry *ReportPolicyRegistry) ValidateContractsVersion(version string) e
 
 func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 	executionTarget, validExecution := classifyExecution(entry.RawProducer, entry.ExecutionTemplate)
+	validAssignment := validNativeAssignment(executionTarget, entry.RawProducer, entry.NativeAssignment)
 	document, err := policy.Parse(entry.PolicyBytes)
 	if err != nil || !rawresult.ValidResourceID(entry.TestID) ||
 		!rawresult.ValidContractsVersion(entry.ContractsVersion) ||
 		!validReference(entry.Catalogue) || !rawresult.ValidResourceID(entry.Profile) ||
-		!validExecution ||
+		!validExecution || !validAssignment ||
 		entry.NormalizerProducer.Validate() != nil ||
 		entry.Normalization.Validate() != nil ||
 		entry.ReportProducer.Validate() != nil ||
@@ -180,6 +184,7 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 			reportProducer:     entry.ReportProducer.Clone(),
 			executionTemplate:  cloneJob(entry.ExecutionTemplate),
 			executionTarget:    executionTarget,
+			nativeAssignment:   cloneNativeAssignment(entry.NativeAssignment),
 			workload:           entry.Workload,
 			baselines:          cloneSelections(baselines),
 			candidates:         cloneSet(candidates),
@@ -187,6 +192,44 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 	}
 
 	return nil
+}
+
+// ResolveNativePlan returns a complete reviewed native work description
+// for one accepted Run without acquiring a worker lease.
+func (registry *ReportPolicyRegistry) ResolveNativePlan(
+	ctx context.Context,
+	principal string,
+	current run.Run,
+) (nativeworker.Plan, error) {
+	if err := ctx.Err(); err != nil {
+		return nativeworker.Plan{}, err
+	}
+	if registry == nil || principal == "" || current.State != run.StateCreated ||
+		current.Request.Validate() != nil {
+		return nativeworker.Plan{}, run.ErrValidation
+	}
+
+	entry, exists := registry.lookup(principal, current.Request)
+	if !exists || entry.executionTarget != run.ExecutionTargetNativeWindows ||
+		entry.nativeAssignment == nil || entry.rawProducer.Artifact == nil {
+		return nativeworker.Plan{}, run.ErrForbidden
+	}
+	if _, approved := entry.candidates[current.Request.Candidate.Image]; !approved {
+		return nativeworker.Plan{}, run.ErrForbidden
+	}
+
+	plan, err := entry.nativeAssignment.Resolve(
+		current.Request.TestSuite,
+		entry.workload.ID,
+		current.Request.Profile,
+		current.Request.Environment.ID,
+		*entry.rawProducer.Artifact,
+	)
+	if err != nil {
+		return nativeworker.Plan{}, run.ErrForbidden
+	}
+
+	return plan, nil
 }
 
 // ResolveAnalysisPlan selects the reviewed normalizer and its single exact raw input.
@@ -467,6 +510,29 @@ func classifyExecution(
 
 	return run.ExecutionTargetKubernetes,
 		kubernetes.ValidateReusableJobTemplate(template) == nil && jobUsesImage(template, image)
+}
+
+func validNativeAssignment(
+	target run.ExecutionTarget,
+	producer rawresult.Producer,
+	assignment *nativeworker.AssignmentTemplate,
+) bool {
+	if target == run.ExecutionTargetNativeWindows {
+		return producer.Name == "playwright" && assignment != nil && assignment.Validate() == nil
+	}
+
+	return assignment == nil
+}
+
+func cloneNativeAssignment(
+	assignment *nativeworker.AssignmentTemplate,
+) *nativeworker.AssignmentTemplate {
+	if assignment == nil {
+		return nil
+	}
+	clone := assignment.Clone()
+
+	return &clone
 }
 
 func cloneJob(template *batchv1.Job) *batchv1.Job {

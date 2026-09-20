@@ -31,6 +31,8 @@ Each entry binds exact policy bytes to:
 - one digest-pinned normalizer producer;
 - for container execution, one reusable execution Job template containing the
   raw-producer image;
+- for native execution, one assignment template containing the reviewed HTTPS
+  target, browser, diagnostic mode and bounded artifact slots;
 - one digest-pinned report producer;
 - one or more digest-pinned candidate images; and
 - one or more authorized principals.
@@ -45,7 +47,8 @@ V1 and v2 OCI producers require a reusable Job template that passes the
 restricted Kubernetes policy and contains the configured producer image. V2
 source checkouts and release archives require no Job template; supplying one is
 rejected so native provenance cannot accidentally enter the Kubernetes
-dispatcher. Duplicate
+dispatcher. They instead require the Playwright producer and a valid native
+assignment template; container entries reject one. Duplicate
 principal/context bindings reject the complete registry. Policy bytes, producer
 artifacts, Job templates, baseline dataset seed pointers and returned selections
 are copied so callers cannot mutate registry state. Once constructed, the
@@ -68,6 +71,14 @@ SHA remains part of the validated immutable Run request, but this registry does
 not claim to attest the relationship between that revision and the published
 image. An unmatched context or image is forbidden; malformed input is a
 validation failure.
+
+`ResolveNativePlan` accepts only a CREATED native Run in the same exact
+principal and request context. It combines registry-owned target, browser,
+diagnostic and artifact-plan values with the immutable test, workload, profile,
+environment and raw execution-artifact identities. The resulting value matches
+the Native Worker API v1 lease `assignment` and `artifactPlan` shapes and is
+returned as an isolated copy. It does not acquire a lease, inspect worker claims
+or accept assignment values from the Run caller.
 
 `ResolveJob` implements `reconcile.JobResolver` for VALIDATING and PROVISIONING
 Runs. It resolves the same exact principal and request context, requires the

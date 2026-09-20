@@ -14,6 +14,7 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/httpapi"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/nativeworker"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/normalizedresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/rawresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/reconcile"
@@ -40,6 +41,17 @@ func executionTemplate(image string) *batchv1.Job {
 					}},
 				},
 			},
+		},
+	}
+}
+
+func nativeAssignmentTemplate() *nativeworker.AssignmentTemplate {
+	return &nativeworker.AssignmentTemplate{
+		BaseURL: "https://sut.perfeng.invalid/search", Browser: "edge",
+		DiagnosticMode: "trace",
+		ArtifactPlan: []nativeworker.ArtifactSlot{
+			{Slot: "measurements", Kind: "measurements", MediaType: "application/json", Format: "playwright-measurements-v2", MaximumBytes: 1 << 20, Required: true},
+			{Slot: "manifest", Kind: "manifest", MediaType: "application/json", Format: "raw-result-v2", MaximumBytes: 1 << 20, Required: true},
 		},
 	}
 }
@@ -436,6 +448,89 @@ func TestReportPolicyRegistryRoutesNativeEntriesAwayFromKubernetes(t *testing.T)
 				t.Fatalf("ResolveJob() error = %v", err)
 			}
 		})
+	}
+}
+
+func TestReportPolicyRegistryResolvesIsolatedNativePlan(t *testing.T) {
+	entry, current := v2RawPolicyFixture(t, "source-checkout")
+	current.State = run.StateCreated
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantRepository := entry.RawProducer.Artifact.Repository
+	entry.NativeAssignment.BaseURL = "https://changed.invalid"
+	entry.NativeAssignment.ArtifactPlan[0].Slot = "changed"
+	entry.RawProducer.Artifact.Repository = "https://github.com/example/changed"
+
+	plan, err := registry.ResolveNativePlan(context.Background(), "alice", current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assignment := plan.Assignment
+	if assignment.CatalogueTestID != current.Request.TestSuite ||
+		assignment.WorkloadID != "browser-smoke" || assignment.Profile != current.Request.Profile ||
+		assignment.Target.EnvironmentID != current.Request.Environment.ID ||
+		assignment.Target.BaseURL != "https://sut.perfeng.invalid/search" ||
+		assignment.Browser != "edge" || assignment.DiagnosticMode != "trace" ||
+		assignment.ExecutionArtifact.Repository != wantRepository ||
+		plan.ArtifactPlan[0].Slot != "measurements" {
+		t.Fatalf("plan = %#v", plan)
+	}
+	plan.ArtifactPlan[0].Slot = "caller-changed"
+	plan.Assignment.ExecutionArtifact.Lockfile = "caller-changed"
+	again, err := registry.ResolveNativePlan(context.Background(), "alice", current)
+	if err != nil || again.ArtifactPlan[0].Slot != "measurements" ||
+		again.Assignment.ExecutionArtifact.Lockfile != "pnpm-lock.yaml" {
+		t.Fatal("resolved assignment aliases registry state", err)
+	}
+}
+
+func TestReportPolicyRegistryRejectsUnapprovedNativeAssignmentContext(t *testing.T) {
+	entry, current := v2RawPolicyFixture(t, "release-archive")
+	current.State = run.StateCreated
+	registry, err := NewReportPolicyRegistry([]ReportPolicyEntry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name      string
+		principal string
+		mutate    func(*run.Run)
+	}{
+		{name: "principal", principal: "bob"},
+		{name: "state", principal: "alice", mutate: func(value *run.Run) { value.State = run.StateValidating }},
+		{name: "candidate", principal: "alice", mutate: func(value *run.Run) {
+			value.Request.Candidate.Image = "ghcr.io/example/other@sha256:" + strings.Repeat("8", 64)
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			candidate := current
+			if test.mutate != nil {
+				test.mutate(&candidate)
+			}
+			_, err := registry.ResolveNativePlan(context.Background(), test.principal, candidate)
+			if test.name == "state" {
+				if !errors.Is(err, run.ErrValidation) {
+					t.Fatalf("error = %v", err)
+				}
+				return
+			}
+			if !errors.Is(err, run.ErrForbidden) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+	kubernetesEntry, kubernetesRun, _ := reportPolicyFixture(t)
+	kubernetesRun.State = run.StateCreated
+	kubernetesRegistry, err := NewReportPolicyRegistry([]ReportPolicyEntry{kubernetesEntry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := kubernetesRegistry.ResolveNativePlan(
+		context.Background(), "alice", kubernetesRun,
+	); !errors.Is(err, run.ErrForbidden) {
+		t.Fatalf("Kubernetes assignment error = %v", err)
 	}
 }
 
@@ -973,6 +1068,35 @@ func TestReportPolicyRegistryValidatesEntries(t *testing.T) {
 			t.Fatalf("%s dispatch binding error = %v", kind, err)
 		}
 	}
+
+	nativeEntry, _ := v2RawPolicyFixture(t, "source-checkout")
+	nativeEntry.NativeAssignment = nil
+	if _, err := NewReportPolicyRegistry(
+		[]ReportPolicyEntry{nativeEntry},
+	); !errors.Is(err, run.ErrValidation) {
+		t.Fatalf("missing native assignment error = %v", err)
+	}
+	nativeEntry, _ = v2RawPolicyFixture(t, "source-checkout")
+	nativeEntry.NativeAssignment.Browser = "firefox"
+	if _, err := NewReportPolicyRegistry(
+		[]ReportPolicyEntry{nativeEntry},
+	); !errors.Is(err, run.ErrValidation) {
+		t.Fatalf("invalid native assignment error = %v", err)
+	}
+	nativeEntry, _ = v2RawPolicyFixture(t, "release-archive")
+	nativeEntry.RawProducer.Name = "other-runner"
+	if _, err := NewReportPolicyRegistry(
+		[]ReportPolicyEntry{nativeEntry},
+	); !errors.Is(err, run.ErrValidation) {
+		t.Fatalf("non-Playwright native producer error = %v", err)
+	}
+	kubernetesEntry, _, _ := reportPolicyFixture(t)
+	kubernetesEntry.NativeAssignment = nativeAssignmentTemplate()
+	if _, err := NewReportPolicyRegistry(
+		[]ReportPolicyEntry{kubernetesEntry},
+	); !errors.Is(err, run.ErrValidation) {
+		t.Fatalf("unexpected native assignment error = %v", err)
+	}
 }
 
 func v2RawPolicyFixture(t *testing.T, kind string) (ReportPolicyEntry, run.Run) {
@@ -997,17 +1121,16 @@ func v2RawPolicyFixture(t *testing.T, kind string) (ReportPolicyEntry, run.Run) 
 			},
 		}
 		entry.ExecutionTemplate = nil
+		entry.NativeAssignment = nativeAssignmentTemplate()
 	case "release-archive":
-		entry.Normalization = reconcile.NormalizationSpec{
-			SourceFormat: reconcile.KubeBurnerPodLatencyFormat,
-		}
-		entry.RawProducer = rawresult.Producer{Name: "kube-burner", Version: "2.8.5"}
+		entry.RawProducer = rawresult.Producer{Name: "playwright", Version: "1.62.1"}
 		entry.RawProducer.Artifact = &rawresult.ExecutionArtifact{
 			Kind:          "release-archive",
-			URL:           "https://github.com/kube-burner/kube-burner/releases/download/v2.8.5/kube-burner-V2.8.5-windows-x86_64.zip",
+			URL:           "https://github.com/example/perfeng-playwright/releases/download/v1.62.1/perfeng-playwright-windows-x64.zip",
 			ArchiveSHA256: strings.Repeat("3", 64), ExecutableSHA256: strings.Repeat("2", 64),
 		}
 		entry.ExecutionTemplate = nil
+		entry.NativeAssignment = nativeAssignmentTemplate()
 	default:
 		t.Fatalf("unsupported fixture kind %q", kind)
 	}

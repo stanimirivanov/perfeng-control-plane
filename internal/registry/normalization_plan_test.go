@@ -56,7 +56,12 @@ func TestReportPolicyRegistryResolvesNativePlaywrightNormalizationPlan(t *testin
 }
 
 func TestReportPolicyRegistryResolvesKubeBurnerNormalizationPlan(t *testing.T) {
-	entry, current := v2RawPolicyFixture(t, "release-archive")
+	entry, current := v2RawPolicyFixture(t, "oci-image")
+	entry.RawProducer.Name = "kube-burner"
+	entry.RawProducer.Version = "2.8.5"
+	entry.Normalization = reconcile.NormalizationSpec{
+		SourceFormat: reconcile.KubeBurnerPodLatencyFormat,
+	}
 	current.State = run.StateAnalyzing
 	input, _ := normalizedManifestFixture(entry, current)
 	input.Manifest.Format = "raw-result/v2"
