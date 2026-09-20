@@ -167,6 +167,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/contract | Embedded, reviewed Run Management, Native Worker and data-contract snapshot |
 | internal/run | Request/run types, lifecycle rules, repository contract |
 | internal/memory | Atomic process-local test adapter |
+| internal/nativeworker | Reviewed native assignment validation and isolated transport values |
 | internal/postgres | Durable transactions, migrations, native-worker presence and artifact-reference storage |
 | internal/httpapi | User and Native Worker HTTP parsing, isolated auth seams and response mapping |
 | internal/authentication | Hashed static credentials with isolated user and native-worker audiences |
@@ -366,8 +367,9 @@ Review contract updates explicitly, refresh the snapshot and checksums, and
 rerun tests. The current runtime validator implements only the schema features
 reached by CreateRun, CreateBaseline, BaselineTransition and WorkerPresence, not
 arbitrary JSON Schema or full response validation. The authenticated
-`/native-worker/v1/presence` route is implemented; lease and artifact operations
-remain unavailable until their later M03 slices.
+`/native-worker/v1/presence` route and reviewed native assignment resolution are
+implemented; lease and artifact operations remain unavailable until their later
+M03 slices.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.
