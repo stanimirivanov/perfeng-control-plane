@@ -56,12 +56,12 @@ type Lease struct {
 func (lease Lease) Valid() bool {
 	ttl := lease.ExpiresAt.Sub(lease.IssuedAt)
 
-	return nativeLeaseUUIDPattern.MatchString(lease.LeaseID) &&
-		nativeLeaseUUIDPattern.MatchString(lease.AttemptID) &&
+	return ValidLeaseIdentifier(lease.LeaseID) &&
+		ValidLeaseIdentifier(lease.AttemptID) &&
 		contract.ValidID(lease.RunID) && lease.RunRevision >= 1 &&
 		!lease.IssuedAt.IsZero() && !lease.ExpiresAt.IsZero() &&
 		ValidLeasePolicy(ttl, time.Duration(lease.RenewAfterSeconds)*time.Second) &&
-		lease.Plan.Validate() == nil && validLeaseCapability(lease.Capability)
+		lease.Plan.Validate() == nil && ValidLeaseCapability(lease.Capability)
 }
 
 // String identifies a lease without exposing its bearer capability.
@@ -223,7 +223,15 @@ func ValidCandidateLimit(limit int) bool {
 	return limit >= 1 && limit <= maximumCandidateBatch
 }
 
-func validLeaseCapability(value string) bool {
+// ValidLeaseIdentifier reports whether value is a lowercase version-4 UUID
+// issued by the native lease implementation.
+func ValidLeaseIdentifier(value string) bool {
+	return nativeLeaseUUIDPattern.MatchString(value)
+}
+
+// ValidLeaseCapability reports whether opaque authority can be transported as
+// one bounded visible-ASCII HTTP header value.
+func ValidLeaseCapability(value string) bool {
 	if len(value) < 32 || len(value) > 4096 {
 		return false
 	}

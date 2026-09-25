@@ -70,6 +70,8 @@ coordination, not load generation or statistical decisions.
   validation, server-owned qualification and durable last-seen PostgreSQL state.
 - Authenticated native lease acquisition with reviewed capability matching,
   database-fenced ownership and header-only bearer capability delivery.
+- Database-fenced native lease renewal with monotonic phase progression and
+  cancellation deadlines.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
@@ -374,9 +376,11 @@ operations, typed worker-capability matching, reviewed native assignment
 resolution and durable lease acquisition are implemented.
 Matching requires the worker to support the plan's browser, diagnostic mode,
 execution-artifact transport and every artifact kind. Lease capabilities are
-stored only as SHA-256 digests and returned only in `X-Perfeng-Lease`. Renewal,
-release, artifact and terminal operations remain unavailable until their later
-M03 slices.
+stored only as SHA-256 digests and returned only in `X-Perfeng-Lease`. The
+renewal HTTP operation, release, artifact and terminal operations remain
+unavailable until their later M03 slices. The durable renewal boundary already
+advances worker phases monotonically and observes cancellation under the native
+worker-before-Run lock order.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.

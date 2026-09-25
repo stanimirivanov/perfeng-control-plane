@@ -118,6 +118,11 @@ compatible capabilities and free worker capacity. The initial server-owned
 policy uses a two-minute presence window, two-minute lease, 40-second renewal
 interval and a bounded batch of 100 candidate Runs.
 
+The durable renewal boundary accepts bounded server-owned lease and
+cancellation-grace policy. It is not composed into the HTTP runtime yet; the
+next M03 slice will bind the pinned renewal request and capability header and
+select the concrete policy values.
+
 Only SHA-256 token digests are read and retained. The bearer tokens themselves
 must be generated with sufficient entropy and delivered separately to clients;
 they do not belong in this document, process arguments, ordinary logs or the
