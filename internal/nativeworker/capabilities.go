@@ -15,8 +15,8 @@ type Capabilities struct {
 	Tool               string   `json:"tool"`
 	OperatingSystem    string   `json:"operatingSystem"`
 	Architecture       string   `json:"architecture"`
-	Browsers            []string `json:"browsers"`
-	RunnerContract      int      `json:"runnerContract"`
+	Browsers           []string `json:"browsers"`
+	RunnerContract     int      `json:"runnerContract"`
 	ExecutionArtifacts []string `json:"executionArtifacts"`
 	ArtifactKinds      []string `json:"artifactKinds"`
 	DiagnosticModes    []string `json:"diagnosticModes"`
@@ -26,10 +26,10 @@ type Capabilities struct {
 // QualificationEvidence is canonical JSON suitable for comparison with the
 // server-owned approved evidence.
 type Presence struct {
-	ProtocolVersion      int             `json:"protocolVersion"`
-	AgentVersion         string          `json:"agentVersion"`
-	Availability         string          `json:"availability"`
-	Capabilities         Capabilities    `json:"capabilities"`
+	ProtocolVersion       int             `json:"protocolVersion"`
+	AgentVersion          string          `json:"agentVersion"`
+	Availability          string          `json:"availability"`
+	Capabilities          Capabilities    `json:"capabilities"`
 	QualificationEvidence json.RawMessage `json:"qualificationEvidence"`
 }
 
