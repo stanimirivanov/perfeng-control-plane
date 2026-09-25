@@ -473,6 +473,13 @@ revision and current ownership. It persists only a digest of the returned
 native lease capability. Native acquisition does not use or alter Kubernetes
 reconciliation leases.
 
+Native renewal preserves the worker-before-Run order and then locks the current
+native lease. It rechecks the authenticated worker, lease and attempt IDs,
+capability digest, expiry and expected Run revision before extending authority.
+The same transaction advances the reported native phase monotonically or, when
+the Run is already `CANCELLING`, leaves the revision unchanged and returns a
+bounded stop deadline. Native renewal never holds a reconciliation lease.
+
 All acquired leases therefore commit or roll back together. Helper return does
 not release a Run lock; transaction completion does. Do not perform registry,
 Kubernetes, object-storage, or other external I/O between selection and commit.

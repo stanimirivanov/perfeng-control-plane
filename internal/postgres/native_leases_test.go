@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"regexp"
 	"strings"
 	"sync"
@@ -92,6 +93,37 @@ func candidateByID(t *testing.T, repository *Repository, runID string) nativewor
 	return nativeworker.Candidate{}
 }
 
+func acquireNativeLeaseForTest(
+	t *testing.T,
+	repository *Repository,
+	principal string,
+	key string,
+	workerID string,
+) (run.Accepted, nativeworker.Lease) {
+	t.Helper()
+	accepted := acceptNativeRun(t, repository, principal, key)
+	recordEligibleNativeWorker(t, repository, workerID)
+	observation, err := repository.EligibleNativeWorker(testContext, workerID, 2*time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lease, acquired, err := repository.AcquireNativeLease(
+		testContext,
+		workerID,
+		observation.ObservedAt,
+		candidateByID(t, repository, accepted.Run.ID),
+		postgresNativePlan(t),
+		2*time.Minute,
+		2*time.Minute,
+		40*time.Second,
+	)
+	if err != nil || !acquired {
+		t.Fatal("native lease was not acquired", err)
+	}
+
+	return accepted, lease
+}
+
 func TestNativeLeaseAuthorityGeneration(t *testing.T) {
 	uuidPattern := regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$`)
 	identifier, err := newUUID()
@@ -177,6 +209,176 @@ func TestNativeLeaseAcquisitionPersistsOnlyCapabilityDigest(t *testing.T) {
 	)
 	if err != nil || acquired {
 		t.Fatal("active native lease was acquired twice", err)
+	}
+}
+
+func TestNativeLeaseRenewalAdvancesMonotonicRunPhase(t *testing.T) {
+	repository := openTest(t, testDatabase(t))
+	if err := repository.Migrate(testContext); err != nil {
+		t.Fatal(err)
+	}
+	accepted, lease := acquireNativeLeaseForTest(
+		t,
+		repository,
+		"alice",
+		"native-renewal-request-0001",
+		"windows-laptop-01",
+	)
+	request := nativeworker.RenewalRequest{
+		LeaseID: lease.LeaseID, AttemptID: lease.AttemptID,
+		ExpectedRunRevision: lease.RunRevision, Phase: nativeworker.PhasePreparing,
+		Capability: lease.Capability,
+	}
+	preparing, err := repository.RenewNativeLease(
+		testContext, "windows-laptop-01", request, 2*time.Minute, 30*time.Second,
+	)
+	if err != nil || preparing.RunRevision != 4 || preparing.CancellationRequested ||
+		preparing.StopBy != nil || !preparing.ExpiresAt.Equal(preparing.ServerTime.Add(2*time.Minute)) {
+		t.Fatalf("preparing renewal = %#v, error = %v", preparing, err)
+	}
+	current, err := repository.Get(testContext, "alice", accepted.Run.ID)
+	if err != nil || current.State != run.StateWarmingUp || current.Revision != 4 {
+		t.Fatalf("preparing Run = %#v, error = %v", current, err)
+	}
+
+	request.ExpectedRunRevision = preparing.RunRevision
+	unchanged, err := repository.RenewNativeLease(
+		testContext, "windows-laptop-01", request, 2*time.Minute, 30*time.Second,
+	)
+	if err != nil || unchanged.RunRevision != preparing.RunRevision ||
+		unchanged.ExpiresAt.Before(preparing.ExpiresAt) {
+		t.Fatalf("repeated phase renewal = %#v, error = %v", unchanged, err)
+	}
+
+	request.Phase = nativeworker.PhaseRunning
+	running, err := repository.RenewNativeLease(
+		testContext, "windows-laptop-01", request, 2*time.Minute, 30*time.Second,
+	)
+	if err != nil || running.RunRevision != 5 {
+		t.Fatalf("running renewal = %#v, error = %v", running, err)
+	}
+	current, err = repository.Get(testContext, "alice", accepted.Run.ID)
+	if err != nil || current.State != run.StateRunning || current.Revision != 5 {
+		t.Fatalf("running Run = %#v, error = %v", current, err)
+	}
+
+	request.ExpectedRunRevision = running.RunRevision
+	request.Phase = nativeworker.PhasePreparing
+	if _, err = repository.RenewNativeLease(
+		testContext, "windows-laptop-01", request, 2*time.Minute, 30*time.Second,
+	); !errors.Is(err, run.ErrConflict) {
+		t.Fatalf("phase regression error = %v", err)
+	}
+}
+
+func TestNativeLeaseRenewalReturnsCancellationDeadline(t *testing.T) {
+	repository := openTest(t, testDatabase(t))
+	if err := repository.Migrate(testContext); err != nil {
+		t.Fatal(err)
+	}
+	accepted, lease := acquireNativeLeaseForTest(
+		t,
+		repository,
+		"alice",
+		"native-renewal-request-0002",
+		"windows-laptop-01",
+	)
+	request := nativeworker.RenewalRequest{
+		LeaseID: lease.LeaseID, AttemptID: lease.AttemptID,
+		ExpectedRunRevision: lease.RunRevision, Phase: nativeworker.PhasePreparing,
+		Capability: lease.Capability,
+	}
+	preparing, err := repository.RenewNativeLease(
+		testContext, "windows-laptop-01", request, 2*time.Minute, 30*time.Second,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancelling, err := repository.Cancel(testContext, "alice", accepted.Run.ID)
+	if err != nil || cancelling.State != run.StateCancelling {
+		t.Fatal("native Run was not cancelled", err)
+	}
+	request.ExpectedRunRevision = cancelling.Revision
+	request.Phase = nativeworker.PhaseRunning
+	renewal, err := repository.RenewNativeLease(
+		testContext, "windows-laptop-01", request, 2*time.Minute, 30*time.Second,
+	)
+	if err != nil || !renewal.CancellationRequested || renewal.StopBy == nil ||
+		renewal.RunRevision != cancelling.Revision ||
+		!renewal.StopBy.Equal(renewal.ServerTime.Add(30*time.Second)) ||
+		!renewal.ExpiresAt.Equal(renewal.ServerTime.Add(2*time.Minute)) ||
+		renewal.ServerTime.Before(preparing.ServerTime) {
+		t.Fatalf("cancellation renewal = %#v, error = %v", renewal, err)
+	}
+	current, err := repository.Get(testContext, "alice", accepted.Run.ID)
+	if err != nil || current != cancelling {
+		t.Fatal("renewal changed the cancelling Run", err)
+	}
+}
+
+func TestNativeLeaseRenewalRejectsStaleOrMismatchedAuthority(t *testing.T) {
+	repository := openTest(t, testDatabase(t))
+	if err := repository.Migrate(testContext); err != nil {
+		t.Fatal(err)
+	}
+	accepted, lease := acquireNativeLeaseForTest(
+		t,
+		repository,
+		"alice",
+		"native-renewal-request-0003",
+		"windows-laptop-01",
+	)
+	valid := nativeworker.RenewalRequest{
+		LeaseID: lease.LeaseID, AttemptID: lease.AttemptID,
+		ExpectedRunRevision: lease.RunRevision, Phase: nativeworker.PhasePreparing,
+		Capability: lease.Capability,
+	}
+
+	stale := valid
+	stale.ExpectedRunRevision++
+	if _, err := repository.RenewNativeLease(
+		testContext, "windows-laptop-01", stale, 2*time.Minute, 30*time.Second,
+	); !errors.Is(err, run.ErrRevision) {
+		t.Fatalf("stale revision error = %v", err)
+	}
+	for name, change := range map[string]func(*nativeworker.RenewalRequest) string{
+		"worker": func(*nativeworker.RenewalRequest) string { return "windows-laptop-02" },
+		"lease": func(request *nativeworker.RenewalRequest) string {
+			request.LeaseID = "33333333-3333-4333-8333-333333333333"
+			return "windows-laptop-01"
+		},
+		"attempt": func(request *nativeworker.RenewalRequest) string {
+			request.AttemptID = "33333333-3333-4333-8333-333333333333"
+			return "windows-laptop-01"
+		},
+		"capability": func(request *nativeworker.RenewalRequest) string {
+			request.Capability = strings.Repeat("f", 64)
+			return "windows-laptop-01"
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			request := valid
+			workerID := change(&request)
+			if _, err := repository.RenewNativeLease(
+				testContext, workerID, request, 2*time.Minute, 30*time.Second,
+			); !errors.Is(err, nativeworker.ErrLeaseGone) {
+				t.Fatalf("authority error = %v", err)
+			}
+		})
+	}
+
+	if _, err := repository.db.Exec(`
+		UPDATE perfeng_control.native_execution_leases
+		SET issued_at=clock_timestamp()-interval '3 minutes',
+			expires_at=clock_timestamp()-interval '1 minute'
+		WHERE run_id=$1
+	`, accepted.Run.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.RenewNativeLease(
+		testContext, "windows-laptop-01", valid, 2*time.Minute, 30*time.Second,
+	); !errors.Is(err, nativeworker.ErrLeaseGone) {
+		t.Fatalf("expired lease error = %v", err)
 	}
 }
 

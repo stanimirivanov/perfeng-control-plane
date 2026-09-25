@@ -235,6 +235,16 @@ reviewed plan resolution. It validates the complete returned lease before
 placing the plaintext capability only in `X-Perfeng-Lease`; no-work responses
 do not distinguish which eligibility condition was absent.
 
+Renewal pre-reads only the lease location, then locks the authenticated worker,
+Run and current lease in that order before rechecking worker, lease, attempt,
+capability digest, expiry and expected Run revision. It uses the database clock
+to extend expiry and atomically advances monotonic worker phases. `PREPARING`
+crosses the internal validation and provisioning states into `WARMING_UP`,
+`RUNNING` enters `RUNNING`, and `UPLOADING` or `FINALIZING` enters or remains in
+`COLLECTING`. A `CANCELLING` Run takes precedence over phase advancement and
+returns a bounded stop deadline without changing its revision. Terminal,
+expired and mismatched authority share the lease-gone result.
+
 ## Isolated integration tests
 
 Start a disposable PostgreSQL 17 instance with a local-only connection and a
