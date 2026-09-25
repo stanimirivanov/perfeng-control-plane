@@ -367,9 +367,11 @@ Review contract updates explicitly, refresh the snapshot and checksums, and
 rerun tests. The current runtime validator implements only the schema features
 reached by CreateRun, CreateBaseline, BaselineTransition and WorkerPresence, not
 arbitrary JSON Schema or full response validation. The authenticated
-`/native-worker/v1/presence` route and reviewed native assignment resolution are
-implemented; lease and artifact operations remain unavailable until their later
-M03 slices.
+`/native-worker/v1/presence`, typed worker-capability matching and reviewed native
+assignment resolution are implemented. Matching requires the worker to support
+the plan's browser, diagnostic mode, execution-artifact transport and every
+artifact kind. Lease and artifact operations remain unavailable until their
+later M03 slices.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.
