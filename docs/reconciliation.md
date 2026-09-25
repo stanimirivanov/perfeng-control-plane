@@ -466,6 +466,13 @@ The PostgreSQL implementation keeps that sequence visible in three layers:
 3. `tryAcquireClaim` reads database time, rechecks one candidate's current
    lease, and writes its replacement when eligible.
 
+The separate native scheduler resolves compatible plans before acquisition.
+Its PostgreSQL transaction locks the worker presence row before the selected
+Run row, then rechecks the presence observation, one-lease worker capacity, Run
+revision and current ownership. It persists only a digest of the returned
+native lease capability. Native acquisition does not use or alter Kubernetes
+reconciliation leases.
+
 All acquired leases therefore commit or roll back together. Helper return does
 not release a Run lock; transaction completion does. Do not perform registry,
 Kubernetes, object-storage, or other external I/O between selection and commit.

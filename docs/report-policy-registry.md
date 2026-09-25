@@ -86,6 +86,10 @@ requires the reported browser, diagnostic mode, execution-artifact transport
 and every planned artifact kind. Invalid capability values and invalid plans
 never match. Availability, freshness, qualification, authorization and capacity
 are scheduling concerns and remain outside this pure compatibility decision.
+The native lease acquirer reads those persisted eligibility inputs, resolves
+plans before opening a transaction and asks storage to recheck the exact
+presence and Run under locks. Report-policy resolution therefore remains free
+of persistence and lease ownership concerns.
 
 `ResolveJob` implements `reconcile.JobResolver` for VALIDATING and PROVISIONING
 Runs. It resolves the same exact principal and request context, requires the
