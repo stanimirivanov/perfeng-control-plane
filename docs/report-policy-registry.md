@@ -80,6 +80,13 @@ the Native Worker API v1 lease `assignment` and `artifactPlan` shapes and is
 returned as an isolated copy. It does not acquire a lease, inspect worker claims
 or accept assignment values from the Run caller.
 
+The native-worker domain decodes authenticated presence documents through the
+pinned contract and compares their capabilities with a resolved plan. A match
+requires the reported browser, diagnostic mode, execution-artifact transport
+and every planned artifact kind. Invalid capability values and invalid plans
+never match. Availability, freshness, qualification, authorization and capacity
+are scheduling concerns and remain outside this pure compatibility decision.
+
 `ResolveJob` implements `reconcile.JobResolver` for VALIDATING and PROVISIONING
 Runs. It resolves the same exact principal and request context, requires the
 candidate image to remain authorized and returns a new deep copy of the reviewed

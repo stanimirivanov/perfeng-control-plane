@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/nativeworker"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
@@ -100,26 +101,21 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	document, value, ok := readJSONBody(w, r)
+	document, _, ok := readJSONBody(w, r)
 	if !ok {
 		return
 	}
-	if contract.ValidateWorkerPresence(value) != nil {
+	presence, err := nativeworker.ParsePresence(document, MaxBodyBytes)
+	if err != nil {
 		fail(w, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
 		return
 	}
-	object := value.(map[string]any)
-	evidence, err := json.Marshal(object["qualificationEvidence"])
-	if err != nil {
-		fail(w, http.StatusInternalServerError, "INTERNAL_ERROR")
-		return
-	}
-	qualified := bytes.Equal(evidence, identity.QualificationEvidence)
+	qualified := bytes.Equal(presence.QualificationEvidence, identity.QualificationEvidence)
 	observedAt, err := handler.store.RecordNativeWorkerPresence(
 		r.Context(),
 		NativeWorkerPresenceRecord{
 			WorkerID: identity.WorkerID, ObservedDocument: append(json.RawMessage(nil), document...),
-			Availability: object["availability"].(string), Qualified: qualified,
+			Availability: presence.Availability, Qualified: qualified,
 			AuthorizedToAcquire: identity.AuthorizedToAcquire,
 		},
 	)
@@ -138,7 +134,7 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	}
 	writeJSON(w, http.StatusOK, workerPresenceStatus{
 		WorkerID: identity.WorkerID, ServerTime: observedAt,
-		NextHeartbeat: nativeWorkerHeartbeat, Availability: object["availability"].(string),
+		NextHeartbeat: nativeWorkerHeartbeat, Availability: presence.Availability,
 		Qualification: decision, AuthorizedToAcquire: identity.AuthorizedToAcquire,
 	})
 }
