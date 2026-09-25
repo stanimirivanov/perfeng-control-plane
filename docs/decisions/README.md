@@ -80,4 +80,8 @@ How will assumptions and consequences be verified?
 
 ## Index
 
+| ADR | Decision | Status |
+|:--|:--|:--|
+| [0001](0001-use-expiring-native-lease-capabilities.md) | Use expiring capabilities for native execution ownership | Proposed |
+
 No ADRs have been accepted yet.

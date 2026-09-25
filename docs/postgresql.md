@@ -5,7 +5,8 @@
 - The control plane exclusively owns the `perfeng_control` schema; infrastructure
   owns the PostgreSQL service, backups and credentials.
 - Transactions enforce principal scope, idempotent creation, lifecycle revision
-  checks, worker leases and immutable Kubernetes/artifact identities.
+  checks, reconciliation and native-worker leases, and immutable
+  Kubernetes/artifact identities.
 - Migrations are explicit, embedded, checksummed, transactional and serialized
   by an advisory lock; opening the repository never migrates automatically.
 - Storage changes require disposable PostgreSQL integration, concurrency and
@@ -26,6 +27,7 @@ runners do not write these tables directly.
 | kubernetes_executions | Immutable Job UID and specification identity per Run |
 | baselines | Principal-owned baseline versions and lifecycle snapshots |
 | native_worker_presence | Last authenticated capability and qualification report per native worker |
+| native_execution_leases | Current fenced native attempt, reviewed plan and hashed lease capability per Run |
 
 Snapshots are JSONB using the accepted API field names, with relational identity,
 ownership, uniqueness and foreign-key constraints. This keeps optional API
@@ -93,6 +95,7 @@ GRANT SELECT, INSERT, UPDATE ON perfeng_control.create_bindings TO perfeng_runti
 GRANT SELECT, INSERT ON perfeng_control.artifacts TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.baselines TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.native_worker_presence TO perfeng_runtime;
+GRANT SELECT, INSERT, UPDATE ON perfeng_control.native_execution_leases TO perfeng_runtime;
 ~~~
 
 Only the trusted reconciliation worker role additionally needs SELECT, INSERT
@@ -101,7 +104,9 @@ and UPDATE on `perfeng_control.reconciliation_leases`, plus SELECT and INSERT on
 above. Do not grant the worker interfaces to tenant/API callers. Migration 0002
 adds leases, migration 0003 adds immutable execution identity, migration 0004
 adds baseline storage, and migration 0005 adds last-seen native-worker presence
-without altering earlier migrations or existing data.
+without altering earlier migrations or existing data. Migration 0006 persists
+the server-selected execution target, and migration 0007 adds current native
+execution ownership without backfilling or changing existing Runs.
 See [worker-claim semantics](reconciliation.md).
 
 Provision that role/login through infrastructure; the migration does not create
@@ -201,6 +206,32 @@ the returned UID would make safe cleanup impossible. Terminal Runs and stale,
 expired or forged leases cannot read or bind execution identity. An uncertain
 commit must be retried only with the same identity.
 
+## Native execution leases
+
+The ownership and capability model is proposed in
+[ADR-0001](decisions/0001-use-expiring-native-lease-capabilities.md).
+Native scheduling first reads one fresh, AVAILABLE, qualified and authorized
+presence observation, then resolves compatible reviewed plans outside database
+transactions. Final acquisition locks the worker row before the selected Run
+row and rechecks the exact presence timestamp, freshness, capabilities, worker
+capacity, Run target/state/revision and competing Run ownership using the
+database clock. Registry resolution and all other external work remain outside
+the transaction.
+
+Native Worker API v1 capacity is one active lease per worker. Concurrent workers
+can consider the same Run, but the shared Run-row lock permits only one active
+lease. Expired rows are replaced with new lease and attempt UUIDs and new bearer
+authority, allowing crash recovery without preserving process-local state.
+Acquisition deliberately leaves the Run in CREATED: coordination metadata does
+not claim that preparation or execution has started, and an expired attempt can
+be planned again. A later renewal/lifecycle slice will own those transitions.
+
+The worker receives a random lease capability once. PostgreSQL stores only its
+SHA-256 digest; JSON and diagnostic formatting exclude plaintext capability
+bytes. A commit failure has an uncertain outcome and does not return the
+capability. The possibly committed row becomes recoverable only after expiry.
+No native lease HTTP operation is exposed by this persistence slice.
+
 ## Isolated integration tests
 
 Start a disposable PostgreSQL 17 instance with a local-only connection and a
@@ -225,7 +256,8 @@ Coverage includes empty-database migration, repeat migration, checksum rejection
 transaction rollback, original acceptance replay, principal isolation, immutable
 artifacts, key expiry, duplicate acceptance across pools, cancellation/completion
 races, bounded lock waits, immutable execution-binding races, serialized baseline
-approval and a fresh OS process recovering persisted records.
+approval, native lease capacity/acquisition races and expiry recovery, and a
+fresh OS process recovering persisted records.
 
 References: [PostgreSQL locking](https://www.postgresql.org/docs/17/explicit-locking.html)
 and [pgx database/sql adapter](https://pkg.go.dev/github.com/jackc/pgx/v5/stdlib).

@@ -167,8 +167,8 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/contract | Embedded, reviewed Run Management, Native Worker and data-contract snapshot |
 | internal/run | Request/run types, lifecycle rules, repository contract |
 | internal/memory | Atomic process-local test adapter |
-| internal/nativeworker | Reviewed native assignment validation and isolated transport values |
-| internal/postgres | Durable transactions, migrations, native-worker presence and artifact-reference storage |
+| internal/nativeworker | Reviewed native assignments, capability matching and bounded lease selection |
+| internal/postgres | Durable transactions, migrations, native-worker presence/leasing and artifact-reference storage |
 | internal/httpapi | User and Native Worker HTTP parsing, isolated auth seams and response mapping |
 | internal/authentication | Hashed static credentials with isolated user and native-worker audiences |
 | internal/kubernetes | Deterministic Job dispatch, identity-checked observation, stop and Pod checks |
@@ -367,11 +367,12 @@ Review contract updates explicitly, refresh the snapshot and checksums, and
 rerun tests. The current runtime validator implements only the schema features
 reached by CreateRun, CreateBaseline, BaselineTransition and WorkerPresence, not
 arbitrary JSON Schema or full response validation. The authenticated
-`/native-worker/v1/presence`, typed worker-capability matching and reviewed native
-assignment resolution are implemented. Matching requires the worker to support
-the plan's browser, diagnostic mode, execution-artifact transport and every
-artifact kind. Lease and artifact operations remain unavailable until their
-later M03 slices.
+`/native-worker/v1/presence`, typed worker-capability matching, reviewed native
+assignment resolution and durable internal lease acquisition are implemented.
+Matching requires the worker to support the plan's browser, diagnostic mode,
+execution-artifact transport and every artifact kind. Lease capabilities are
+stored only as SHA-256 digests. Native lease HTTP, renewal, release, artifact and
+terminal operations remain unavailable until their later M03 slices.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.
