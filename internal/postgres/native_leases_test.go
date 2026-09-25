@@ -216,7 +216,9 @@ func TestNativeLeaseCapacityAndExpiredRecovery(t *testing.T) {
 	}
 	if _, err = first.db.Exec(`
 		UPDATE perfeng_control.native_execution_leases
-		SET expires_at=clock_timestamp()-interval '1 second'
+		SET
+			issued_at=clock_timestamp()-interval '3 minutes',
+			expires_at=clock_timestamp()-interval '1 minute'
 		WHERE run_id=$1
 	`, firstRun.Run.ID); err != nil {
 		t.Fatal(err)
