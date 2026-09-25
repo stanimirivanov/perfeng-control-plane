@@ -109,6 +109,28 @@ func TestNativeWorkerPresenceRuntimeValidation(t *testing.T) {
 	}
 }
 
+func TestNativeWorkerAcquireRuntimeValidation(t *testing.T) {
+	acquire := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/acquire.json")
+	if err := ValidateAcquireLease(acquire); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, mutate := range map[string]func(map[string]any){
+		"protocol": func(value map[string]any) { value["protocolVersion"] = json.Number("2") },
+		"wait":     func(value map[string]any) { value["maxWaitSeconds"] = json.Number("31") },
+		"unknown":  func(value map[string]any) { value["workerId"] = "caller-selected" },
+		"missing":  func(value map[string]any) { delete(value, "maxWaitSeconds") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			value := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/acquire.json")
+			mutate(value)
+			if ValidateAcquireLease(value) == nil {
+				t.Fatal("accepted invalid acquisition request")
+			}
+		})
+	}
+}
+
 func decodeContractValue(t *testing.T, path string) map[string]any {
 	t.Helper()
 	b, err := Files.ReadFile(path)

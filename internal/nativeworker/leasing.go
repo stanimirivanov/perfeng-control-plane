@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
@@ -14,6 +15,10 @@ const (
 	maximumCandidateBatch = 100
 	// MaximumPresenceBytes is the Native Worker API presence document limit.
 	MaximumPresenceBytes = 65536
+)
+
+var nativeLeaseUUIDPattern = regexp.MustCompile(
+	`^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$`,
 )
 
 // Candidate is one principal-owned Run considered by the privileged native
@@ -44,6 +49,19 @@ type Lease struct {
 	RenewAfterSeconds int       `json:"renewAfterSeconds"`
 	Plan
 	Capability string `json:"-"`
+}
+
+// Valid checks the complete lease returned by trusted storage before it crosses
+// the HTTP boundary. It does not establish current ownership.
+func (lease Lease) Valid() bool {
+	ttl := lease.ExpiresAt.Sub(lease.IssuedAt)
+
+	return nativeLeaseUUIDPattern.MatchString(lease.LeaseID) &&
+		nativeLeaseUUIDPattern.MatchString(lease.AttemptID) &&
+		contract.ValidID(lease.RunID) && lease.RunRevision >= 1 &&
+		!lease.IssuedAt.IsZero() && !lease.ExpiresAt.IsZero() &&
+		ValidLeasePolicy(ttl, time.Duration(lease.RenewAfterSeconds)*time.Second) &&
+		lease.Plan.Validate() == nil && validLeaseCapability(lease.Capability)
 }
 
 // String identifies a lease without exposing its bearer capability.
@@ -203,4 +221,17 @@ func ValidLeasePolicy(ttl time.Duration, renewAfter time.Duration) bool {
 // ValidCandidateLimit reports whether a scheduler batch is bounded.
 func ValidCandidateLimit(limit int) bool {
 	return limit >= 1 && limit <= maximumCandidateBatch
+}
+
+func validLeaseCapability(value string) bool {
+	if len(value) < 32 || len(value) > 4096 {
+		return false
+	}
+	for index := range len(value) {
+		if value[index] < 0x21 || value[index] > 0x7e || value[index] == ',' {
+			return false
+		}
+	}
+
+	return true
 }

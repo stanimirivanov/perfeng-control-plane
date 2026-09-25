@@ -1,6 +1,6 @@
 # ADR-0001: Use expiring capabilities for native execution ownership
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-09-25
 - Milestone: M03 — Native Browser Decision Loop
 - Deciders: Repository owner
@@ -28,10 +28,10 @@ restarts, expire without process-local cleanup, prevent two workers from owning
 one Run and enforce the Native Worker API v1 capacity of one active lease per
 worker.
 
-The lease capability crosses an authenticated HTTP boundary in a later slice.
-It is secret bearer material and must not appear in JSON, logs, evidence or
-plaintext database state. Registry plan resolution can involve configuration
-and must not run inside a database transaction.
+The lease capability crosses the independently authenticated worker HTTP
+boundary. It is secret bearer material and must not appear in JSON, logs,
+evidence or plaintext database state. Registry plan resolution can involve
+configuration and must not run inside a database transaction.
 
 ## Decision
 

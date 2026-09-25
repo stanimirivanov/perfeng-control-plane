@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
@@ -15,7 +16,9 @@ import (
 
 const (
 	nativeWorkerPresencePath     = "/native-worker/v1/presence"
+	nativeWorkerLeasePath        = "/native-worker/v1/leases"
 	nativeWorkerHeartbeat        = 30
+	nativeWorkerLeaseRetryAfter  = 15
 	nativeWorkerQualificationTTL = 2 * time.Minute
 )
 
@@ -29,6 +32,10 @@ type WorkerIdentity struct {
 
 // NativeWorkerAuthenticate verifies a worker-audience bearer credential.
 type NativeWorkerAuthenticate func(context.Context, string) (WorkerIdentity, error)
+
+// NativeWorkerAcquire returns one durable compatible lease for an authenticated
+// worker, or acquired=false when no eligible work is currently available.
+type NativeWorkerAcquire func(context.Context, string) (nativeworker.Lease, bool, error)
 
 // NativeWorkerPresenceRecord is the complete last-seen state persisted for an
 // authenticated worker. Document is an independently owned JSON value.
@@ -50,6 +57,7 @@ type NativeWorkerPresenceStore interface {
 type NativeWorkerHandler struct {
 	store        NativeWorkerPresenceStore
 	authenticate NativeWorkerAuthenticate
+	acquire      NativeWorkerAcquire
 }
 
 // NewNativeWorkerHandler constructs the worker HTTP boundary from mandatory
@@ -57,12 +65,13 @@ type NativeWorkerHandler struct {
 func NewNativeWorkerHandler(
 	store NativeWorkerPresenceStore,
 	authenticate NativeWorkerAuthenticate,
+	acquire NativeWorkerAcquire,
 ) (*NativeWorkerHandler, error) {
-	if store == nil || authenticate == nil {
-		return nil, errors.New("native worker authentication and storage are required")
+	if store == nil || authenticate == nil || acquire == nil {
+		return nil, errors.New("native worker authentication, presence and acquisition are required")
 	}
 
-	return &NativeWorkerHandler{store: store, authenticate: authenticate}, nil
+	return &NativeWorkerHandler{store: store, authenticate: authenticate, acquire: acquire}, nil
 }
 
 type qualificationDecision struct {
@@ -81,26 +90,50 @@ type workerPresenceStatus struct {
 }
 
 func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != nativeWorkerPresencePath || r.Method != http.MethodPost {
+	if r.Method != http.MethodPost ||
+		(r.URL.Path != nativeWorkerPresencePath && r.URL.Path != nativeWorkerLeasePath) {
 		fail(w, http.StatusNotFound, "NOT_FOUND")
 		return
 	}
+	identity, ok := handler.authenticateRequest(w, r)
+	if !ok {
+		return
+	}
+	if r.URL.Path == nativeWorkerPresencePath {
+		handler.reportPresence(w, r, identity)
+		return
+	}
+	handler.acquireLease(w, r, identity)
+}
+
+func (handler *NativeWorkerHandler) authenticateRequest(
+	w http.ResponseWriter,
+	r *http.Request,
+) (WorkerIdentity, bool) {
 	token, ok := bearerToken(r)
 	if !ok {
 		fail(w, http.StatusUnauthorized, "UNAUTHENTICATED")
-		return
+		return WorkerIdentity{}, false
 	}
 	identity, err := handler.authenticate(r.Context(), token)
 	if errors.Is(err, run.ErrUnavailable) || errors.Is(err, context.Canceled) ||
 		errors.Is(err, context.DeadlineExceeded) {
 		fail(w, http.StatusServiceUnavailable, "UNAVAILABLE")
-		return
+		return WorkerIdentity{}, false
 	}
 	if err != nil || !validWorkerIdentity(identity) {
 		fail(w, http.StatusUnauthorized, "UNAUTHENTICATED")
-		return
+		return WorkerIdentity{}, false
 	}
 
+	return identity, true
+}
+
+func (handler *NativeWorkerHandler) reportPresence(
+	w http.ResponseWriter,
+	r *http.Request,
+	identity WorkerIdentity,
+) {
 	document, _, ok := readJSONBody(w, r)
 	if !ok {
 		return
@@ -137,6 +170,65 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		NextHeartbeat: nativeWorkerHeartbeat, Availability: presence.Availability,
 		Qualification: decision, AuthorizedToAcquire: identity.AuthorizedToAcquire,
 	})
+}
+
+func (handler *NativeWorkerHandler) acquireLease(
+	w http.ResponseWriter,
+	r *http.Request,
+	identity WorkerIdentity,
+) {
+	if !identity.AuthorizedToAcquire {
+		fail(w, http.StatusForbidden, "FORBIDDEN")
+		return
+	}
+	_, value, ok := readJSONBody(w, r)
+	if !ok {
+		return
+	}
+	if contract.ValidateAcquireLease(value) != nil {
+		fail(w, http.StatusBadRequest, "BAD_REQUEST")
+		return
+	}
+	lease, acquired, err := handler.acquire(r.Context(), identity.WorkerID)
+	if errors.Is(err, run.ErrUnavailable) || errors.Is(err, context.Canceled) ||
+		errors.Is(err, context.DeadlineExceeded) {
+		fail(w, http.StatusServiceUnavailable, "UNAVAILABLE")
+		return
+	}
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "INTERNAL_ERROR")
+		return
+	}
+	if !acquired {
+		w.Header().Set("Retry-After", strconv.Itoa(nativeWorkerLeaseRetryAfter))
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.WriteHeader(http.StatusNoContent)
+
+		return
+	}
+	if !lease.Valid() {
+		fail(w, http.StatusInternalServerError, "INTERNAL_ERROR")
+		return
+	}
+
+	writeNativeLease(w, lease)
+}
+
+func writeNativeLease(w http.ResponseWriter, lease nativeworker.Lease) {
+	document, err := json.Marshal(lease)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "INTERNAL_ERROR")
+		return
+	}
+	w.Header().Set("X-Perfeng-Lease", lease.Capability)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(append(document, '\n')); err != nil {
+		return
+	}
 }
 
 func validWorkerIdentity(identity WorkerIdentity) bool {

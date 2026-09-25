@@ -243,3 +243,37 @@ func TestLeaseFormattingAndJSONDoNotExposeCapability(t *testing.T) {
 		t.Fatal("lease JSON exposed the bearer capability")
 	}
 }
+
+func TestLeaseValidation(t *testing.T) {
+	issuedAt := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+	valid := Lease{
+		LeaseID: "11111111-1111-4111-8111-111111111111", AttemptID: "22222222-2222-4222-8222-222222222222",
+		RunID: "perf-20260918-120000-a1b2c3d4", RunRevision: 4,
+		IssuedAt: issuedAt, ExpiresAt: issuedAt.Add(2 * time.Minute), RenewAfterSeconds: 40,
+		Plan: nativePlan(t, "edge"), Capability: strings.Repeat("a", 64),
+	}
+	if !valid.Valid() {
+		t.Fatal("valid native lease rejected")
+	}
+
+	for name, mutate := range map[string]func(*Lease){
+		"lease ID":   func(lease *Lease) { lease.LeaseID = "not-a-uuid" },
+		"attempt ID": func(lease *Lease) { lease.AttemptID = "not-a-uuid" },
+		"run":        func(lease *Lease) { lease.RunID = "invalid" },
+		"revision":   func(lease *Lease) { lease.RunRevision = 0 },
+		"expiry":     func(lease *Lease) { lease.ExpiresAt = lease.IssuedAt },
+		"renewal":    func(lease *Lease) { lease.RenewAfterSeconds = 61 },
+		"plan":       func(lease *Lease) { lease.Assignment.Browser = "firefox" },
+		"capability": func(lease *Lease) { lease.Capability = strings.Repeat("a", 31) },
+		"header":     func(lease *Lease) { lease.Capability = strings.Repeat("a", 32) + "\r\n" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			lease := valid
+			lease.Plan = valid.Plan.Clone()
+			mutate(&lease)
+			if lease.Valid() {
+				t.Fatal("invalid native lease accepted")
+			}
+		})
+	}
+}

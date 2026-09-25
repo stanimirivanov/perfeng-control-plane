@@ -5,10 +5,19 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/authentication"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/httpapi"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/nativeworker"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
+)
+
+const (
+	nativeWorkerPresenceMaximumAge = 2 * time.Minute
+	nativeWorkerLeaseTTL           = 2 * time.Minute
+	nativeWorkerLeaseRenewAfter    = 40 * time.Second
+	nativeWorkerCandidateLimit     = 100
 )
 
 // BearerAuthenticator verifies opaque credentials for concurrent API requests.
@@ -68,16 +77,39 @@ func NewAPIHandler(
 	return handler, nil
 }
 
-// NewNativeWorkerAPIHandler composes worker authentication and durable
-// presence storage without sharing the user-facing authorization identity.
+// NativeWorkerStore contains the privileged persistence operations used by the
+// independently authenticated worker boundary.
+type NativeWorkerStore interface {
+	httpapi.NativeWorkerPresenceStore
+	nativeworker.LeaseStore
+}
+
+// NewNativeWorkerAPIHandler composes worker authentication, durable presence
+// and lease acquisition without sharing the user-facing authorization identity.
 func NewNativeWorkerAPIHandler(
-	store httpapi.NativeWorkerPresenceStore,
+	store NativeWorkerStore,
 	authenticator NativeWorkerAuthenticator,
+	resolver nativeworker.PlanResolver,
 ) (http.Handler, error) {
-	if store == nil || authenticator == nil {
+	if store == nil || authenticator == nil || resolver == nil {
 		return nil, ErrInvalidConfiguration
 	}
-	handler, err := httpapi.NewNativeWorkerHandler(store, authenticator.AuthenticateWorker)
+	acquirer, err := nativeworker.NewAcquirer(
+		store,
+		resolver,
+		nativeWorkerPresenceMaximumAge,
+		nativeWorkerLeaseTTL,
+		nativeWorkerLeaseRenewAfter,
+		nativeWorkerCandidateLimit,
+	)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
+	handler, err := httpapi.NewNativeWorkerHandler(
+		store,
+		authenticator.AuthenticateWorker,
+		acquirer.Acquire,
+	)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
