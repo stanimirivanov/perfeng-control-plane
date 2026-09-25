@@ -104,9 +104,19 @@ policy are identical.
 `POST /native-worker/v1/presence` records the most recent authenticated report
 using PostgreSQL time. The initial policy requests another heartbeat after 30
 seconds and qualifies matching evidence for two minutes. These values are
-server-owned; the worker cannot extend them. Lease acquisition is not yet
-implemented and will independently require current availability, qualification
-and authorization.
+server-owned; the worker cannot extend them.
+
+`POST /native-worker/v1/leases` accepts the pinned protocol version and a
+bounded `maxWaitSeconds` hint. This initial implementation responds immediately:
+`200` returns one compatible durable lease and places its one-time plaintext
+capability only in `X-Perfeng-Lease`; `204` means no eligible work is currently
+available and requests a retry after 15 seconds. True bounded long polling is a
+later worker-efficiency decision, so clients must not assume the server waits
+for the requested maximum. Acquisition requires current AVAILABLE presence,
+matching reviewed qualification evidence, explicit acquisition authorization,
+compatible capabilities and free worker capacity. The initial server-owned
+policy uses a two-minute presence window, two-minute lease, 40-second renewal
+interval and a bounded batch of 100 candidate Runs.
 
 Only SHA-256 token digests are read and retained. The bearer tokens themselves
 must be generated with sufficient entropy and delivered separately to clients;

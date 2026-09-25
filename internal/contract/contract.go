@@ -77,7 +77,7 @@ func init() {
 	read("api/native-worker/v1/openapi.json", &nativeWorkerDocument)
 	nativeWorkerSchemas, err = prepareSchemas(
 		nativeWorkerDocument.Components.Schemas,
-		"WorkerPresence",
+		"WorkerPresence", "AcquireLease",
 	)
 	if err != nil {
 		panic(err)
@@ -234,6 +234,12 @@ func ValidateBaselineTransition(value any) error {
 // Worker API v1 WorkerPresence schema.
 func ValidateWorkerPresence(value any) error {
 	return validateWithSchemas(nativeWorkerSchemas["WorkerPresence"], value, nativeWorkerSchemas)
+}
+
+// ValidateAcquireLease checks a decoded value against the pinned Native
+// Worker API v1 AcquireLease schema.
+func ValidateAcquireLease(value any) error {
+	return validateWithSchemas(nativeWorkerSchemas["AcquireLease"], value, nativeWorkerSchemas)
 }
 
 // ValidateWorkerQualificationEvidence checks server-configured evidence against

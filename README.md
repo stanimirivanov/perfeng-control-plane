@@ -68,6 +68,8 @@ coordination, not load generation or statistical decisions.
 - Unauthenticated liveness/readiness endpoints and fixed-cardinality Prometheus metrics.
 - Independently authenticated Native Worker presence with strict contract
   validation, server-owned qualification and durable last-seen PostgreSQL state.
+- Authenticated native lease acquisition with reviewed capability matching,
+  database-fenced ownership and header-only bearer capability delivery.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
@@ -365,14 +367,16 @@ contract content is Apache-2.0, as in this repository.
 
 Review contract updates explicitly, refresh the snapshot and checksums, and
 rerun tests. The current runtime validator implements only the schema features
-reached by CreateRun, CreateBaseline, BaselineTransition and WorkerPresence, not
-arbitrary JSON Schema or full response validation. The authenticated
-`/native-worker/v1/presence`, typed worker-capability matching, reviewed native
-assignment resolution and durable internal lease acquisition are implemented.
+reached by CreateRun, CreateBaseline, BaselineTransition, WorkerPresence and
+AcquireLease, not arbitrary JSON Schema or full response validation. The
+authenticated `/native-worker/v1/presence` and `/native-worker/v1/leases`
+operations, typed worker-capability matching, reviewed native assignment
+resolution and durable lease acquisition are implemented.
 Matching requires the worker to support the plan's browser, diagnostic mode,
 execution-artifact transport and every artifact kind. Lease capabilities are
-stored only as SHA-256 digests. Native lease HTTP, renewal, release, artifact and
-terminal operations remain unavailable until their later M03 slices.
+stored only as SHA-256 digests and returned only in `X-Perfeng-Lease`. Renewal,
+release, artifact and terminal operations remain unavailable until their later
+M03 slices.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.

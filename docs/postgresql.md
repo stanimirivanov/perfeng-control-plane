@@ -230,7 +230,10 @@ The worker receives a random lease capability once. PostgreSQL stores only its
 SHA-256 digest; JSON and diagnostic formatting exclude plaintext capability
 bytes. A commit failure has an uncertain outcome and does not return the
 capability. The possibly committed row becomes recoverable only after expiry.
-No native lease HTTP operation is exposed by this persistence slice.
+The authenticated acquisition HTTP operation composes this transaction with
+reviewed plan resolution. It validates the complete returned lease before
+placing the plaintext capability only in `X-Perfeng-Lease`; no-work responses
+do not distinguish which eligibility condition was absent.
 
 ## Isolated integration tests
 

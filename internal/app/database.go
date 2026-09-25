@@ -5,6 +5,7 @@ import (
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/httpapi"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/kubernetes"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/nativeworker"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/postgres"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
@@ -14,6 +15,7 @@ import (
 type Database interface {
 	httpapi.Repository
 	httpapi.NativeWorkerPresenceStore
+	nativeworker.LeaseStore
 	run.ArtifactRepository
 	run.ReconciliationStore
 	kubernetes.ExecutionStore

@@ -51,6 +51,7 @@ func NewApplicationRuntime(
 	nativeWorkerHandler, err := NewNativeWorkerAPIHandler(
 		resources.Database,
 		resources.Authentication,
+		resources.Registry,
 	)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
