@@ -106,7 +106,9 @@ adds leases, migration 0003 adds immutable execution identity, migration 0004
 adds baseline storage, and migration 0005 adds last-seen native-worker presence
 without altering earlier migrations or existing data. Migration 0006 persists
 the server-selected execution target, and migration 0007 adds current native
-execution ownership without backfilling or changing existing Runs.
+execution ownership without backfilling or changing existing Runs. Migration
+0008 adds nullable native-release markers and a bounded consistency constraint;
+it does not rewrite existing lease values or Run snapshots.
 See [worker-claim semantics](reconciliation.md).
 
 Provision that role/login through infrastructure; the migration does not create
@@ -247,6 +249,24 @@ expired and mismatched authority share the lease-gone result.
 The Native Worker HTTP boundary supplies the authenticated worker identity and
 header-only capability, validates the pinned request and maps stale revision to
 `409` and lost authority to `410`.
+
+Explicit release uses the same lock order and complete authority check. The
+first release expires the lease at database time and records a bounded reason
+and optional message. A retry for the same attempt and reason is a no-op even
+after cancellation changed the Run revision; a different reason conflicts.
+`CANCELLATION_REQUESTED` is accepted only for `CANCELLING` and advances that Run
+to `ABORTED` in the same transaction. Other reasons expire coordination only
+and cannot make partial artifacts or terminal evidence authoritative. A
+released CREATED Run is immediately eligible for a new attempt, which replaces
+all lease authority and clears the old release marker.
+
+Migration 0008 takes the ordinary short `ALTER TABLE` lock needed to add three
+nullable columns and validate one constraint over the current lease table. An
+older binary can continue using unreleased rows. If it encounters a row already
+released by the new binary, the constraint prevents it from extending or
+replacing that authority without clearing the marker; this fails closed during
+a mixed-version rollout. Roll back the binary while retaining the expanded
+schema and repair forward.
 
 ## Isolated integration tests
 

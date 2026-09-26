@@ -72,6 +72,8 @@ coordination, not load generation or statistical decisions.
   database-fenced ownership and header-only bearer capability delivery.
 - Database-fenced native lease renewal with monotonic phase progression and
   cancellation deadlines, exposed through the authenticated Native Worker API.
+- Idempotent native lease release with durable reason fencing and atomic
+  cancellation completion.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
@@ -378,9 +380,9 @@ resolution and durable lease acquisition and renewal are implemented.
 Matching requires the worker to support the plan's browser, diagnostic mode,
 execution-artifact transport and every artifact kind. Lease capabilities are
 stored only as SHA-256 digests and returned only in `X-Perfeng-Lease`. The
-Release, upload-grant, artifact and terminal operations remain unavailable
-until their later M03 slices. Renewal advances worker phases monotonically and
-observes cancellation under the native worker-before-Run lock order.
+release HTTP operation, upload-grant, artifact and terminal operations remain
+unavailable until their later M03 slices. The durable release boundary is
+implemented. Renewal and release use the native worker-before-Run lock order.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.

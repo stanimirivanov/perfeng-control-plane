@@ -77,7 +77,11 @@ func (r *Repository) NativeCandidates(
 			ON l.run_id=r.run_id
 		WHERE r.execution_target='NATIVE_WINDOWS'
 		AND r.snapshot->>'state'='CREATED'
-		AND (l.run_id IS NULL OR l.expires_at <= clock_timestamp())
+		AND (
+			l.run_id IS NULL
+			OR l.released_at IS NOT NULL
+			OR l.expires_at <= clock_timestamp()
+		)
 		ORDER BY r.run_id
 		LIMIT $1
 	`, limit)
@@ -290,7 +294,7 @@ func nativeWorkerOccupied(
 		SELECT EXISTS(
 			SELECT 1
 			FROM perfeng_control.native_execution_leases
-			WHERE worker_id=$1 AND expires_at>$2
+			WHERE worker_id=$1 AND released_at IS NULL AND expires_at>$2
 		)
 	`, workerID, now).Scan(&occupied)
 
@@ -308,7 +312,7 @@ func nativeRunLeased(
 		SELECT EXISTS(
 			SELECT 1
 			FROM perfeng_control.native_execution_leases
-			WHERE run_id=$1 AND expires_at>$2
+			WHERE run_id=$1 AND released_at IS NULL AND expires_at>$2
 		)
 	`, runID, now).Scan(&active)
 
@@ -364,8 +368,12 @@ func writeNativeLease(
 			issued_at=EXCLUDED.issued_at,
 			expires_at=EXCLUDED.expires_at,
 			renew_after_seconds=EXCLUDED.renew_after_seconds,
-			plan=EXCLUDED.plan
-		WHERE perfeng_control.native_execution_leases.expires_at <= EXCLUDED.issued_at
+			plan=EXCLUDED.plan,
+			released_at=NULL,
+			release_reason=NULL,
+			release_message=NULL
+		WHERE perfeng_control.native_execution_leases.released_at IS NOT NULL
+		OR perfeng_control.native_execution_leases.expires_at <= EXCLUDED.issued_at
 	`, current.ID, leaseID, attemptID, workerID, capabilityDigest[:], now, expiresAt,
 		int(renewAfter/time.Second), planBytes)
 	if err != nil {

@@ -483,6 +483,14 @@ The authenticated renewal HTTP route binds the path lease ID, body attempt and
 Run revision, and `X-Perfeng-Lease` header to this single transaction. It never
 echoes or logs the plaintext capability.
 
+Native release uses the same authority and lock sequence. It expires current
+authority and stores the first bounded reason/message, making a retry for the
+same attempt and reason idempotent while rejecting a changed reason. A release
+after observed cancellation atomically advances `CANCELLING` to `ABORTED`.
+Other releases do not invent lifecycle or evidence state; CREATED work can be
+leased again, while recovery of an interrupted later phase remains a subsequent
+M03 capability. The Native Worker HTTP route for release is not composed yet.
+
 All acquired leases therefore commit or roll back together. Helper return does
 not release a Run lock; transaction completion does. Do not perform registry,
 Kubernetes, object-storage, or other external I/O between selection and commit.
