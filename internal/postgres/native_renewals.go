@@ -21,8 +21,12 @@ type storedNativeLease struct {
 	attemptID        string
 	workerID         string
 	capabilityDigest []byte
+	issuedAt         time.Time
 	expiresAt        time.Time
 	renewAfter       time.Duration
+	releasedAt       sql.NullTime
+	releaseReason    sql.NullString
+	releaseMessage   sql.NullString
 }
 
 type nativeRenewalScope struct {
@@ -211,7 +215,8 @@ func lockedNativeLease(
 	var renewAfterSeconds int
 	err := tx.QueryRowContext(ctx, `
 		SELECT lease_id::text,attempt_id::text,worker_id,capability_sha256,
-			expires_at,renew_after_seconds
+			issued_at,expires_at,renew_after_seconds,
+			released_at,release_reason,release_message
 		FROM perfeng_control.native_execution_leases
 		WHERE run_id=$1
 		FOR UPDATE
@@ -220,8 +225,12 @@ func lockedNativeLease(
 		&stored.attemptID,
 		&stored.workerID,
 		&stored.capabilityDigest,
+		&stored.issuedAt,
 		&stored.expiresAt,
 		&renewAfterSeconds,
+		&stored.releasedAt,
+		&stored.releaseReason,
+		&stored.releaseMessage,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return storedNativeLease{}, nativeworker.ErrLeaseGone
@@ -229,7 +238,11 @@ func lockedNativeLease(
 	if err != nil {
 		return storedNativeLease{}, storageError(err)
 	}
+	stored.issuedAt = stored.issuedAt.UTC()
 	stored.expiresAt = stored.expiresAt.UTC()
+	if stored.releasedAt.Valid {
+		stored.releasedAt.Time = stored.releasedAt.Time.UTC()
+	}
 	stored.renewAfter = time.Duration(renewAfterSeconds) * time.Second
 
 	return stored, nil
@@ -241,10 +254,22 @@ func currentNativeLease(
 	request nativeworker.RenewalRequest,
 	now time.Time,
 ) bool {
-	digest := sha256.Sum256([]byte(request.Capability))
+	return matchingNativeLeaseAuthority(stored, workerID, request.LeaseID,
+		request.AttemptID, request.Capability) && !stored.releasedAt.Valid &&
+		now.Before(stored.expiresAt)
+}
 
-	return stored.leaseID == request.LeaseID && stored.attemptID == request.AttemptID &&
-		stored.workerID == workerID && now.Before(stored.expiresAt) &&
+func matchingNativeLeaseAuthority(
+	stored storedNativeLease,
+	workerID string,
+	leaseID string,
+	attemptID string,
+	capability string,
+) bool {
+	digest := sha256.Sum256([]byte(capability))
+
+	return stored.leaseID == leaseID && stored.attemptID == attemptID &&
+		stored.workerID == workerID &&
 		subtle.ConstantTimeCompare(stored.capabilityDigest, digest[:]) == 1
 }
 
