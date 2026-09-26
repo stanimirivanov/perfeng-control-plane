@@ -28,6 +28,7 @@ runners do not write these tables directly.
 | baselines | Principal-owned baseline versions and lifecycle snapshots |
 | native_worker_presence | Last authenticated capability and qualification report per native worker |
 | native_execution_leases | Current fenced native attempt, reviewed plan and hashed lease capability per Run |
+| native_upload_grants | Durable non-secret declaration and exact object identity per native attempt and slot |
 
 Snapshots are JSONB using the accepted API field names, with relational identity,
 ownership, uniqueness and foreign-key constraints. This keeps optional API
@@ -96,6 +97,7 @@ GRANT SELECT, INSERT ON perfeng_control.artifacts TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.baselines TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.native_worker_presence TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.native_execution_leases TO perfeng_runtime;
+GRANT SELECT, INSERT, UPDATE ON perfeng_control.native_upload_grants TO perfeng_runtime;
 ~~~
 
 Only the trusted reconciliation worker role additionally needs SELECT, INSERT
@@ -108,7 +110,9 @@ without altering earlier migrations or existing data. Migration 0006 persists
 the server-selected execution target, and migration 0007 adds current native
 execution ownership without backfilling or changing existing Runs. Migration
 0008 adds nullable native-release markers and a bounded consistency constraint;
-it does not rewrite existing lease values or Run snapshots.
+it does not rewrite existing lease values or Run snapshots. Migration 0009 adds
+the initially empty native-upload-grant table without scanning, rewriting or
+backfilling existing tables.
 See [worker-claim semantics](reconciliation.md).
 
 Provision that role/login through infrastructure; the migration does not create
@@ -267,6 +271,40 @@ released by the new binary, the constraint prevents it from extending or
 replacing that authority without clearing the marker; this fails closed during
 a mixed-version rollout. Roll back the binary while retaining the expanded
 schema and repair forward.
+
+## Native upload grants
+
+The upload-grant reservation follows the accepted direct-publication decision
+in perfeng-contracts ADR-0003. It authenticates the worker, lease capability,
+attempt and expected Run revision under the same worker-before-Run-before-lease
+lock order as renewal and release. It then matches the declared media type and
+size to the persisted reviewed artifact plan and selects the canonical key
+`runs/{runId}/attempts/{attemptId}/{slot}`. The grant expires no later than both
+the server's bounded grant lifetime and current lease authority.
+
+PostgreSQL stores the random grant ID, lease and attempt fence, Run, slot,
+canonical object key, declared size and SHA-256, assigned maximum size, media
+type and timing. It deliberately has no URL, query, signed-header or plaintext
+capability column. Presigned request material is a delivery credential and must
+be generated outside the database transaction. An identical retry for a lease
+and slot retains the grant ID and refreshes its bounded timing; a changed size,
+checksum or media type conflicts instead of rewriting the declaration.
+
+The lease table keeps only current authority and replaces its row when an
+expired or released CREATED attempt is recovered. Upload reservations therefore
+retain lease and attempt UUIDs as historical fences without foreign-keying them
+to that replaceable row. Their Run foreign key preserves durable ownership, and
+unique lease/slot and object-key constraints prevent two identities from
+claiming the same attempt output.
+
+Migration 0009 creates only a new empty table, its primary and unique indexes,
+constraints and foreign key. It takes catalog and new-relation locks but no lock
+that scans or rewrites existing application rows; there is no backfill, data WAL
+or existing-table growth. Older binaries ignore the table, while the new binary
+requires the migration before reserving a grant. Roll back application code
+while retaining the table, allow any separately delivered presigned requests to
+expire, and repair forward; do not remove issued declarations or rewrite the
+migration.
 
 ## Isolated integration tests
 
