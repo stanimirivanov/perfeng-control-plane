@@ -46,6 +46,10 @@ type NativeWorkerRenew func(
 	nativeworker.RenewalRequest,
 ) (nativeworker.Renewal, error)
 
+// NativeWorkerRelease idempotently relinquishes one current lease using its
+// complete worker, attempt, revision and capability authority.
+type NativeWorkerRelease func(context.Context, string, nativeworker.ReleaseRequest) error
+
 // NativeWorkerPresenceRecord is the complete last-seen state persisted for an
 // authenticated worker. Document is an independently owned JSON value.
 type NativeWorkerPresenceRecord struct {
@@ -68,22 +72,24 @@ type NativeWorkerHandler struct {
 	authenticate NativeWorkerAuthenticate
 	acquire      NativeWorkerAcquire
 	renew        NativeWorkerRenew
+	release      NativeWorkerRelease
 }
 
 // NewNativeWorkerHandler constructs the worker HTTP boundary from mandatory
-// authentication and durable storage dependencies.
+// authentication, presence and lease-lifecycle dependencies.
 func NewNativeWorkerHandler(
 	store NativeWorkerPresenceStore,
 	authenticate NativeWorkerAuthenticate,
 	acquire NativeWorkerAcquire,
 	renew NativeWorkerRenew,
+	release NativeWorkerRelease,
 ) (*NativeWorkerHandler, error) {
-	if store == nil || authenticate == nil || acquire == nil || renew == nil {
-		return nil, errors.New("native worker authentication, presence, acquisition and renewal are required")
+	if store == nil || authenticate == nil || acquire == nil || renew == nil || release == nil {
+		return nil, errors.New("native worker authentication, presence, acquisition, renewal and release are required")
 	}
 
 	return &NativeWorkerHandler{
-		store: store, authenticate: authenticate, acquire: acquire, renew: renew,
+		store: store, authenticate: authenticate, acquire: acquire, renew: renew, release: release,
 	}, nil
 }
 
@@ -104,8 +110,9 @@ type workerPresenceStatus struct {
 
 func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	leaseID, renewal := nativeWorkerRenewalLeaseID(r.URL.Path)
+	releaseLeaseID, release := nativeWorkerReleaseLeaseID(r.URL.Path)
 	if r.Method != http.MethodPost || (r.URL.Path != nativeWorkerPresencePath &&
-		r.URL.Path != nativeWorkerLeasePath && !renewal) {
+		r.URL.Path != nativeWorkerLeasePath && !renewal && !release) {
 		fail(w, http.StatusNotFound, "NOT_FOUND")
 		return
 	}
@@ -121,7 +128,11 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		handler.acquireLease(w, r, identity)
 		return
 	}
-	handler.renewLease(w, r, identity, leaseID)
+	if renewal {
+		handler.renewLease(w, r, identity, leaseID)
+		return
+	}
+	handler.releaseLease(w, r, identity, releaseLeaseID)
 }
 
 func (handler *NativeWorkerHandler) authenticateRequest(

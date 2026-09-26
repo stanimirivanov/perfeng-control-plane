@@ -17,6 +17,7 @@ type Database interface {
 	httpapi.NativeWorkerPresenceStore
 	nativeworker.LeaseStore
 	nativeworker.RenewalStore
+	nativeworker.ReleaseStore
 	run.ArtifactRepository
 	run.ReconciliationStore
 	kubernetes.ExecutionStore

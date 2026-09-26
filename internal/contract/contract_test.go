@@ -153,6 +153,29 @@ func TestNativeWorkerRenewRuntimeValidation(t *testing.T) {
 	}
 }
 
+func TestNativeWorkerReleaseRuntimeValidation(t *testing.T) {
+	release := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/release.json")
+	if err := ValidateReleaseLease(release); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, mutate := range map[string]func(map[string]any){
+		"revision": func(value map[string]any) { value["expectedRunRevision"] = json.Number("0") },
+		"reason":   func(value map[string]any) { value["reason"] = "UNKNOWN" },
+		"message":  func(value map[string]any) { value["message"] = "" },
+		"unknown":  func(value map[string]any) { value["workerId"] = "caller-selected" },
+		"missing":  func(value map[string]any) { delete(value, "attemptId") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			value := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/release.json")
+			mutate(value)
+			if ValidateReleaseLease(value) == nil {
+				t.Fatal("accepted invalid release request")
+			}
+		})
+	}
+}
+
 func decodeContractValue(t *testing.T, path string) map[string]any {
 	t.Helper()
 	b, err := Files.ReadFile(path)

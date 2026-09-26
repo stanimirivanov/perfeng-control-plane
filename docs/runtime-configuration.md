@@ -127,6 +127,17 @@ deadline no later than 30 seconds after cancellation is observed. Stale Run
 revision or phase reports return `409`; absent, expired or mismatched lease
 authority returns `410` without revealing which authority check failed.
 
+`POST /native-worker/v1/leases/{leaseId}/release` uses the same authenticated
+worker authorization, attempt and Run-revision fences, and exactly one valid
+`X-Perfeng-Lease` capability. A successful first release and an identical retry
+both return `204`. An expired, replaced or mismatched lease returns `410`; a
+stale revision or a conflicting release reason returns `409`. The first
+contract-valid reason and optional bounded message are retained, while neither
+the capability nor message is returned in the response. A
+`CANCELLATION_REQUESTED` release confirms process-tree shutdown and atomically
+advances a cancelling Run to `ABORTED`; the other release reasons relinquish
+authority without inventing terminal evidence.
+
 Only SHA-256 token digests are read and retained. The bearer tokens themselves
 must be generated with sufficient entropy and delivered separately to clients;
 they do not belong in this document, process arguments, ordinary logs or the

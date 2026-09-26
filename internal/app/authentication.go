@@ -84,10 +84,12 @@ type NativeWorkerStore interface {
 	httpapi.NativeWorkerPresenceStore
 	nativeworker.LeaseStore
 	nativeworker.RenewalStore
+	nativeworker.ReleaseStore
 }
 
 // NewNativeWorkerAPIHandler composes worker authentication, durable presence
-// and lease acquisition and renewal without sharing the user-facing identity.
+// and lease acquisition, renewal and release without sharing the user-facing
+// identity.
 func NewNativeWorkerAPIHandler(
 	store NativeWorkerStore,
 	authenticator NativeWorkerAuthenticator,
@@ -115,11 +117,16 @@ func NewNativeWorkerAPIHandler(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	releaser, err := nativeworker.NewReleaser(store)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
 	handler, err := httpapi.NewNativeWorkerHandler(
 		store,
 		authenticator.AuthenticateWorker,
 		acquirer.Acquire,
 		renewer.Renew,
+		releaser.Release,
 	)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
