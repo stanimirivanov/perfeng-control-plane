@@ -359,7 +359,7 @@ signal, authentication or deployment policy.
 ## Contract provenance
 
 The [snapshot lock](internal/contract/snapshot/lock.json) pins perfeng-contracts
-commit `4a076973f05d78cbc4e1fc62a6ca26d68de3794c`, candidate bundle 0.15.0,
+commit `af98d52cc09e0650bc73daf33439a12d5ad62ef7`, candidate bundle 0.16.0,
 Run Management API 0.4.0 and Native Worker API 1.0.0. The Run Management
 OpenAPI document, transitions and selected request fixtures; the current
 generated performance-policy schema and browser example; and the complete
@@ -381,9 +381,11 @@ resolution and durable lease acquisition, renewal and release are implemented.
 Matching requires the worker to support the plan's browser, diagnostic mode,
 execution-artifact transport and every artifact kind. Lease capabilities are
 stored only as SHA-256 digests and returned only in `X-Perfeng-Lease`. The
-upload-grant, artifact and terminal operations remain unavailable until their
-later M03 slices. Renewal and release use the native worker-before-Run lock
-order.
+snapshot defines upload authorization as a short-lived S3 SigV4 presigned
+`PUT` URL with exact signed headers; the URL and headers are sensitive delivery
+material rather than evidence. The upload-grant, artifact and terminal
+operations remain unavailable until their later M03 slices. Renewal and release
+use the native worker-before-Run lock order.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.

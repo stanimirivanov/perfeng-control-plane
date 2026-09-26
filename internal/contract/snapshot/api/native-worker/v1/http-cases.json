@@ -67,10 +67,7 @@
       "X-Perfeng-Lease": "example-not-a-real-lease-capability-0001"
     },
     "request": "upload-request",
-    "response": "upload-grant",
-    "headers": {
-      "X-Perfeng-Upload-Grant": "example-not-a-real-upload-capability-0001"
-    }
+    "response": "upload-grant"
   },
   {
     "operationId": "registerNativeArtifact",
