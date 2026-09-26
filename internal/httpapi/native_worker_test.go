@@ -26,19 +26,30 @@ func TestNewNativeWorkerHandlerRequiresAllBoundaries(t *testing.T) {
 	authenticate := func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{}, nil
 	}
-	if _, err := NewNativeWorkerHandler(nil, authenticate, noNativeLease); err == nil {
+	if _, err := NewNativeWorkerHandler(nil, authenticate, noNativeLease, noNativeRenewal); err == nil {
 		t.Fatal("missing presence store accepted")
 	}
-	if _, err := NewNativeWorkerHandler(store, nil, noNativeLease); err == nil {
+	if _, err := NewNativeWorkerHandler(store, nil, noNativeLease, noNativeRenewal); err == nil {
 		t.Fatal("missing worker authentication accepted")
 	}
-	if _, err := NewNativeWorkerHandler(store, authenticate, nil); err == nil {
+	if _, err := NewNativeWorkerHandler(store, authenticate, nil, noNativeRenewal); err == nil {
 		t.Fatal("missing lease acquisition accepted")
+	}
+	if _, err := NewNativeWorkerHandler(store, authenticate, noNativeLease, nil); err == nil {
+		t.Fatal("missing lease renewal accepted")
 	}
 }
 
 func noNativeLease(context.Context, string) (nativeworker.Lease, bool, error) {
 	return nativeworker.Lease{}, false, nil
+}
+
+func noNativeRenewal(
+	context.Context,
+	string,
+	nativeworker.RenewalRequest,
+) (nativeworker.Renewal, error) {
+	return nativeworker.Renewal{}, nil
 }
 
 func (store *nativePresenceStoreStub) RecordNativeWorkerPresence(
@@ -61,7 +72,7 @@ func TestNativeWorkerPresenceAuthenticatesQualifiesAndPersists(t *testing.T) {
 			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
 			QualificationEvidence: evidence,
 		}, nil
-	}, noNativeLease)
+	}, noNativeLease, noNativeRenewal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +121,7 @@ func TestNativeWorkerPresenceKeepsQualificationAndAuthorizationDistinct(t *testi
 			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
 			QualificationEvidence: unapprovedEvidence,
 		}, nil
-	}, noNativeLease)
+	}, noNativeLease, noNativeRenewal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +161,7 @@ func TestNativeWorkerPresenceRejectsInvalidTrustBoundaries(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, nativeWorkerPresencePath, strings.NewReader(string(document)))
 			request.Header.Set("Content-Type", "application/json")
 			authenticate := configure(request)
-			handler, err := NewNativeWorkerHandler(store, authenticate, noNativeLease)
+			handler, err := NewNativeWorkerHandler(store, authenticate, noNativeLease, noNativeRenewal)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -174,7 +185,7 @@ func TestNativeWorkerPresenceRejectsInvalidTrustBoundaries(t *testing.T) {
 	store := &nativePresenceStoreStub{}
 	handler, err := NewNativeWorkerHandler(store, func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{WorkerID: "windows-laptop-01", QualificationEvidence: evidence}, nil
-	}, noNativeLease)
+	}, noNativeLease, noNativeRenewal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +194,7 @@ func TestNativeWorkerPresenceRejectsInvalidTrustBoundaries(t *testing.T) {
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusUnprocessableEntity || store.record.WorkerID != "" {
+	if response.Code != http.StatusBadRequest || store.record.WorkerID != "" {
 		t.Fatalf("status = %d, record = %#v", response.Code, store.record)
 	}
 }
@@ -193,7 +204,7 @@ func TestNativeWorkerPresenceClassifiesUnavailableStorage(t *testing.T) {
 	store := &nativePresenceStoreStub{err: run.ErrUnavailable}
 	handler, err := NewNativeWorkerHandler(store, func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{WorkerID: "windows-laptop-01", QualificationEvidence: evidence}, nil
-	}, noNativeLease)
+	}, noNativeLease, noNativeRenewal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,6 +240,7 @@ func TestNativeWorkerAcquireReturnsCapabilityOnlyInHeader(t *testing.T) {
 			calledWorker = workerID
 			return lease, true, nil
 		},
+		noNativeRenewal,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -260,6 +272,7 @@ func TestNativeWorkerAcquireReturnsBoundedNoWorkResponse(t *testing.T) {
 			}, nil
 		},
 		noNativeLease,
+		noNativeRenewal,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -287,6 +300,7 @@ func TestNativeWorkerAcquireEnforcesAuthorizationBeforeScheduling(t *testing.T) 
 			called = true
 			return nativeworker.Lease{}, false, nil
 		},
+		noNativeRenewal,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -313,6 +327,7 @@ func TestNativeWorkerAcquireRejectsInvalidRequestsBeforeScheduling(t *testing.T)
 			called = true
 			return nativeworker.Lease{}, false, nil
 		},
+		noNativeRenewal,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -360,7 +375,9 @@ func TestNativeWorkerAcquireRejectsFailuresAndInvalidLeases(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			handler, err := NewNativeWorkerHandler(&nativePresenceStoreStub{}, identity, acquire)
+			handler, err := NewNativeWorkerHandler(
+				&nativePresenceStoreStub{}, identity, acquire, noNativeRenewal,
+			)
 			if err != nil {
 				t.Fatal(err)
 			}

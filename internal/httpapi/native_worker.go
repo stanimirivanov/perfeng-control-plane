@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
@@ -37,6 +38,14 @@ type NativeWorkerAuthenticate func(context.Context, string) (WorkerIdentity, err
 // worker, or acquired=false when no eligible work is currently available.
 type NativeWorkerAcquire func(context.Context, string) (nativeworker.Lease, bool, error)
 
+// NativeWorkerRenew extends one current lease and returns authoritative
+// lifecycle, timing and cancellation state.
+type NativeWorkerRenew func(
+	context.Context,
+	string,
+	nativeworker.RenewalRequest,
+) (nativeworker.Renewal, error)
+
 // NativeWorkerPresenceRecord is the complete last-seen state persisted for an
 // authenticated worker. Document is an independently owned JSON value.
 type NativeWorkerPresenceRecord struct {
@@ -58,6 +67,7 @@ type NativeWorkerHandler struct {
 	store        NativeWorkerPresenceStore
 	authenticate NativeWorkerAuthenticate
 	acquire      NativeWorkerAcquire
+	renew        NativeWorkerRenew
 }
 
 // NewNativeWorkerHandler constructs the worker HTTP boundary from mandatory
@@ -66,12 +76,15 @@ func NewNativeWorkerHandler(
 	store NativeWorkerPresenceStore,
 	authenticate NativeWorkerAuthenticate,
 	acquire NativeWorkerAcquire,
+	renew NativeWorkerRenew,
 ) (*NativeWorkerHandler, error) {
-	if store == nil || authenticate == nil || acquire == nil {
-		return nil, errors.New("native worker authentication, presence and acquisition are required")
+	if store == nil || authenticate == nil || acquire == nil || renew == nil {
+		return nil, errors.New("native worker authentication, presence, acquisition and renewal are required")
 	}
 
-	return &NativeWorkerHandler{store: store, authenticate: authenticate, acquire: acquire}, nil
+	return &NativeWorkerHandler{
+		store: store, authenticate: authenticate, acquire: acquire, renew: renew,
+	}, nil
 }
 
 type qualificationDecision struct {
@@ -90,8 +103,9 @@ type workerPresenceStatus struct {
 }
 
 func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost ||
-		(r.URL.Path != nativeWorkerPresencePath && r.URL.Path != nativeWorkerLeasePath) {
+	leaseID, renewal := nativeWorkerRenewalLeaseID(r.URL.Path)
+	if r.Method != http.MethodPost || (r.URL.Path != nativeWorkerPresencePath &&
+		r.URL.Path != nativeWorkerLeasePath && !renewal) {
 		fail(w, http.StatusNotFound, "NOT_FOUND")
 		return
 	}
@@ -103,7 +117,11 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		handler.reportPresence(w, r, identity)
 		return
 	}
-	handler.acquireLease(w, r, identity)
+	if r.URL.Path == nativeWorkerLeasePath {
+		handler.acquireLease(w, r, identity)
+		return
+	}
+	handler.renewLease(w, r, identity, leaseID)
 }
 
 func (handler *NativeWorkerHandler) authenticateRequest(
@@ -118,7 +136,7 @@ func (handler *NativeWorkerHandler) authenticateRequest(
 	identity, err := handler.authenticate(r.Context(), token)
 	if errors.Is(err, run.ErrUnavailable) || errors.Is(err, context.Canceled) ||
 		errors.Is(err, context.DeadlineExceeded) {
-		fail(w, http.StatusServiceUnavailable, "UNAVAILABLE")
+		fail(w, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
 		return WorkerIdentity{}, false
 	}
 	if err != nil || !validWorkerIdentity(identity) {
@@ -134,13 +152,13 @@ func (handler *NativeWorkerHandler) reportPresence(
 	r *http.Request,
 	identity WorkerIdentity,
 ) {
-	document, _, ok := readJSONBody(w, r)
+	document, _, ok := readJSONBodyWithCode(w, r, "INVALID_REQUEST")
 	if !ok {
 		return
 	}
 	presence, err := nativeworker.ParsePresence(document, MaxBodyBytes)
 	if err != nil {
-		fail(w, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+		fail(w, http.StatusBadRequest, "INVALID_REQUEST")
 		return
 	}
 	qualified := bytes.Equal(presence.QualificationEvidence, identity.QualificationEvidence)
@@ -153,7 +171,7 @@ func (handler *NativeWorkerHandler) reportPresence(
 		},
 	)
 	if err != nil {
-		failRepository(w, err)
+		failNativeWorkerRepository(w, err)
 		return
 	}
 	decision := qualificationDecision{
@@ -178,21 +196,21 @@ func (handler *NativeWorkerHandler) acquireLease(
 	identity WorkerIdentity,
 ) {
 	if !identity.AuthorizedToAcquire {
-		fail(w, http.StatusForbidden, "FORBIDDEN")
+		fail(w, http.StatusForbidden, "NOT_AUTHORIZED")
 		return
 	}
-	_, value, ok := readJSONBody(w, r)
+	_, value, ok := readJSONBodyWithCode(w, r, "INVALID_REQUEST")
 	if !ok {
 		return
 	}
 	if contract.ValidateAcquireLease(value) != nil {
-		fail(w, http.StatusBadRequest, "BAD_REQUEST")
+		fail(w, http.StatusBadRequest, "INVALID_REQUEST")
 		return
 	}
 	lease, acquired, err := handler.acquire(r.Context(), identity.WorkerID)
 	if errors.Is(err, run.ErrUnavailable) || errors.Is(err, context.Canceled) ||
 		errors.Is(err, context.DeadlineExceeded) {
-		fail(w, http.StatusServiceUnavailable, "UNAVAILABLE")
+		fail(w, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
 		return
 	}
 	if err != nil {
@@ -213,6 +231,105 @@ func (handler *NativeWorkerHandler) acquireLease(
 	}
 
 	writeNativeLease(w, lease)
+}
+
+type nativeRenewLeaseRequest struct {
+	AttemptID           string             `json:"attemptId"`
+	ExpectedRunRevision int64              `json:"expectedRunRevision"`
+	Phase               nativeworker.Phase `json:"phase"`
+}
+
+func (handler *NativeWorkerHandler) renewLease(
+	w http.ResponseWriter,
+	r *http.Request,
+	identity WorkerIdentity,
+	leaseID string,
+) {
+	if !identity.AuthorizedToAcquire {
+		fail(w, http.StatusForbidden, "NOT_AUTHORIZED")
+		return
+	}
+	capabilities := r.Header.Values("X-Perfeng-Lease")
+	if len(capabilities) != 1 || !nativeworker.ValidLeaseCapability(capabilities[0]) {
+		fail(w, http.StatusForbidden, "CAPABILITY_MISMATCH")
+		return
+	}
+	document, value, ok := readJSONBodyWithCode(w, r, "INVALID_REQUEST")
+	if !ok {
+		return
+	}
+	if contract.ValidateRenewLease(value) != nil {
+		fail(w, http.StatusBadRequest, "INVALID_REQUEST")
+		return
+	}
+	var input nativeRenewLeaseRequest
+	if json.Unmarshal(document, &input) != nil {
+		fail(w, http.StatusBadRequest, "INVALID_REQUEST")
+		return
+	}
+	request := nativeworker.RenewalRequest{
+		LeaseID: leaseID, AttemptID: input.AttemptID,
+		ExpectedRunRevision: input.ExpectedRunRevision,
+		Phase:               input.Phase, Capability: capabilities[0],
+	}
+	if !request.Valid() {
+		fail(w, http.StatusBadRequest, "INVALID_REQUEST")
+		return
+	}
+	renewal, err := handler.renew(r.Context(), identity.WorkerID, request)
+	switch {
+	case errors.Is(err, nativeworker.ErrLeaseGone):
+		fail(w, http.StatusGone, "LEASE_EXPIRED")
+		return
+	case errors.Is(err, run.ErrRevision), errors.Is(err, run.ErrConflict),
+		errors.Is(err, run.ErrTransition):
+		fail(w, http.StatusConflict, "REVISION_CONFLICT")
+		return
+	case errors.Is(err, run.ErrValidation):
+		fail(w, http.StatusBadRequest, "INVALID_REQUEST")
+		return
+	case errors.Is(err, run.ErrUnavailable), errors.Is(err, context.Canceled),
+		errors.Is(err, context.DeadlineExceeded):
+		fail(w, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+		return
+	case err != nil:
+		fail(w, http.StatusInternalServerError, "INTERNAL_ERROR")
+		return
+	case !renewal.Valid():
+		fail(w, http.StatusInternalServerError, "INTERNAL_ERROR")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, renewal)
+}
+
+func nativeWorkerRenewalLeaseID(path string) (string, bool) {
+	const prefix = nativeWorkerLeasePath + "/"
+	const suffix = "/renew"
+	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+		return "", false
+	}
+	leaseID := strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
+
+	return leaseID, leaseID != "" && !strings.Contains(leaseID, "/")
+}
+
+func failNativeWorkerRepository(w http.ResponseWriter, err error) {
+	if errors.Is(err, run.ErrUnavailable) || errors.Is(err, context.Canceled) ||
+		errors.Is(err, context.DeadlineExceeded) {
+		fail(w, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+		return
+	}
+	if errors.Is(err, run.ErrForbidden) {
+		fail(w, http.StatusForbidden, "NOT_AUTHORIZED")
+		return
+	}
+	if errors.Is(err, run.ErrValidation) {
+		fail(w, http.StatusBadRequest, "INVALID_REQUEST")
+		return
+	}
+
+	fail(w, http.StatusInternalServerError, "INTERNAL_ERROR")
 }
 
 func writeNativeLease(w http.ResponseWriter, lease nativeworker.Lease) {

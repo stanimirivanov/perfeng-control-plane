@@ -17,6 +17,7 @@ const (
 	nativeWorkerPresenceMaximumAge = 2 * time.Minute
 	nativeWorkerLeaseTTL           = 2 * time.Minute
 	nativeWorkerLeaseRenewAfter    = 40 * time.Second
+	nativeWorkerCancellationGrace  = 30 * time.Second
 	nativeWorkerCandidateLimit     = 100
 )
 
@@ -82,10 +83,11 @@ func NewAPIHandler(
 type NativeWorkerStore interface {
 	httpapi.NativeWorkerPresenceStore
 	nativeworker.LeaseStore
+	nativeworker.RenewalStore
 }
 
 // NewNativeWorkerAPIHandler composes worker authentication, durable presence
-// and lease acquisition without sharing the user-facing authorization identity.
+// and lease acquisition and renewal without sharing the user-facing identity.
 func NewNativeWorkerAPIHandler(
 	store NativeWorkerStore,
 	authenticator NativeWorkerAuthenticator,
@@ -105,10 +107,19 @@ func NewNativeWorkerAPIHandler(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	renewer, err := nativeworker.NewRenewer(
+		store,
+		nativeWorkerLeaseTTL,
+		nativeWorkerCancellationGrace,
+	)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
 	handler, err := httpapi.NewNativeWorkerHandler(
 		store,
 		authenticator.AuthenticateWorker,
 		acquirer.Acquire,
+		renewer.Renew,
 	)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
