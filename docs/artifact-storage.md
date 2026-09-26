@@ -10,6 +10,8 @@
   follows caller-supplied URLs.
 - Missing objects, unavailable storage, invalid locations and corrupt evidence
   remain distinct secret-safe failures.
+- Native upload authorization signs only one server-selected PUT key, content
+  type and full-object checksum and returns no reusable storage credentials.
 - Storage authentication and endpoint policy come from trusted runtime
   configuration, not artifact documents.
 
@@ -120,14 +122,53 @@ reader. Its single policy fixes the bucket, accepted raw-manifest generation and
 maximum read size consistently across those adapters. It implements the
 discovery and reader interfaces consumed by all verified collectors.
 
+## Native upload presigning
+
+`S3UploadPresigner` adapts the AWS SDK v2 `PresignPutObject` operation to the
+native-worker signing boundary. It accepts only a validated durable reservation
+and the configured artifact bucket. The SDK input fixes the reservation's exact
+object key, content type and base64-encoded full-object SHA-256. It deliberately
+omits a request body and content length: the signed checksum prevents a changed
+payload, while the assigned size is enforced by reservation policy and must be
+verified again during artifact registration.
+
+The adapter bounds the requested signature lifetime by the durable reservation,
+leaves a one-second signing margin where possible, and parses the resulting
+`X-Amz-Date` and `X-Amz-Expires` values. A URL whose actual expiry exceeds the
+lease-bounded reservation is rejected. It also requires:
+
+- HTTPS with no embedded credentials or fragment;
+- `PUT` for the exact configured bucket and server-selected object key, in
+  either path-style or virtual-hosted S3 form;
+- the `PutObject` operation identifier emitted by the SDK;
+- SigV4 with the signed-header set
+  `content-type;host;x-amz-checksum-sha256`;
+- a single SDK-signed host matching the URL host; and
+- exactly the content-type and checksum headers returned by the Native Worker
+  API contract.
+
+The SDK signs `Host` internally, but the worker does not set it explicitly;
+therefore the delivered closed header object contains only `content-type` and
+`x-amz-checksum-sha256`. Presigner errors, credentials and unexpected SDK output
+are reduced to safe classifications. Context cancellation and deadline identity
+are preserved.
+
+The native upload-grant issuer commits the non-secret PostgreSQL reservation
+before invoking this adapter. Presigning is consequently outside the database
+transaction. If credential resolution or signing fails, an identical retry can
+reuse the durable grant identity without persisting a URL, query or signed
+header.
+
 ## Remaining integration
 
-This package intentionally does not construct the configured AWS SDK client,
-load credentials, choose endpoints, parse raw-result or normalized-result
-or analysis-result contracts, or change Run lifecycle state. Client
-construction belongs to the executable composition root; parsing and lifecycle
-changes belong to the reconciliation collectors. Tests use injected SDK and
-storage interfaces and never contact object storage.
+This package intentionally does not construct the configured AWS SDK client or
+presign client, load credentials, choose endpoints, expose an upload HTTP
+operation, parse raw-result or normalized-result or analysis-result contracts,
+or change Run lifecycle state. Client construction belongs to the executable
+composition root; parsing and lifecycle changes belong to the reconciliation
+collectors. Tests exercise the real SDK presign middleware with static fake
+credentials and an inert HTTPS endpoint, so they perform no object-storage or
+network request.
 
 The application composition layer combines this access bundle with immutable
 registry trust, baseline persistence and one pinned contracts version to create

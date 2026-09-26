@@ -1,9 +1,13 @@
 package nativeworker
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"time"
 
@@ -160,4 +164,195 @@ func (reserver *UploadGrantReserver) Reserve(
 // five minutes.
 func ValidUploadGrantTTL(value time.Duration) bool {
 	return value >= time.Second && value <= maximumUploadGrantTTL && value%time.Second == 0
+}
+
+// UploadHeaders is the closed set of headers covered by a native artifact PUT
+// signature. Values are sensitive delivery material and must not be logged or
+// persisted.
+type UploadHeaders struct {
+	ContentType    string `json:"content-type"`
+	ChecksumSHA256 string `json:"x-amz-checksum-sha256"`
+}
+
+// Valid checks that the signed headers reproduce the reserved media type and
+// full-object SHA-256 digest.
+func (headers UploadHeaders) Valid(reservation UploadReservation) bool {
+	return validUploadHeaders(headers, reservation.MediaType, reservation.SHA256)
+}
+
+func validUploadHeaders(headers UploadHeaders, mediaType string, sha256 string) bool {
+	checksum, err := base64.StdEncoding.DecodeString(headers.ChecksumSHA256)
+	if err != nil {
+		return false
+	}
+	expected, err := hex.DecodeString(sha256)
+	if err != nil {
+		return false
+	}
+
+	return headers.ContentType == mediaType && len(checksum) == 32 &&
+		bytes.Equal(checksum, expected)
+}
+
+// String redacts signed header values from diagnostic formatting.
+func (headers UploadHeaders) String() string {
+	return "native upload headers [redacted]"
+}
+
+// GoString redacts signed header values from Go diagnostic formatting.
+func (headers UploadHeaders) GoString() string {
+	return headers.String()
+}
+
+// UploadAuthorization is short-lived delivery material generated for one
+// durable upload reservation. URL and Headers must never be logged or
+// persisted.
+type UploadAuthorization struct {
+	URL       string
+	Headers   UploadHeaders
+	Method    string
+	ExpiresAt time.Time
+}
+
+// Valid checks the URL shape, signed-header values and lease-bounded expiry
+// against the declared fields of reservation.
+func (authorization UploadAuthorization) Valid(reservation UploadReservation) bool {
+	return reservation.Valid() && validPresignedUploadURL(authorization.URL) &&
+		authorization.Headers.Valid(reservation) && authorization.Method == "PUT" &&
+		!authorization.ExpiresAt.IsZero() && authorization.ExpiresAt.Location() == time.UTC &&
+		authorization.ExpiresAt.After(reservation.IssuedAt) &&
+		!authorization.ExpiresAt.After(reservation.ExpiresAt)
+}
+
+// String redacts the presigned URL and headers from diagnostic formatting.
+func (authorization UploadAuthorization) String() string {
+	return fmt.Sprintf("native upload authorization %s expiring %s", authorization.Method, authorization.ExpiresAt)
+}
+
+// GoString redacts the presigned URL and headers from Go diagnostic formatting.
+func (authorization UploadAuthorization) GoString() string {
+	return authorization.String()
+}
+
+// UploadGrant is the Native Worker API v1 response produced from one durable
+// reservation and its ephemeral upload authorization.
+type UploadGrant struct {
+	GrantID       string        `json:"grantId"`
+	LeaseID       string        `json:"leaseId"`
+	AttemptID     string        `json:"attemptId"`
+	RunID         string        `json:"runId"`
+	Slot          string        `json:"slot"`
+	ObjectKey     string        `json:"objectKey"`
+	UploadURL     string        `json:"uploadUrl"`
+	UploadHeaders UploadHeaders `json:"uploadHeaders"`
+	Method        string        `json:"method"`
+	ExpiresAt     time.Time     `json:"expiresAt"`
+	MaximumBytes  int64         `json:"maximumBytes"`
+	SHA256        string        `json:"sha256"`
+}
+
+// Valid checks the complete Native Worker API v1 upload-grant response.
+func (grant UploadGrant) Valid() bool {
+	expectedKey := fmt.Sprintf(
+		"runs/%s/attempts/%s/%s",
+		grant.RunID,
+		grant.AttemptID,
+		grant.Slot,
+	)
+
+	return ValidLeaseIdentifier(grant.GrantID) && ValidLeaseIdentifier(grant.LeaseID) &&
+		ValidLeaseIdentifier(grant.AttemptID) && contract.ValidID(grant.RunID) &&
+		rawresult.ValidResourceID(grant.Slot) && grant.ObjectKey == expectedKey &&
+		validPresignedUploadURL(grant.UploadURL) && grant.Method == "PUT" &&
+		!grant.ExpiresAt.IsZero() && grant.ExpiresAt.Location() == time.UTC &&
+		grant.MaximumBytes >= 1 && grant.MaximumBytes <= maximumArtifactBytes &&
+		uploadSHA256Pattern.MatchString(grant.SHA256) &&
+		mediaTypePattern.MatchString(grant.UploadHeaders.ContentType) &&
+		validUploadHeaders(grant.UploadHeaders, grant.UploadHeaders.ContentType, grant.SHA256)
+}
+
+// String identifies a grant without exposing its presigned URL or headers.
+func (grant UploadGrant) String() string {
+	return fmt.Sprintf("native upload grant %s for run %s slot %s", grant.GrantID, grant.RunID, grant.Slot)
+}
+
+// GoString identifies a grant in diagnostic formatting without exposing its
+// presigned URL or headers.
+func (grant UploadGrant) GoString() string {
+	return grant.String()
+}
+
+// UploadSigner creates ephemeral delivery material for one committed upload
+// reservation without changing durable state.
+type UploadSigner interface {
+	// PresignNativeUpload authorizes only the reservation's exact PUT request and
+	// returns an expiry no later than the durable reservation.
+	PresignNativeUpload(context.Context, UploadReservation) (UploadAuthorization, error)
+}
+
+// UploadGrantIssuer commits a fenced reservation before asking the signer for
+// ephemeral delivery material outside the database transaction.
+type UploadGrantIssuer struct {
+	reserver *UploadGrantReserver
+	signer   UploadSigner
+}
+
+// NewUploadGrantIssuer constructs the complete upload-grant use case.
+func NewUploadGrantIssuer(
+	store UploadGrantStore,
+	signer UploadSigner,
+	ttl time.Duration,
+) (*UploadGrantIssuer, error) {
+	reserver, err := NewUploadGrantReserver(store, ttl)
+	if err != nil || signer == nil {
+		return nil, run.ErrValidation
+	}
+
+	return &UploadGrantIssuer{reserver: reserver, signer: signer}, nil
+}
+
+// Issue reserves the declared object before creating short-lived delivery
+// material. A signing failure leaves the non-secret reservation available for
+// an identical retry.
+func (issuer *UploadGrantIssuer) Issue(
+	ctx context.Context,
+	workerID string,
+	request UploadRequest,
+) (UploadGrant, error) {
+	if issuer == nil || issuer.reserver == nil || issuer.signer == nil {
+		return UploadGrant{}, run.ErrValidation
+	}
+	reservation, err := issuer.reserver.Reserve(ctx, workerID, request)
+	if err != nil {
+		return UploadGrant{}, err
+	}
+	if !reservation.Valid() {
+		return UploadGrant{}, errors.New("invalid native upload reservation")
+	}
+	authorization, err := issuer.signer.PresignNativeUpload(ctx, reservation)
+	if err != nil {
+		return UploadGrant{}, err
+	}
+	if !authorization.Valid(reservation) {
+		return UploadGrant{}, errors.New("invalid native upload authorization")
+	}
+	grant := UploadGrant{
+		GrantID: reservation.GrantID, LeaseID: reservation.LeaseID,
+		AttemptID: reservation.AttemptID, RunID: reservation.RunID,
+		Slot: reservation.Slot, ObjectKey: reservation.ObjectKey,
+		UploadURL: authorization.URL, UploadHeaders: authorization.Headers,
+		Method: authorization.Method, ExpiresAt: authorization.ExpiresAt,
+		MaximumBytes: reservation.MaximumBytes, SHA256: reservation.SHA256,
+	}
+	if !grant.Valid() {
+		return UploadGrant{}, errors.New("invalid native upload grant")
+	}
+
+	return grant, nil
+}
+
+func validPresignedUploadURL(value string) bool {
+	parsed, err := url.ParseRequestURI(value)
+	return err == nil && parsed.Scheme == "https" && parsed.Host != "" &&
+		parsed.User == nil && parsed.Path != "" && parsed.RawQuery != "" && parsed.Fragment == ""
 }
