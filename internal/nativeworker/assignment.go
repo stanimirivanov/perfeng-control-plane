@@ -141,6 +141,25 @@ func (plan Plan) Clone() Plan {
 	return plan
 }
 
+// MatchArtifactSlot returns the assigned slot when the declared object media
+// type and size satisfy the complete reviewed plan.
+func (plan Plan) MatchArtifactSlot(
+	name string,
+	mediaType string,
+	size int64,
+) (ArtifactSlot, bool) {
+	if plan.Validate() != nil || size < 1 {
+		return ArtifactSlot{}, false
+	}
+	for _, slot := range plan.ArtifactPlan {
+		if slot.Slot == name && slot.MediaType == mediaType && size <= slot.MaximumBytes {
+			return slot, true
+		}
+	}
+
+	return ArtifactSlot{}, false
+}
+
 func validBaseURL(value string) bool {
 	parsed, err := url.ParseRequestURI(value)
 	return err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil &&

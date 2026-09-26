@@ -27,6 +27,7 @@ type storedNativeLease struct {
 	releasedAt       sql.NullTime
 	releaseReason    sql.NullString
 	releaseMessage   sql.NullString
+	plan             []byte
 }
 
 type nativeRenewalScope struct {
@@ -216,7 +217,7 @@ func lockedNativeLease(
 	err := tx.QueryRowContext(ctx, `
 		SELECT lease_id::text,attempt_id::text,worker_id,capability_sha256,
 			issued_at,expires_at,renew_after_seconds,
-			released_at,release_reason,release_message
+			released_at,release_reason,release_message,plan
 		FROM perfeng_control.native_execution_leases
 		WHERE run_id=$1
 		FOR UPDATE
@@ -231,6 +232,7 @@ func lockedNativeLease(
 		&stored.releasedAt,
 		&stored.releaseReason,
 		&stored.releaseMessage,
+		&stored.plan,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return storedNativeLease{}, nativeworker.ErrLeaseGone

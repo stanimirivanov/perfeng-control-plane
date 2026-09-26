@@ -116,6 +116,43 @@ func TestAssignmentRejectsContainerAndInvalidNativeArtifacts(t *testing.T) {
 	}
 }
 
+func TestPlanMatchesOnlyAssignedArtifactDeclarations(t *testing.T) {
+	plan, err := assignmentTemplate().Resolve(
+		"search-journey",
+		"browser-smoke",
+		"windows-mainstream",
+		"local-demo",
+		sourceCheckout(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slot, matched := plan.MatchArtifactSlot("measurements", "application/json", 4096)
+	if !matched || slot != plan.ArtifactPlan[0] {
+		t.Fatal("assigned artifact declaration was not matched")
+	}
+	for name, declaration := range map[string]struct {
+		name      string
+		mediaType string
+		size      int64
+	}{
+		"unknown slot": {name: "trace", mediaType: "application/json", size: 4096},
+		"media type":   {name: "measurements", mediaType: "application/x-ndjson", size: 4096},
+		"empty object": {name: "measurements", mediaType: "application/json", size: 0},
+		"oversized":    {name: "measurements", mediaType: "application/json", size: 1<<20 + 1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, matched := plan.MatchArtifactSlot(
+				declaration.name,
+				declaration.mediaType,
+				declaration.size,
+			); matched {
+				t.Fatal("unassigned artifact declaration was matched")
+			}
+		})
+	}
+}
+
 func TestAssignmentMatchesPinnedNativeWorkerLeaseFixture(t *testing.T) {
 	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/lease.json")
 	if err != nil {

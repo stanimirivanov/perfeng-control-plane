@@ -74,6 +74,8 @@ coordination, not load generation or statistical decisions.
   cancellation deadlines, exposed through the authenticated Native Worker API.
 - Idempotent native lease release with durable reason fencing and atomic
   cancellation completion.
+- Fenced, retry-safe persistence of native artifact upload declarations with
+  server-selected attempt-scoped object keys and no delivery credentials at rest.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
@@ -173,8 +175,8 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/contract | Embedded, reviewed Run Management, Native Worker and data-contract snapshot |
 | internal/run | Request/run types, lifecycle rules, repository contract |
 | internal/memory | Atomic process-local test adapter |
-| internal/nativeworker | Reviewed native assignments, capability matching and bounded lease selection |
-| internal/postgres | Durable transactions, migrations, native-worker presence/leasing and artifact-reference storage |
+| internal/nativeworker | Reviewed native assignments, capability matching, bounded lease selection and upload-grant policy |
+| internal/postgres | Durable transactions, migrations, native-worker leasing/upload reservations and artifact-reference storage |
 | internal/httpapi | User and Native Worker HTTP parsing, isolated auth seams and response mapping |
 | internal/authentication | Hashed static credentials with isolated user and native-worker audiences |
 | internal/kubernetes | Deterministic Job dispatch, identity-checked observation, stop and Pod checks |
@@ -377,15 +379,19 @@ response validation. The authenticated `/native-worker/v1/presence`,
 `/native-worker/v1/leases`, `/native-worker/v1/leases/{leaseId}/renew` and
 `/native-worker/v1/leases/{leaseId}/release`
 operations, typed worker-capability matching, reviewed native assignment
-resolution and durable lease acquisition, renewal and release are implemented.
+resolution and durable lease acquisition, renewal, release and non-secret upload
+reservation are implemented.
 Matching requires the worker to support the plan's browser, diagnostic mode,
 execution-artifact transport and every artifact kind. Lease capabilities are
 stored only as SHA-256 digests and returned only in `X-Perfeng-Lease`. The
 snapshot defines upload authorization as a short-lived S3 SigV4 presigned
 `PUT` URL with exact signed headers; the URL and headers are sensitive delivery
-material rather than evidence. The upload-grant, artifact and terminal
-operations remain unavailable until their later M03 slices. Renewal and release
-use the native worker-before-Run lock order.
+material rather than evidence. Upload reservation persists only a grant ID,
+lease/attempt/slot fence, canonical object key, declared object facts and bounded
+expiry; it does not yet presign or expose the upload-grant HTTP operation. The
+upload-grant, artifact and terminal operations remain unavailable until their
+later M03 slices. Renewal, release and upload reservation use the native
+worker-before-Run lock order.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.
