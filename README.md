@@ -76,6 +76,8 @@ coordination, not load generation or statistical decisions.
   cancellation completion.
 - Fenced, retry-safe persistence of native artifact upload declarations with
   server-selected attempt-scoped object keys and no delivery credentials at rest.
+- Secret-safe S3 SigV4 presigning for exact native artifact PUT requests,
+  composed only after the durable upload reservation commits.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
@@ -180,7 +182,7 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/httpapi | User and Native Worker HTTP parsing, isolated auth seams and response mapping |
 | internal/authentication | Hashed static credentials with isolated user and native-worker audiences |
 | internal/kubernetes | Deterministic Job dispatch, identity-checked observation, stop and Pod checks |
-| internal/objectstore | Approved S3 location policy and artifact-byte verification |
+| internal/objectstore | Approved S3 location policy, artifact-byte verification and exact PUT presigning |
 | internal/jsondocument | Shared bounded, duplicate-safe contract JSON handling |
 | internal/normalizedresult | Untrusted normalized-result parsing and consistency validation |
 | internal/analysisresult | Untrusted analysis-result parsing and consistency validation |
@@ -388,10 +390,12 @@ snapshot defines upload authorization as a short-lived S3 SigV4 presigned
 `PUT` URL with exact signed headers; the URL and headers are sensitive delivery
 material rather than evidence. Upload reservation persists only a grant ID,
 lease/attempt/slot fence, canonical object key, declared object facts and bounded
-expiry; it does not yet presign or expose the upload-grant HTTP operation. The
-upload-grant, artifact and terminal operations remain unavailable until their
-later M03 slices. Renewal, release and upload reservation use the native
-worker-before-Run lock order.
+expiry. The AWS SDK adapter and native use case produce ephemeral delivery material
+outside the reservation transaction, validate its actual signature expiry and
+redact it from diagnostics. Runtime composition and the upload-grant HTTP
+operation are not yet implemented. The upload-grant, artifact and terminal
+operations remain unavailable until their later M03 slices. Renewal, release and
+upload reservation use the native worker-before-Run lock order.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.

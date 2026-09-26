@@ -2,6 +2,7 @@ package nativeworker
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -17,6 +18,21 @@ type uploadGrantStoreStub struct {
 	ttl         time.Duration
 	reservation UploadReservation
 	err         error
+}
+
+type uploadSignerStub struct {
+	reservation   UploadReservation
+	authorization UploadAuthorization
+	err           error
+}
+
+func (signer *uploadSignerStub) PresignNativeUpload(
+	_ context.Context,
+	reservation UploadReservation,
+) (UploadAuthorization, error) {
+	signer.reservation = reservation
+
+	return signer.authorization, signer.err
 }
 
 func (store *uploadGrantStoreStub) ReserveNativeUploadGrant(
@@ -61,6 +77,20 @@ func validUploadReservation() UploadReservation {
 		MediaType:    "application/json",
 		IssuedAt:     issuedAt,
 		ExpiresAt:    issuedAt.Add(2 * time.Minute),
+	}
+}
+
+func validUploadAuthorization() UploadAuthorization {
+	reservation := validUploadReservation()
+
+	return UploadAuthorization{
+		URL: "https://objects.perfeng.invalid/perfeng-artifacts/" + reservation.ObjectKey +
+			"?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=redacted",
+		Headers: UploadHeaders{
+			ContentType:    "application/json",
+			ChecksumSHA256: "//////////////////////////////////////////8=",
+		},
+		Method: "PUT", ExpiresAt: reservation.ExpiresAt.Add(-time.Second),
 	}
 }
 
@@ -153,6 +183,104 @@ func TestNewUploadGrantReserverRejectsInvalidPolicy(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := NewUploadGrantReserver(test.store, test.ttl); !errors.Is(err, run.ErrValidation) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
+func TestUploadGrantIssuerReservesBeforeSigning(t *testing.T) {
+	reservation := validUploadReservation()
+	store := &uploadGrantStoreStub{reservation: reservation}
+	signer := &uploadSignerStub{authorization: validUploadAuthorization()}
+	issuer, err := NewUploadGrantIssuer(store, signer, 2*time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	grant, err := issuer.Issue(context.Background(), "windows-laptop-01", validUploadRequest())
+	if err != nil || !grant.Valid() || signer.reservation != reservation ||
+		grant.GrantID != reservation.GrantID || grant.UploadURL != signer.authorization.URL ||
+		grant.ExpiresAt != signer.authorization.ExpiresAt {
+		t.Fatalf("grant = %#v, signed reservation = %#v, error = %v", grant, signer.reservation, err)
+	}
+
+	document, err := json.Marshal(grant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{
+		`"uploadUrl"`, `"uploadHeaders"`, `"content-type"`,
+		`"x-amz-checksum-sha256"`, `"method":"PUT"`,
+	} {
+		if !strings.Contains(string(document), field) {
+			t.Fatalf("upload grant omits %s: %s", field, document)
+		}
+	}
+}
+
+func TestUploadGrantIssuerRetainsReservationWhenSigningFails(t *testing.T) {
+	reservation := validUploadReservation()
+	store := &uploadGrantStoreStub{reservation: reservation}
+	signingErr := errors.New("safe signing failure")
+	signer := &uploadSignerStub{err: signingErr}
+	issuer, err := NewUploadGrantIssuer(store, signer, 2*time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = issuer.Issue(
+		context.Background(), "windows-laptop-01", validUploadRequest(),
+	); !errors.Is(err, signingErr) || signer.reservation != reservation || store.request.LeaseID == "" {
+		t.Fatalf("signed reservation = %#v, store request = %#v, error = %v",
+			signer.reservation, store.request, err)
+	}
+
+	signer.err = nil
+	signer.authorization = validUploadAuthorization()
+	signer.authorization.URL = "http://objects.invalid/secret?signature=secret"
+	if _, err = issuer.Issue(
+		context.Background(), "windows-laptop-01", validUploadRequest(),
+	); err == nil || strings.Contains(err.Error(), signer.authorization.URL) {
+		t.Fatalf("unsafe invalid-authorization error = %v", err)
+	}
+}
+
+func TestUploadGrantDiagnosticsRedactDeliveryMaterial(t *testing.T) {
+	authorization := validUploadAuthorization()
+	grant := UploadGrant{
+		GrantID:       validUploadReservation().GrantID,
+		RunID:         validUploadReservation().RunID,
+		Slot:          validUploadReservation().Slot,
+		UploadURL:     authorization.URL,
+		UploadHeaders: authorization.Headers,
+	}
+	for _, formatted := range []string{
+		fmt.Sprint(authorization), fmt.Sprintf("%#v", authorization),
+		fmt.Sprint(authorization.Headers), fmt.Sprintf("%#v", authorization.Headers),
+		fmt.Sprint(grant), fmt.Sprintf("%#v", grant),
+	} {
+		if strings.Contains(formatted, authorization.URL) ||
+			strings.Contains(formatted, authorization.Headers.ChecksumSHA256) {
+			t.Fatal("diagnostic formatting exposed upload delivery material")
+		}
+	}
+}
+
+func TestNewUploadGrantIssuerRejectsMissingDependencies(t *testing.T) {
+	store := &uploadGrantStoreStub{}
+	signer := &uploadSignerStub{}
+	for name, test := range map[string]struct {
+		store  UploadGrantStore
+		signer UploadSigner
+		ttl    time.Duration
+	}{
+		"store":  {signer: signer, ttl: 2 * time.Minute},
+		"signer": {store: store, ttl: 2 * time.Minute},
+		"ttl":    {store: store, signer: signer, ttl: time.Millisecond},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := NewUploadGrantIssuer(
+				test.store, test.signer, test.ttl,
+			); !errors.Is(err, run.ErrValidation) {
 				t.Fatalf("error = %v", err)
 			}
 		})
