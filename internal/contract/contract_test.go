@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io/fs"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -25,9 +26,9 @@ func TestPinnedSnapshot(t *testing.T) {
 	if err := json.Unmarshal(b, &lock); err != nil {
 		t.Fatal(err)
 	}
-	if lock.Commit != "4a076973f05d78cbc4e1fc62a6ca26d68de3794c" ||
-		lock.BundleVersion != "0.15.0" || lock.RunManagementAPIVersion != "0.4.0" ||
-		lock.NativeWorkerAPIVersion != "1.0.0" || len(lock.SHA256) != 36 {
+	if lock.Commit != "af98d52cc09e0650bc73daf33439a12d5ad62ef7" ||
+		lock.BundleVersion != "0.16.0" || lock.RunManagementAPIVersion != "0.4.0" ||
+		lock.NativeWorkerAPIVersion != "1.0.0" || len(lock.SHA256) != 37 {
 		t.Fatal("unexpected contract provenance")
 	}
 	actualFiles := make(map[string]struct{}, len(lock.SHA256))
@@ -176,6 +177,39 @@ func TestNativeWorkerReleaseRuntimeValidation(t *testing.T) {
 	}
 }
 
+func TestNativeWorkerUploadGrantSnapshotUsesPresignedPut(t *testing.T) {
+	grant := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/upload-grant.json")
+	uploadURL, ok := grant["uploadUrl"].(string)
+	if !ok {
+		t.Fatal("upload grant lacks a URL")
+	}
+	parsed, err := url.Parse(uploadURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	query := parsed.Query()
+	if parsed.Scheme != "https" || query.Get("X-Amz-Algorithm") != "AWS4-HMAC-SHA256" ||
+		query.Get("X-Amz-SignedHeaders") != "content-type;host;x-amz-checksum-sha256" ||
+		!strings.HasPrefix(query.Get("X-Amz-Credential"), "EXAMPLE-NOT-A-REAL-") ||
+		query.Get("X-Amz-Signature") != strings.Repeat("0", 64) {
+		t.Fatal("upload grant does not contain the reviewed fake presigned PUT material")
+	}
+	headers, ok := grant["uploadHeaders"].(map[string]any)
+	if !ok || len(headers) != 2 || headers["content-type"] != "application/json" ||
+		headers["x-amz-checksum-sha256"] != "//////////////////////////////////////////8=" {
+		t.Fatal("upload grant does not contain the exact signed header set")
+	}
+
+	document, err := Files.ReadFile("snapshot/api/native-worker/v1/openapi.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(document, []byte("X-Perfeng-Upload-Grant")) ||
+		bytes.Contains(document, []byte("UploadCapability")) {
+		t.Fatal("snapshot retains the superseded custom upload capability")
+	}
+}
+
 func decodeContractValue(t *testing.T, path string) map[string]any {
 	t.Helper()
 	b, err := Files.ReadFile(path)
@@ -233,7 +267,7 @@ func verifyNativeWorkerFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(examples) != 16 || len(rejections) != 10 {
+	if len(examples) != 16 || len(rejections) != 11 {
 		t.Fatal("unexpected Native Worker conformance fixture inventory")
 	}
 
@@ -245,6 +279,7 @@ func verifyNativeWorkerFixtures(t *testing.T) {
 		OperationID string `json:"operationId"`
 		Request     string
 		Response    string
+		Headers     map[string]any
 	}
 	if err := json.Unmarshal(b, &cases); err != nil {
 		t.Fatal(err)
@@ -264,6 +299,24 @@ func verifyNativeWorkerFixtures(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
+		verifyNativeUploadHTTPFixture(
+			t, fixture.OperationID, fixture.Response, fixture.Headers,
+		)
+	}
+}
+
+func verifyNativeUploadHTTPFixture(
+	t *testing.T,
+	operationID string,
+	response string,
+	headers map[string]any,
+) {
+	t.Helper()
+	if operationID != "createNativeUploadGrant" {
+		return
+	}
+	if response != "upload-grant" || len(headers) != 0 {
+		t.Fatal("upload grant HTTP fixture retains a custom response header")
 	}
 }
 
