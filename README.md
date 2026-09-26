@@ -372,17 +372,18 @@ contract content is Apache-2.0, as in this repository.
 Review contract updates explicitly, refresh the snapshot and checksums, and
 rerun tests. The current runtime validator implements only the schema features
 reached by CreateRun, CreateBaseline, BaselineTransition, WorkerPresence,
-AcquireLease and RenewLease, not arbitrary JSON Schema or full response
-validation. The authenticated `/native-worker/v1/presence`,
-`/native-worker/v1/leases` and `/native-worker/v1/leases/{leaseId}/renew`
+AcquireLease, RenewLease and ReleaseLease, not arbitrary JSON Schema or full
+response validation. The authenticated `/native-worker/v1/presence`,
+`/native-worker/v1/leases`, `/native-worker/v1/leases/{leaseId}/renew` and
+`/native-worker/v1/leases/{leaseId}/release`
 operations, typed worker-capability matching, reviewed native assignment
-resolution and durable lease acquisition and renewal are implemented.
+resolution and durable lease acquisition, renewal and release are implemented.
 Matching requires the worker to support the plan's browser, diagnostic mode,
 execution-artifact transport and every artifact kind. Lease capabilities are
 stored only as SHA-256 digests and returned only in `X-Perfeng-Lease`. The
-release HTTP operation, upload-grant, artifact and terminal operations remain
-unavailable until their later M03 slices. The durable release boundary is
-implemented. Renewal and release use the native worker-before-Run lock order.
+upload-grant, artifact and terminal operations remain unavailable until their
+later M03 slices. Renewal and release use the native worker-before-Run lock
+order.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.

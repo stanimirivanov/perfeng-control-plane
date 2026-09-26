@@ -489,7 +489,10 @@ same attempt and reason idempotent while rejecting a changed reason. A release
 after observed cancellation atomically advances `CANCELLING` to `ABORTED`.
 Other releases do not invent lifecycle or evidence state; CREATED work can be
 leased again, while recovery of an interrupted later phase remains a subsequent
-M03 capability. The Native Worker HTTP route for release is not composed yet.
+M03 capability. The authenticated HTTP route binds its path lease ID, request
+attempt and expected Run revision, and single `X-Perfeng-Lease` header to this
+transaction. It returns an empty `204` for the first accepted release and an
+identical retry without exposing the capability or stored diagnostic message.
 
 All acquired leases therefore commit or roll back together. Helper return does
 not release a Run lock; transaction completion does. Do not perform registry,
