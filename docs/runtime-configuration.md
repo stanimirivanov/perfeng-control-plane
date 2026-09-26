@@ -118,10 +118,14 @@ compatible capabilities and free worker capacity. The initial server-owned
 policy uses a two-minute presence window, two-minute lease, 40-second renewal
 interval and a bounded batch of 100 candidate Runs.
 
-The durable renewal boundary accepts bounded server-owned lease and
-cancellation-grace policy. It is not composed into the HTTP runtime yet; the
-next M03 slice will bind the pinned renewal request and capability header and
-select the concrete policy values.
+`POST /native-worker/v1/leases/{leaseId}/renew` requires the authenticated
+worker, its explicit acquisition authorization and exactly one valid
+`X-Perfeng-Lease` capability. The body repeats the attempt and expected Run
+revision fences. Renewal uses the same two-minute lease policy as acquisition,
+requests another renewal after 40 seconds and returns a cancellation stop
+deadline no later than 30 seconds after cancellation is observed. Stale Run
+revision or phase reports return `409`; absent, expired or mismatched lease
+authority returns `410` without revealing which authority check failed.
 
 Only SHA-256 token digests are read and retained. The bearer tokens themselves
 must be generated with sufficient entropy and delivered separately to clients;

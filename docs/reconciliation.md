@@ -479,6 +479,9 @@ capability digest, expiry and expected Run revision before extending authority.
 The same transaction advances the reported native phase monotonically or, when
 the Run is already `CANCELLING`, leaves the revision unchanged and returns a
 bounded stop deadline. Native renewal never holds a reconciliation lease.
+The authenticated renewal HTTP route binds the path lease ID, body attempt and
+Run revision, and `X-Perfeng-Lease` header to this single transaction. It never
+echoes or logs the plaintext capability.
 
 All acquired leases therefore commit or roll back together. Helper return does
 not release a Run lock; transaction completion does. Do not perform registry,

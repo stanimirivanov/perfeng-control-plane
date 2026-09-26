@@ -71,7 +71,7 @@ coordination, not load generation or statistical decisions.
 - Authenticated native lease acquisition with reviewed capability matching,
   database-fenced ownership and header-only bearer capability delivery.
 - Database-fenced native lease renewal with monotonic phase progression and
-  cancellation deadlines.
+  cancellation deadlines, exposed through the authenticated Native Worker API.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
@@ -369,18 +369,18 @@ contract content is Apache-2.0, as in this repository.
 
 Review contract updates explicitly, refresh the snapshot and checksums, and
 rerun tests. The current runtime validator implements only the schema features
-reached by CreateRun, CreateBaseline, BaselineTransition, WorkerPresence and
-AcquireLease, not arbitrary JSON Schema or full response validation. The
-authenticated `/native-worker/v1/presence` and `/native-worker/v1/leases`
+reached by CreateRun, CreateBaseline, BaselineTransition, WorkerPresence,
+AcquireLease and RenewLease, not arbitrary JSON Schema or full response
+validation. The authenticated `/native-worker/v1/presence`,
+`/native-worker/v1/leases` and `/native-worker/v1/leases/{leaseId}/renew`
 operations, typed worker-capability matching, reviewed native assignment
-resolution and durable lease acquisition are implemented.
+resolution and durable lease acquisition and renewal are implemented.
 Matching requires the worker to support the plan's browser, diagnostic mode,
 execution-artifact transport and every artifact kind. Lease capabilities are
 stored only as SHA-256 digests and returned only in `X-Perfeng-Lease`. The
-renewal HTTP operation, release, artifact and terminal operations remain
-unavailable until their later M03 slices. The durable renewal boundary already
-advances worker phases monotonically and observes cancellation under the native
-worker-before-Run lock order.
+Release, upload-grant, artifact and terminal operations remain unavailable
+until their later M03 slices. Renewal advances worker phases monotonically and
+observes cancellation under the native worker-before-Run lock order.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.

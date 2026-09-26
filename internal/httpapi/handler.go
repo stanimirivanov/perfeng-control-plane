@@ -284,36 +284,44 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request, principal strin
 }
 
 func readJSONBody(w http.ResponseWriter, r *http.Request) ([]byte, any, bool) {
+	return readJSONBodyWithCode(w, r, "BAD_REQUEST")
+}
+
+func readJSONBodyWithCode(
+	w http.ResponseWriter,
+	r *http.Request,
+	errorCode string,
+) ([]byte, any, bool) {
 	types := r.Header.Values("Content-Type")
 	if len(types) != 1 {
-		fail(w, 415, "BAD_REQUEST")
+		fail(w, 415, errorCode)
 		return nil, nil, false
 	}
 	media, parameters, err := mime.ParseMediaType(types[0])
 	if err != nil || media != "application/json" ||
 		(parameters["charset"] != "" && !strings.EqualFold(parameters["charset"], "utf-8")) {
-		fail(w, 415, "BAD_REQUEST")
+		fail(w, 415, errorCode)
 		return nil, nil, false
 	}
 	encodings := r.Header.Values("Content-Encoding")
 	if len(encodings) > 1 ||
 		(len(encodings) == 1 && encodings[0] != "" && encodings[0] != "identity") {
-		fail(w, 415, "BAD_REQUEST")
+		fail(w, 415, errorCode)
 		return nil, nil, false
 	}
 	b, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxBodyBytes))
 	var tooLarge *http.MaxBytesError
 	if errors.As(err, &tooLarge) {
-		fail(w, 413, "BAD_REQUEST")
+		fail(w, 413, errorCode)
 		return nil, nil, false
 	}
 	if err != nil {
-		fail(w, 400, "BAD_REQUEST")
+		fail(w, 400, errorCode)
 		return nil, nil, false
 	}
 	value, err := parseJSON(b)
 	if err != nil {
-		fail(w, 400, "BAD_REQUEST")
+		fail(w, 400, errorCode)
 		return nil, nil, false
 	}
 

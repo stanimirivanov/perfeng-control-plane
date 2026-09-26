@@ -224,7 +224,7 @@ lease. Expired rows are replaced with new lease and attempt UUIDs and new bearer
 authority, allowing crash recovery without preserving process-local state.
 Acquisition deliberately leaves the Run in CREATED: coordination metadata does
 not claim that preparation or execution has started, and an expired attempt can
-be planned again. A later renewal/lifecycle slice will own those transitions.
+be planned again. Authenticated renewal owns those lifecycle transitions.
 
 The worker receives a random lease capability once. PostgreSQL stores only its
 SHA-256 digest; JSON and diagnostic formatting exclude plaintext capability
@@ -244,6 +244,9 @@ crosses the internal validation and provisioning states into `WARMING_UP`,
 `COLLECTING`. A `CANCELLING` Run takes precedence over phase advancement and
 returns a bounded stop deadline without changing its revision. Terminal,
 expired and mismatched authority share the lease-gone result.
+The Native Worker HTTP boundary supplies the authenticated worker identity and
+header-only capability, validates the pinned request and maps stale revision to
+`409` and lost authority to `410`.
 
 ## Isolated integration tests
 

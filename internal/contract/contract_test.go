@@ -131,6 +131,28 @@ func TestNativeWorkerAcquireRuntimeValidation(t *testing.T) {
 	}
 }
 
+func TestNativeWorkerRenewRuntimeValidation(t *testing.T) {
+	renewal := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/renew.json")
+	if err := ValidateRenewLease(renewal); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, mutate := range map[string]func(map[string]any){
+		"revision": func(value map[string]any) { value["expectedRunRevision"] = json.Number("0") },
+		"phase":    func(value map[string]any) { value["phase"] = "COMPLETED" },
+		"unknown":  func(value map[string]any) { value["leaseCapability"] = "caller-selected" },
+		"missing":  func(value map[string]any) { delete(value, "attemptId") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			value := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/renew.json")
+			mutate(value)
+			if ValidateRenewLease(value) == nil {
+				t.Fatal("accepted invalid renewal request")
+			}
+		})
+	}
+}
+
 func decodeContractValue(t *testing.T, path string) map[string]any {
 	t.Helper()
 	b, err := Files.ReadFile(path)
