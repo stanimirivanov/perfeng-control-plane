@@ -159,23 +159,44 @@ transaction. If credential resolution or signing fails, an identical retry can
 reuse the durable grant identity without persisting a URL, query or signed
 header.
 
+## Native upload verification
+
+`NativeUploadVerifier` consumes only the server-selected durable candidate and
+the configured artifact bucket. It requests that exact key, compares response
+size and media type, then streams at most the declared size plus one byte through
+SHA-256. It never buffers the complete native artifact in control-plane memory.
+Missing objects, storage failures, read or close errors, cancellation, extra or
+missing bytes and checksum disagreement preserve their existing safe
+classifications.
+
+The registration use case deliberately spans two short database transactions.
+The first selects the immutable grant and reviewed artifact semantics, then
+releases all locks before the verifier calls S3. The second reacquires current
+lease authority and the Run revision fence before persisting the generated
+artifact identity. This avoids remote calls in transactions while preventing a
+worker whose lease changed during verification from accepting stale evidence.
+The accepted S3 URI contains only bucket and canonical object key; endpoint,
+credentials, presigned query and signed headers are excluded.
+
 ## Remaining integration
 
 The executable composition root now constructs artifact readers and the
-presign client from one configured AWS SDK client. The authenticated Native
-Worker API exposes the upload-grant operation and returns its sensitive response
-with `Cache-Control: no-store`. This package still does not load credentials,
-choose endpoints, parse raw-result or normalized-result or analysis-result
-contracts, or change Run lifecycle state. Parsing and lifecycle changes belong
-to the reconciliation collectors. Tests exercise the real SDK presign
-middleware with static fake credentials and an inert HTTPS endpoint, so they
-perform no object-storage or network request.
+presign client and native upload verifier from one configured AWS SDK client.
+The authenticated Native Worker API exposes the upload-grant operation and
+returns its sensitive response with `Cache-Control: no-store`. The durable,
+lease-fenced registration use case and its PostgreSQL adapter are implemented,
+but the registration HTTP operation is not composed into the executable yet.
+This package still does not load credentials, choose endpoints, parse
+raw-result or normalized-result or analysis-result contracts, or change Run
+lifecycle state. Parsing and lifecycle changes belong to the reconciliation
+collectors. Tests exercise the real SDK presign middleware with static fake
+credentials and an inert HTTPS endpoint, so they perform no network request.
 
 The deployment must still provide a worker-reachable HTTPS S3 endpoint. An
 HTTP-only cluster-internal endpoint remains valid for existing artifact reads,
-but its generated upload authorization is rejected before delivery. Native
-artifact registration, byte verification and worker-side upload execution are
-later M03 slices.
+but its generated upload authorization is rejected before delivery. Exposing
+native artifact registration over authenticated HTTP and implementing the
+worker-side upload flow remain later M03 slices.
 
 The application composition layer combines this access bundle with immutable
 registry trust, baseline persistence and one pinned contracts version to create

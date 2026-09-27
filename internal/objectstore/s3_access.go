@@ -3,6 +3,7 @@ package objectstore
 import (
 	"context"
 
+	"github.com/stanimirivanov/perfeng-control-plane/internal/nativeworker"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
@@ -39,6 +40,7 @@ type S3ArtifactAccess struct {
 	normalizedManifest *NormalizedManifestResolver
 	reportManifest     *ReportManifestResolver
 	reader             *Reader
+	nativeUpload       *NativeUploadVerifier
 }
 
 // NewS3ArtifactAccess constructs all artifact access adapters from one client
@@ -80,12 +82,17 @@ func NewS3ArtifactAccess(
 	if err != nil {
 		return nil, err
 	}
+	nativeUpload, err := NewNativeUploadVerifier(getter, config.Bucket)
+	if err != nil {
+		return nil, err
+	}
 
 	return &S3ArtifactAccess{
 		rawManifest:        rawManifest,
 		normalizedManifest: normalizedManifest,
 		reportManifest:     reportManifest,
 		reader:             reader,
+		nativeUpload:       nativeUpload,
 	}, nil
 }
 
@@ -150,4 +157,19 @@ func (access *S3ArtifactAccess) Read(
 	}
 
 	return access.reader.Read(ctx, artifact)
+}
+
+// VerifyNativeArtifact streams and verifies one server-selected native upload.
+func (access *S3ArtifactAccess) VerifyNativeArtifact(
+	ctx context.Context,
+	candidate nativeworker.ArtifactCandidate,
+) (nativeworker.VerifiedArtifact, error) {
+	if err := ctx.Err(); err != nil {
+		return nativeworker.VerifiedArtifact{}, err
+	}
+	if access == nil || access.nativeUpload == nil {
+		return nativeworker.VerifiedArtifact{}, run.ErrValidation
+	}
+
+	return access.nativeUpload.VerifyNativeArtifact(ctx, candidate)
 }

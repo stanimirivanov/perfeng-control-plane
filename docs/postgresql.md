@@ -29,6 +29,7 @@ runners do not write these tables directly.
 | native_worker_presence | Last authenticated capability and qualification report per native worker |
 | native_execution_leases | Current fenced native attempt, reviewed plan and hashed lease capability per Run |
 | native_upload_grants | Durable non-secret declaration and exact object identity per native attempt and slot |
+| native_artifacts | Server-issued identity and verified location for an accepted native upload grant |
 
 Snapshots are JSONB using the accepted API field names, with relational identity,
 ownership, uniqueness and foreign-key constraints. This keeps optional API
@@ -306,6 +307,35 @@ while retaining the table, allow any separately delivered presigned requests to
 expire, and repair forward; do not remove issued declarations or rewrite the
 migration.
 
+## Native artifact registration
+
+Registration first selects an immutable artifact candidate under the current
+worker, lease, attempt, capability and Run-revision fence. The candidate joins
+the durable upload declaration with the artifact kind and format from the
+persisted reviewed plan. That transaction releases all locks before object
+storage is read.
+
+After the object metadata, byte count and SHA-256 have been verified, the final
+transaction reacquires the worker-before-Run-before-lease lock order, locks the
+upload grant and repeats every authority and declaration check. Losing the
+lease or changing the Run revision during object verification therefore makes
+the result ineligible for acceptance. An identical retry returns the first
+server-issued artifact ID and registration time.
+
+The `native_artifacts` table stores only the generated artifact ID, referenced
+grant, canonical S3 URI, reviewed kind and format, and database registration
+time. The grant remains the single durable source for Run, lease, attempt,
+slot, object key, size, checksum and media type. Plaintext lease capabilities,
+presigned URLs and signed request headers are never persisted.
+
+Migration 0010 creates one empty table, its primary and unique indexes, and a
+foreign-key constraint. It takes catalog and new-relation locks plus the short
+lock PostgreSQL needs to add the foreign key against `native_upload_grants`; it
+does not scan,
+rewrite or backfill existing application rows. Older binaries ignore the new
+table. Roll back application code while retaining accepted identities and
+repair forward rather than editing the migration.
+
 ## Isolated integration tests
 
 Start a disposable PostgreSQL 17 instance with a local-only connection and a
@@ -331,7 +361,9 @@ transaction rollback, original acceptance replay, principal isolation, immutable
 artifacts, key expiry, duplicate acceptance across pools, cancellation/completion
 races, bounded lock waits, immutable execution-binding races, serialized baseline
 approval, native lease capacity/acquisition races and expiry recovery, and a
-fresh OS process recovering persisted records.
+fresh OS process recovering persisted records. Native artifact coverage also
+includes exact retry, stale declaration rejection, authority loss between
+verification and commit, and upgrade from the upload-grant schema.
 
 References: [PostgreSQL locking](https://www.postgresql.org/docs/17/explicit-locking.html)
 and [pgx database/sql adapter](https://pkg.go.dev/github.com/jackc/pgx/v5/stdlib).

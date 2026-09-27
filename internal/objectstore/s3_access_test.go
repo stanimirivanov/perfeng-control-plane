@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
+	"github.com/stanimirivanov/perfeng-control-plane/internal/nativeworker"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
@@ -208,6 +209,11 @@ func TestNilS3ArtifactAccessRejectsOperations(t *testing.T) {
 	if _, err := access.Read(context.Background(), run.Artifact{}); !errors.Is(err, run.ErrValidation) {
 		t.Fatalf("Read() error = %v", err)
 	}
+	if _, err := access.VerifyNativeArtifact(
+		context.Background(), nativeworker.ArtifactCandidate{},
+	); !errors.Is(err, run.ErrValidation) {
+		t.Fatalf("VerifyNativeArtifact() error = %v", err)
+	}
 }
 
 func TestS3ArtifactAccessPreservesCancellation(t *testing.T) {
@@ -232,5 +238,10 @@ func TestS3ArtifactAccessPreservesCancellation(t *testing.T) {
 	}
 	if _, err := access.Read(canceled, run.Artifact{}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Read() error = %v", err)
+	}
+	if _, err := access.VerifyNativeArtifact(
+		canceled, nativeworker.ArtifactCandidate{},
+	); !errors.Is(err, context.Canceled) {
+		t.Fatalf("VerifyNativeArtifact() error = %v", err)
 	}
 }
