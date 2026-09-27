@@ -80,6 +80,8 @@ coordination, not load generation or statistical decisions.
   composed only after the durable upload reservation commits.
 - Authenticated native upload-grant HTTP delivery with strict request,
   capability, error and no-store response handling.
+- Authenticated native artifact registration with streaming object verification,
+  post-verification lease fencing and retry-stable PostgreSQL identity.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
@@ -179,8 +181,8 @@ CI gates. IntelliJ metadata, binaries, local state and secrets are ignored.
 | internal/contract | Embedded, reviewed Run Management, Native Worker and data-contract snapshot |
 | internal/run | Request/run types, lifecycle rules, repository contract |
 | internal/memory | Atomic process-local test adapter |
-| internal/nativeworker | Reviewed native assignments, capability matching, bounded lease selection and upload-grant policy |
-| internal/postgres | Durable transactions, migrations, native-worker leasing/upload reservations and artifact-reference storage |
+| internal/nativeworker | Reviewed native assignments, capability matching, bounded lease selection and native artifact publication policy |
+| internal/postgres | Durable transactions, migrations, native-worker leasing/upload reservations and immutable artifact storage |
 | internal/httpapi | User and Native Worker HTTP parsing, isolated auth seams and response mapping |
 | internal/authentication | Hashed static credentials with isolated user and native-worker audiences |
 | internal/kubernetes | Deterministic Job dispatch, identity-checked observation, stop and Pod checks |
@@ -378,14 +380,15 @@ contract content is Apache-2.0, as in this repository.
 Review contract updates explicitly, refresh the snapshot and checksums, and
 rerun tests. The current runtime validator implements only the schema features
 reached by CreateRun, CreateBaseline, BaselineTransition, WorkerPresence,
-AcquireLease, RenewLease, ReleaseLease and UploadGrantRequest, not arbitrary
+AcquireLease, RenewLease, ReleaseLease, UploadGrantRequest and RegisterArtifact, not arbitrary
 JSON Schema or full response validation. The authenticated `/native-worker/v1/presence`,
 `/native-worker/v1/leases`, `/native-worker/v1/leases/{leaseId}/renew` and
 `/native-worker/v1/leases/{leaseId}/release`, and
-`/native-worker/v1/leases/{leaseId}/upload-grants`
+`/native-worker/v1/leases/{leaseId}/upload-grants` and
+`/native-worker/v1/leases/{leaseId}/artifacts`
 operations, typed worker-capability matching, reviewed native assignment
-resolution and durable lease acquisition, renewal, release and non-secret upload
-reservation are implemented.
+resolution and durable lease acquisition, renewal, release, non-secret upload
+reservation and verified artifact acceptance are implemented.
 Matching requires the worker to support the plan's browser, diagnostic mode,
 execution-artifact transport and every artifact kind. Lease capabilities are
 stored only as SHA-256 digests and returned only in `X-Perfeng-Lease`. The
@@ -395,12 +398,13 @@ material rather than evidence. Upload reservation persists only a grant ID,
 lease/attempt/slot fence, canonical object key, declared object facts and bounded
 expiry. The AWS SDK adapter and native use case produce ephemeral delivery material
 outside the reservation transaction, validate its actual signature expiry and
-redact it from diagnostics. Runtime composition and authenticated upload-grant
-delivery are implemented. Native artifact registration and terminal operations
-remain unavailable until their later M03 slices. Renewal, release and upload
-reservation use the native worker-before-Run lock order. The deployment must
-still expose a worker-reachable HTTPS S3 endpoint before native uploads can pass
-live acceptance.
+redact it from diagnostics. Runtime composition, authenticated upload-grant
+delivery and artifact registration are implemented. Terminal reporting remains
+unavailable until its later M03 slice. Renewal, release, upload reservation and
+final artifact acceptance use the native worker-before-Run lock order. Object
+verification occurs between short transactions. The deployment must still
+expose a worker-reachable HTTPS S3 endpoint before native uploads can pass live
+acceptance.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.

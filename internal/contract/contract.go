@@ -78,6 +78,7 @@ func init() {
 	nativeWorkerSchemas, err = prepareSchemas(
 		nativeWorkerDocument.Components.Schemas,
 		"WorkerPresence", "AcquireLease", "RenewLease", "ReleaseLease", "UploadGrantRequest",
+		"RegisterArtifact",
 	)
 	if err != nil {
 		panic(err)
@@ -259,6 +260,16 @@ func ValidateReleaseLease(value any) error {
 func ValidateUploadGrantRequest(value any) error {
 	return validateWithSchemas(
 		nativeWorkerSchemas["UploadGrantRequest"],
+		value,
+		nativeWorkerSchemas,
+	)
+}
+
+// ValidateRegisterArtifact checks a decoded value against the pinned Native
+// Worker API v1 RegisterArtifact schema.
+func ValidateRegisterArtifact(value any) error {
+	return validateWithSchemas(
+		nativeWorkerSchemas["RegisterArtifact"],
 		value,
 		nativeWorkerSchemas,
 	)

@@ -105,7 +105,8 @@ func TestNativeUploadVerifierRejectsMetadataAndBytes(t *testing.T) {
 			}
 			if _, err = verifier.VerifyNativeArtifact(
 				context.Background(), candidate,
-			); !errors.Is(err, ErrObjectMismatch) {
+			); !errors.Is(err, ErrObjectMismatch) ||
+				!errors.Is(err, nativeworker.ErrArtifactVerification) {
 				t.Fatalf("error = %v", err)
 			}
 		})
@@ -115,6 +116,22 @@ func TestNativeUploadVerifierRejectsMetadataAndBytes(t *testing.T) {
 func TestNativeUploadVerifierPreservesStorageAndContextErrors(t *testing.T) {
 	content := []byte("verified")
 	candidate := nativeUploadCandidate(content)
+	missingVerifier, err := NewNativeUploadVerifier(
+		getObjectFunc(func(context.Context, string, string) (Object, error) {
+			return Object{}, ErrObjectNotFound
+		}),
+		"perfeng-artifacts",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = missingVerifier.VerifyNativeArtifact(
+		context.Background(), candidate,
+	); !errors.Is(err, ErrObjectNotFound) ||
+		!errors.Is(err, nativeworker.ErrArtifactVerification) {
+		t.Fatalf("missing-object error = %v", err)
+	}
+
 	want := errors.New("safe storage error")
 	verifier, err := NewNativeUploadVerifier(
 		getObjectFunc(func(context.Context, string, string) (Object, error) {

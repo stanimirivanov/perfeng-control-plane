@@ -87,18 +87,21 @@ type NativeWorkerStore interface {
 	nativeworker.RenewalStore
 	nativeworker.ReleaseStore
 	nativeworker.UploadGrantStore
+	nativeworker.ArtifactRegistrationStore
 }
 
-// NewNativeWorkerAPIHandler composes worker authentication, durable presence
-// and lease acquisition, renewal and release without sharing the user-facing
-// identity.
+// NewNativeWorkerAPIHandler composes worker authentication, durable presence,
+// lease lifecycle and verified artifact publication without sharing the
+// user-facing identity.
 func NewNativeWorkerAPIHandler(
 	store NativeWorkerStore,
 	authenticator NativeWorkerAuthenticator,
 	resolver nativeworker.PlanResolver,
 	uploadSigner nativeworker.UploadSigner,
+	artifactVerifier nativeworker.ArtifactVerifier,
 ) (http.Handler, error) {
-	if store == nil || authenticator == nil || resolver == nil || uploadSigner == nil {
+	if store == nil || authenticator == nil || resolver == nil || uploadSigner == nil ||
+		artifactVerifier == nil {
 		return nil, ErrInvalidConfiguration
 	}
 	acquirer, err := nativeworker.NewAcquirer(
@@ -132,6 +135,10 @@ func NewNativeWorkerAPIHandler(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	artifactRegistrar, err := nativeworker.NewArtifactRegistrar(store, artifactVerifier)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
 	handler, err := httpapi.NewNativeWorkerHandler(
 		store,
 		authenticator.AuthenticateWorker,
@@ -139,6 +146,7 @@ func NewNativeWorkerAPIHandler(
 		renewer.Renew,
 		releaser.Release,
 		uploadIssuer.Issue,
+		artifactRegistrar.Register,
 	)
 	if err != nil {
 		return nil, ErrInvalidConfiguration

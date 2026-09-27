@@ -149,6 +149,17 @@ S3 SigV4 `PUT` authorization outside the database transaction. Success returns
 `ARTIFACT_MISMATCH`; stale revision and absent lease authority remain distinct
 `409` and `410` responses.
 
+`POST /native-worker/v1/leases/{leaseId}/artifacts` binds the authenticated
+worker and single lease capability to the request's attempt, expected Run
+revision, upload grant, slot, size and SHA-256. The service selects the durable
+server-owned object key and reviewed kind, format and media type, streams that
+exact S3 object for metadata, length and checksum verification, then reacquires
+the lease fence before accepting it. Success returns the immutable reference
+with `201`. A missing or changed object or a declaration that differs from the
+grant returns `ARTIFACT_MISMATCH`; stale revision and lost lease authority
+remain distinct `409` and `410` responses. Storage outages return `503` without
+exposing provider responses, object keys or credentials.
+
 Only SHA-256 token digests are read and retained. The bearer tokens themselves
 must be generated with sufficient entropy and delivered separately to clients;
 they do not belong in this document, process arguments, ordinary logs or the
