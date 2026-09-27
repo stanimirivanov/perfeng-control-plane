@@ -20,6 +20,7 @@ type Database interface {
 	nativeworker.ReleaseStore
 	nativeworker.UploadGrantStore
 	nativeworker.ArtifactRegistrationStore
+	nativeworker.TerminalStore
 	run.ArtifactRepository
 	run.ReconciliationStore
 	kubernetes.ExecutionStore

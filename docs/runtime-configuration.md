@@ -160,6 +160,19 @@ grant returns `ARTIFACT_MISMATCH`; stale revision and lost lease authority
 remain distinct `409` and `410` responses. Storage outages return `503` without
 exposing provider responses, object keys or credentials.
 
+`POST /native-worker/v1/leases/{leaseId}/terminal` accepts the contract's
+`COMPLETED` or `FAILED` report under the same authenticated worker, attempt,
+revision and single-capability fence. Completion succeeds only when all required
+slots in the persisted reviewed plan are registered and the named manifest is
+the last registered artifact. It expires the native lease and advances the Run
+to `COLLECTING`; it does not claim that analysis or reporting has completed.
+A failed report expires the lease and atomically maps the worker classification
+to `TEST_FAILURE` or `INFRASTRUCTURE_FAILURE` while retaining the exact bounded
+failure report separately. An identical retry returns `200` with
+`ALREADY_ACCEPTED` and the original resulting Run revision. A different retry
+returns `DUPLICATE_CONFLICT`; incomplete evidence returns `ARTIFACT_MISMATCH`;
+stale revision and lost authority remain distinct `409` and `410` responses.
+
 Only SHA-256 token digests are read and retained. The bearer tokens themselves
 must be generated with sufficient entropy and delivered separately to clients;
 they do not belong in this document, process arguments, ordinary logs or the

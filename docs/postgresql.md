@@ -30,6 +30,7 @@ runners do not write these tables directly.
 | native_execution_leases | Current fenced native attempt, reviewed plan and hashed lease capability per Run |
 | native_upload_grants | Durable non-secret declaration and exact object identity per native attempt and slot |
 | native_artifacts | Server-issued identity and verified location for an accepted native upload grant |
+| native_terminal_reports | First accepted native attempt outcome and retry-stable resulting Run revision |
 
 Snapshots are JSONB using the accepted API field names, with relational identity,
 ownership, uniqueness and foreign-key constraints. This keeps optional API
@@ -99,6 +100,8 @@ GRANT SELECT, INSERT, UPDATE ON perfeng_control.baselines TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.native_worker_presence TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.native_execution_leases TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.native_upload_grants TO perfeng_runtime;
+GRANT SELECT, INSERT ON perfeng_control.native_artifacts TO perfeng_runtime;
+GRANT SELECT, INSERT ON perfeng_control.native_terminal_reports TO perfeng_runtime;
 ~~~
 
 Only the trusted reconciliation worker role additionally needs SELECT, INSERT
@@ -113,7 +116,9 @@ execution ownership without backfilling or changing existing Runs. Migration
 0008 adds nullable native-release markers and a bounded consistency constraint;
 it does not rewrite existing lease values or Run snapshots. Migration 0009 adds
 the initially empty native-upload-grant table without scanning, rewriting or
-backfilling existing tables.
+backfilling existing tables. Migration 0010 adds accepted native artifact
+identities, and migration 0011 adds the first accepted native terminal outcome;
+both are additive empty-table migrations.
 See [worker-claim semantics](reconciliation.md).
 
 Provision that role/login through infrastructure; the migration does not create
@@ -336,6 +341,38 @@ rewrite or backfill existing application rows. Older binaries ignore the new
 table. Roll back application code while retaining accepted identities and
 repair forward rather than editing the migration.
 
+## Native terminal reporting
+
+Terminal reporting uses the established worker-before-Run-before-lease lock
+order and compares the full authenticated worker, lease, attempt, capability
+digest and expected Run revision. A first report, its lifecycle effect, the
+resulting Run revision and lease expiry commit in one transaction. Once that
+report exists, an identical request returns `ALREADY_ACCEPTED` even though the
+lease is expired; a different report for the attempt conflicts and cannot
+replace the durable outcome.
+
+`COMPLETED` names one registered manifest from the same Run and attempt. The
+transaction parses the persisted reviewed artifact plan, requires every
+required slot, checks each registered kind, format and media type, and requires
+the selected manifest to have been registered no earlier than every other
+accepted attempt artifact. The Run enters or remains in `COLLECTING`; terminal
+reporting does not skip manifest parsing, provenance approval, normalization or
+reporting.
+
+`FAILED` preserves the exact contract-valid code, message and retryability hint
+in `native_terminal_reports`. The public Run snapshot continues to use its
+smaller established failure taxonomy and a fixed safe message: `TOOL_FAILED`
+becomes `TEST_FAILURE`, while preparation, capture, upload and lost host
+qualification become `INFRASTRUCTURE_FAILURE`. Cancellation remains release
+semantics and is not accepted as ordinary terminal reporting.
+
+Migration 0011 creates one empty table with primary, unique, foreign-key and
+shape constraints. It does not scan, rewrite or backfill existing rows. The
+foreign keys take PostgreSQL's ordinary short relation locks while the new
+table is created. Older binaries ignore the table; rolling application code
+back retains accepted outcomes for forward recovery, and the migration bytes
+must not be edited.
+
 ## Isolated integration tests
 
 Start a disposable PostgreSQL 17 instance with a local-only connection and a
@@ -363,7 +400,10 @@ races, bounded lock waits, immutable execution-binding races, serialized baselin
 approval, native lease capacity/acquisition races and expiry recovery, and a
 fresh OS process recovering persisted records. Native artifact coverage also
 includes exact retry, stale declaration rejection, authority loss between
-verification and commit, and upgrade from the upload-grant schema.
+verification and commit, and upgrade from the upload-grant schema. Native
+terminal coverage includes complete and ordered evidence, exact retry,
+conflicting concurrent outcomes, authority and revision rejection, classified
+failure mapping, lease expiry and upgrade from the artifact-registration schema.
 
 References: [PostgreSQL locking](https://www.postgresql.org/docs/17/explicit-locking.html)
 and [pgx database/sql adapter](https://pkg.go.dev/github.com/jackc/pgx/v5/stdlib).

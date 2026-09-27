@@ -78,7 +78,7 @@ func init() {
 	nativeWorkerSchemas, err = prepareSchemas(
 		nativeWorkerDocument.Components.Schemas,
 		"WorkerPresence", "AcquireLease", "RenewLease", "ReleaseLease", "UploadGrantRequest",
-		"RegisterArtifact",
+		"RegisterArtifact", "TerminalReport", "TerminalAck",
 	)
 	if err != nil {
 		panic(err)
@@ -205,7 +205,7 @@ func validateSupportedSchema(
 				return fmt.Errorf("property %s: %w", name, err)
 			}
 		}
-	case "string", "integer", "number", "array":
+	case "string", "integer", "number", "boolean", "array":
 	default:
 		return fmt.Errorf("unsupported schema type %q", definition.Type)
 	}
@@ -270,6 +270,26 @@ func ValidateUploadGrantRequest(value any) error {
 func ValidateRegisterArtifact(value any) error {
 	return validateWithSchemas(
 		nativeWorkerSchemas["RegisterArtifact"],
+		value,
+		nativeWorkerSchemas,
+	)
+}
+
+// ValidateTerminalReport checks a decoded value against the pinned Native
+// Worker API v1 TerminalReport schema.
+func ValidateTerminalReport(value any) error {
+	return validateWithSchemas(
+		nativeWorkerSchemas["TerminalReport"],
+		value,
+		nativeWorkerSchemas,
+	)
+}
+
+// ValidateTerminalAcknowledgement checks a decoded value against the pinned
+// Native Worker API v1 TerminalAck schema.
+func ValidateTerminalAcknowledgement(value any) error {
+	return validateWithSchemas(
+		nativeWorkerSchemas["TerminalAck"],
 		value,
 		nativeWorkerSchemas,
 	)
@@ -393,6 +413,10 @@ func validateWithSchemas(s schema, value any, all map[string]schema) error {
 		decimal, err := strconv.ParseFloat(string(number), 64)
 		if err != nil || math.IsInf(decimal, 0) || math.IsNaN(decimal) || !withinBounds(decimal, s) {
 			return fmt.Errorf("invalid number")
+		}
+	case "boolean":
+		if _, ok := value.(bool); !ok {
+			return fmt.Errorf("expected boolean")
 		}
 	case "array":
 		array, ok := value.([]any)

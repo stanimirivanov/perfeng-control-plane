@@ -178,6 +178,13 @@ worker whose lease changed during verification from accepting stale evidence.
 The accepted S3 URI contains only bucket and canonical object key; endpoint,
 credentials, presigned query and signed headers are excluded.
 
+Terminal completion performs no additional object-store call. Under the same
+database lock order used by registration, it matches the selected manifest ID
+to the current attempt, requires every reviewed `required` slot to have an
+accepted reference, and rejects a manifest that was not registered last. This
+makes registration order and durable identities the completion gate while
+leaving manifest-byte parsing and provenance approval to the collection stage.
+
 ## Remaining integration
 
 The executable composition root now constructs artifact readers and the
@@ -195,8 +202,8 @@ credentials and an inert HTTPS endpoint, so they perform no network request.
 The deployment must still provide a worker-reachable HTTPS S3 endpoint. An
 HTTP-only cluster-internal endpoint remains valid for existing artifact reads,
 but its generated upload authorization is rejected before delivery.
-Implementing the worker-side upload and registration flow remains a later M03
-slice.
+Implementing the worker-side upload, registration and terminal-report flow
+remains a later M03 slice.
 
 The application composition layer combines this access bundle with immutable
 registry trust, baseline persistence and one pinned contracts version to create
