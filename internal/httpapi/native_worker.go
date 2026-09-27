@@ -66,6 +66,14 @@ type NativeWorkerRegisterArtifact func(
 	nativeworker.ArtifactRegistrationRequest,
 ) (nativeworker.ArtifactReference, error)
 
+// NativeWorkerTerminal accepts one lease-fenced completed or failed attempt
+// and returns a retry-stable acknowledgement.
+type NativeWorkerTerminal func(
+	context.Context,
+	string,
+	nativeworker.TerminalRequest,
+) (nativeworker.TerminalAcknowledgement, error)
+
 // NativeWorkerPresenceRecord is the complete last-seen state persisted for an
 // authenticated worker. Document is an independently owned JSON value.
 type NativeWorkerPresenceRecord struct {
@@ -91,10 +99,12 @@ type NativeWorkerHandler struct {
 	release      NativeWorkerRelease
 	uploadGrant  NativeWorkerUploadGrant
 	register     NativeWorkerRegisterArtifact
+	terminal     NativeWorkerTerminal
 }
 
 // NewNativeWorkerHandler constructs the worker HTTP boundary from mandatory
-// authentication, presence, lease-lifecycle and artifact-publication dependencies.
+// authentication, presence, lease-lifecycle, artifact-publication and terminal
+// reporting dependencies.
 func NewNativeWorkerHandler(
 	store NativeWorkerPresenceStore,
 	authenticate NativeWorkerAuthenticate,
@@ -103,15 +113,16 @@ func NewNativeWorkerHandler(
 	release NativeWorkerRelease,
 	uploadGrant NativeWorkerUploadGrant,
 	register NativeWorkerRegisterArtifact,
+	terminal NativeWorkerTerminal,
 ) (*NativeWorkerHandler, error) {
 	if store == nil || authenticate == nil || acquire == nil || renew == nil || release == nil ||
-		uploadGrant == nil || register == nil {
-		return nil, errors.New("native worker authentication, presence, lease lifecycle, uploads and artifact registration are required")
+		uploadGrant == nil || register == nil || terminal == nil {
+		return nil, errors.New("native worker authentication, presence, lease lifecycle and artifact publication are required")
 	}
 
 	return &NativeWorkerHandler{
 		store: store, authenticate: authenticate, acquire: acquire, renew: renew,
-		release: release, uploadGrant: uploadGrant, register: register,
+		release: release, uploadGrant: uploadGrant, register: register, terminal: terminal,
 	}, nil
 }
 
@@ -135,8 +146,10 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	releaseLeaseID, release := nativeWorkerReleaseLeaseID(r.URL.Path)
 	uploadLeaseID, upload := nativeWorkerUploadGrantLeaseID(r.URL.Path)
 	artifactLeaseID, artifact := nativeWorkerArtifactLeaseID(r.URL.Path)
+	terminalLeaseID, terminal := nativeWorkerTerminalLeaseID(r.URL.Path)
 	if r.Method != http.MethodPost || (r.URL.Path != nativeWorkerPresencePath &&
-		r.URL.Path != nativeWorkerLeasePath && !renewal && !release && !upload && !artifact) {
+		r.URL.Path != nativeWorkerLeasePath && !renewal && !release && !upload && !artifact &&
+		!terminal) {
 		fail(w, http.StatusNotFound, "NOT_FOUND")
 		return
 	}
@@ -164,7 +177,11 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		handler.createUploadGrant(w, r, identity, uploadLeaseID)
 		return
 	}
-	handler.registerArtifact(w, r, identity, artifactLeaseID)
+	if artifact {
+		handler.registerArtifact(w, r, identity, artifactLeaseID)
+		return
+	}
+	handler.reportTerminal(w, r, identity, terminalLeaseID)
 }
 
 func (handler *NativeWorkerHandler) authenticateRequest(

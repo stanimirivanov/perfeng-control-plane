@@ -41,8 +41,7 @@ func TestNativeWorkerUploadGrantBindsAuthenticatedAuthority(t *testing.T) {
 
 			return want, nil
 		},
-		noNativeArtifactRegistration,
-	)
+		noNativeArtifactRegistration, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,8 +92,7 @@ func TestNativeWorkerUploadGrantRejectsMissingOrInvalidAuthority(t *testing.T) {
 
 			return nativeworker.UploadGrant{}, nil
 		},
-		noNativeArtifactRegistration,
-	)
+		noNativeArtifactRegistration, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,8 +139,7 @@ func TestNativeWorkerUploadGrantRequiresCurrentWorkerAuthorization(t *testing.T)
 
 			return nativeworker.UploadGrant{}, nil
 		},
-		noNativeArtifactRegistration,
-	)
+		noNativeArtifactRegistration, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,8 +170,7 @@ func TestNativeWorkerUploadGrantRejectsInvalidRequestBeforeReservation(t *testin
 
 			return nativeworker.UploadGrant{}, nil
 		},
-		noNativeArtifactRegistration,
-	)
+		noNativeArtifactRegistration, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,8 +235,7 @@ func TestNativeWorkerUploadGrantMapsAuthorityAndDependencyFailures(t *testing.T)
 				func(context.Context, string, nativeworker.UploadRequest) (nativeworker.UploadGrant, error) {
 					return test.grant, test.err
 				},
-				noNativeArtifactRegistration,
-			)
+				noNativeArtifactRegistration, noNativeTerminal)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -227,6 +227,51 @@ func TestNativeWorkerRegisterArtifactRuntimeValidation(t *testing.T) {
 	}
 }
 
+func TestNativeWorkerTerminalRuntimeValidation(t *testing.T) {
+	for _, fixture := range []string{"terminal-completed.json", "terminal-failed.json"} {
+		request := decodeContractValue(
+			t,
+			"snapshot/api/native-worker/v1/examples/"+fixture,
+		)
+		if err := ValidateTerminalReport(request); err != nil {
+			t.Fatalf("%s: %v", fixture, err)
+		}
+	}
+
+	for _, fixture := range []string{"terminal-ack.json", "terminal-ack-duplicate.json"} {
+		acknowledgement := decodeContractValue(
+			t,
+			"snapshot/api/native-worker/v1/examples/"+fixture,
+		)
+		if err := ValidateTerminalAcknowledgement(acknowledgement); err != nil {
+			t.Fatalf("%s: %v", fixture, err)
+		}
+	}
+
+	for name, mutate := range map[string]func(map[string]any){
+		"revision": func(value map[string]any) { value["expectedRunRevision"] = json.Number("0") },
+		"manifest": func(value map[string]any) { value["manifestArtifactId"] = json.Number("1") },
+		"failure":  func(value map[string]any) { value["failure"] = map[string]any{} },
+		"unknown":  func(value map[string]any) { value["workerId"] = "caller-selected" },
+		"missing":  func(value map[string]any) { delete(value, "attemptId") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			fixture := "terminal-completed.json"
+			if name == "failure" {
+				fixture = "terminal-failed.json"
+			}
+			value := decodeContractValue(
+				t,
+				"snapshot/api/native-worker/v1/examples/"+fixture,
+			)
+			mutate(value)
+			if ValidateTerminalReport(value) == nil {
+				t.Fatal("accepted invalid terminal report")
+			}
+		})
+	}
+}
+
 func TestNativeWorkerUploadGrantSnapshotUsesPresignedPut(t *testing.T) {
 	grant := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/upload-grant.json")
 	uploadURL, ok := grant["uploadUrl"].(string)
@@ -466,7 +511,7 @@ func TestPrepareSchemas(t *testing.T) {
 			"RunId":     valid["RunId"],
 		},
 		"unsupported-request-schema": {
-			"CreateRun": {Type: "boolean"},
+			"CreateRun": {Type: "null"},
 			"RunId":     valid["RunId"],
 		},
 	} {

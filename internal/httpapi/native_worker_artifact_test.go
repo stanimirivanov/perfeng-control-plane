@@ -41,8 +41,7 @@ func TestNativeWorkerArtifactRegistrationBindsAuthenticatedAuthority(t *testing.
 			calledRequest = request
 
 			return want, nil
-		},
-	)
+		}, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,8 +101,7 @@ func TestNativeWorkerArtifactRegistrationRejectsMissingOrInvalidAuthority(t *tes
 			called = true
 
 			return nativeworker.ArtifactReference{}, nil
-		},
-	)
+		}, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,8 +158,7 @@ func TestNativeWorkerArtifactRegistrationRequiresAuthorization(t *testing.T) {
 			called = true
 
 			return nativeworker.ArtifactReference{}, nil
-		},
-	)
+		}, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,8 +198,7 @@ func TestNativeWorkerArtifactRegistrationRejectsInvalidRequest(t *testing.T) {
 			called = true
 
 			return nativeworker.ArtifactReference{}, nil
-		},
-	)
+		}, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,8 +287,7 @@ func TestNativeWorkerArtifactRegistrationMapsFailures(t *testing.T) {
 					nativeworker.ArtifactRegistrationRequest,
 				) (nativeworker.ArtifactReference, error) {
 					return test.reference, test.err
-				},
-			)
+				}, noNativeTerminal)
 			if err != nil {
 				t.Fatal(err)
 			}

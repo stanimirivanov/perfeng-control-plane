@@ -88,11 +88,12 @@ type NativeWorkerStore interface {
 	nativeworker.ReleaseStore
 	nativeworker.UploadGrantStore
 	nativeworker.ArtifactRegistrationStore
+	nativeworker.TerminalStore
 }
 
 // NewNativeWorkerAPIHandler composes worker authentication, durable presence,
-// lease lifecycle and verified artifact publication without sharing the
-// user-facing identity.
+// lease lifecycle, verified artifact publication and terminal reporting
+// without sharing the user-facing identity.
 func NewNativeWorkerAPIHandler(
 	store NativeWorkerStore,
 	authenticator NativeWorkerAuthenticator,
@@ -139,6 +140,10 @@ func NewNativeWorkerAPIHandler(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	terminalReporter, err := nativeworker.NewTerminalReporter(store)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
 	handler, err := httpapi.NewNativeWorkerHandler(
 		store,
 		authenticator.AuthenticateWorker,
@@ -147,6 +152,7 @@ func NewNativeWorkerAPIHandler(
 		releaser.Release,
 		uploadIssuer.Issue,
 		artifactRegistrar.Register,
+		terminalReporter.Report,
 	)
 	if err != nil {
 		return nil, ErrInvalidConfiguration

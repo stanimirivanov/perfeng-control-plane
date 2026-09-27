@@ -26,26 +26,29 @@ func TestNewNativeWorkerHandlerRequiresAllBoundaries(t *testing.T) {
 	authenticate := func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{}, nil
 	}
-	if _, err := NewNativeWorkerHandler(nil, authenticate, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration); err == nil {
+	if _, err := NewNativeWorkerHandler(nil, authenticate, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration, noNativeTerminal); err == nil {
 		t.Fatal("missing presence store accepted")
 	}
-	if _, err := NewNativeWorkerHandler(store, nil, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration); err == nil {
+	if _, err := NewNativeWorkerHandler(store, nil, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration, noNativeTerminal); err == nil {
 		t.Fatal("missing worker authentication accepted")
 	}
-	if _, err := NewNativeWorkerHandler(store, authenticate, nil, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration); err == nil {
+	if _, err := NewNativeWorkerHandler(store, authenticate, nil, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration, noNativeTerminal); err == nil {
 		t.Fatal("missing lease acquisition accepted")
 	}
-	if _, err := NewNativeWorkerHandler(store, authenticate, noNativeLease, nil, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration); err == nil {
+	if _, err := NewNativeWorkerHandler(store, authenticate, noNativeLease, nil, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration, noNativeTerminal); err == nil {
 		t.Fatal("missing lease renewal accepted")
 	}
-	if _, err := NewNativeWorkerHandler(store, authenticate, noNativeLease, noNativeRenewal, nil, noNativeUploadGrant, noNativeArtifactRegistration); err == nil {
+	if _, err := NewNativeWorkerHandler(store, authenticate, noNativeLease, noNativeRenewal, nil, noNativeUploadGrant, noNativeArtifactRegistration, noNativeTerminal); err == nil {
 		t.Fatal("missing lease release accepted")
 	}
-	if _, err := NewNativeWorkerHandler(store, authenticate, noNativeLease, noNativeRenewal, noNativeRelease, nil, noNativeArtifactRegistration); err == nil {
+	if _, err := NewNativeWorkerHandler(store, authenticate, noNativeLease, noNativeRenewal, noNativeRelease, nil, noNativeArtifactRegistration, noNativeTerminal); err == nil {
 		t.Fatal("missing upload grant accepted")
 	}
-	if _, err := NewNativeWorkerHandler(store, authenticate, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, nil); err == nil {
+	if _, err := NewNativeWorkerHandler(store, authenticate, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, nil, noNativeTerminal); err == nil {
 		t.Fatal("missing artifact registration accepted")
+	}
+	if _, err := NewNativeWorkerHandler(store, authenticate, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration, nil); err == nil {
+		t.Fatal("missing terminal reporting accepted")
 	}
 }
 
@@ -81,6 +84,14 @@ func noNativeArtifactRegistration(
 	return nativeworker.ArtifactReference{}, nil
 }
 
+func noNativeTerminal(
+	context.Context,
+	string,
+	nativeworker.TerminalRequest,
+) (nativeworker.TerminalAcknowledgement, error) {
+	return nativeworker.TerminalAcknowledgement{}, nil
+}
+
 func (store *nativePresenceStoreStub) RecordNativeWorkerPresence(
 	_ context.Context,
 	record NativeWorkerPresenceRecord,
@@ -101,7 +112,7 @@ func TestNativeWorkerPresenceAuthenticatesQualifiesAndPersists(t *testing.T) {
 			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
 			QualificationEvidence: evidence,
 		}, nil
-	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration)
+	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +161,7 @@ func TestNativeWorkerPresenceKeepsQualificationAndAuthorizationDistinct(t *testi
 			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
 			QualificationEvidence: unapprovedEvidence,
 		}, nil
-	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration)
+	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,8 +203,7 @@ func TestNativeWorkerPresenceRejectsInvalidTrustBoundaries(t *testing.T) {
 			authenticate := configure(request)
 			handler, err := NewNativeWorkerHandler(
 				store, authenticate, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant,
-				noNativeArtifactRegistration,
-			)
+				noNativeArtifactRegistration, noNativeTerminal)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -217,7 +227,7 @@ func TestNativeWorkerPresenceRejectsInvalidTrustBoundaries(t *testing.T) {
 	store := &nativePresenceStoreStub{}
 	handler, err := NewNativeWorkerHandler(store, func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{WorkerID: "windows-laptop-01", QualificationEvidence: evidence}, nil
-	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration)
+	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +246,7 @@ func TestNativeWorkerPresenceClassifiesUnavailableStorage(t *testing.T) {
 	store := &nativePresenceStoreStub{err: run.ErrUnavailable}
 	handler, err := NewNativeWorkerHandler(store, func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{WorkerID: "windows-laptop-01", QualificationEvidence: evidence}, nil
-	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration)
+	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,8 +285,7 @@ func TestNativeWorkerAcquireReturnsCapabilityOnlyInHeader(t *testing.T) {
 		noNativeRenewal,
 		noNativeRelease,
 		noNativeUploadGrant,
-		noNativeArtifactRegistration,
-	)
+		noNativeArtifactRegistration, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,8 +319,7 @@ func TestNativeWorkerAcquireReturnsBoundedNoWorkResponse(t *testing.T) {
 		noNativeRenewal,
 		noNativeRelease,
 		noNativeUploadGrant,
-		noNativeArtifactRegistration,
-	)
+		noNativeArtifactRegistration, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,8 +349,7 @@ func TestNativeWorkerAcquireEnforcesAuthorizationBeforeScheduling(t *testing.T) 
 		noNativeRenewal,
 		noNativeRelease,
 		noNativeUploadGrant,
-		noNativeArtifactRegistration,
-	)
+		noNativeArtifactRegistration, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -371,8 +378,7 @@ func TestNativeWorkerAcquireRejectsInvalidRequestsBeforeScheduling(t *testing.T)
 		noNativeRenewal,
 		noNativeRelease,
 		noNativeUploadGrant,
-		noNativeArtifactRegistration,
-	)
+		noNativeArtifactRegistration, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -422,8 +428,7 @@ func TestNativeWorkerAcquireRejectsFailuresAndInvalidLeases(t *testing.T) {
 			handler, err := NewNativeWorkerHandler(
 				&nativePresenceStoreStub{}, identity, acquire, noNativeRenewal, noNativeRelease,
 				noNativeUploadGrant,
-				noNativeArtifactRegistration,
-			)
+				noNativeArtifactRegistration, noNativeTerminal)
 			if err != nil {
 				t.Fatal(err)
 			}
