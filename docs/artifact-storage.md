@@ -183,9 +183,9 @@ credentials, presigned query and signed headers are excluded.
 The executable composition root now constructs artifact readers and the
 presign client and native upload verifier from one configured AWS SDK client.
 The authenticated Native Worker API exposes the upload-grant operation and
-returns its sensitive response with `Cache-Control: no-store`. The durable,
-lease-fenced registration use case and its PostgreSQL adapter are implemented,
-but the registration HTTP operation is not composed into the executable yet.
+returns its sensitive response with `Cache-Control: no-store`. It also exposes
+the durable artifact-registration operation, composing the same access bundle
+as the verifier and rechecking lease authority after the S3 read.
 This package still does not load credentials, choose endpoints, parse
 raw-result or normalized-result or analysis-result contracts, or change Run
 lifecycle state. Parsing and lifecycle changes belong to the reconciliation
@@ -194,9 +194,9 @@ credentials and an inert HTTPS endpoint, so they perform no network request.
 
 The deployment must still provide a worker-reachable HTTPS S3 endpoint. An
 HTTP-only cluster-internal endpoint remains valid for existing artifact reads,
-but its generated upload authorization is rejected before delivery. Exposing
-native artifact registration over authenticated HTTP and implementing the
-worker-side upload flow remain later M03 slices.
+but its generated upload authorization is rejected before delivery.
+Implementing the worker-side upload and registration flow remains a later M03
+slice.
 
 The application composition layer combines this access bundle with immutable
 registry trust, baseline persistence and one pinned contracts version to create

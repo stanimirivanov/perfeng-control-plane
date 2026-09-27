@@ -17,6 +17,10 @@ import (
 // immutable upload declaration reserved for the current attempt.
 var ErrUploadGrantMismatch = errors.New("artifact registration does not match upload grant")
 
+// ErrArtifactVerification means the selected uploaded object is absent or its
+// metadata or bytes do not match the immutable upload declaration.
+var ErrArtifactVerification = errors.New("uploaded artifact does not match its declaration")
+
 // ArtifactRegistrationRequest contains the complete authority and immutable
 // upload facts supplied when a native worker registers one uploaded artifact.
 // Capability must never be logged or persisted.
@@ -148,7 +152,9 @@ type ArtifactRegistrationStore interface {
 // without changing control-plane state.
 type ArtifactVerifier interface {
 	// VerifyNativeArtifact returns the canonical object location only after its
-	// response metadata, byte count and SHA-256 match the reservation.
+	// response metadata, byte count and SHA-256 match the reservation. An absent
+	// or mismatched object returns ErrArtifactVerification; dependency failures
+	// preserve run.ErrUnavailable or context error identity.
 	VerifyNativeArtifact(context.Context, ArtifactCandidate) (VerifiedArtifact, error)
 }
 

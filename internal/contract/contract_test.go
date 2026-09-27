@@ -202,6 +202,31 @@ func TestNativeWorkerUploadGrantRequestRuntimeValidation(t *testing.T) {
 	}
 }
 
+func TestNativeWorkerRegisterArtifactRuntimeValidation(t *testing.T) {
+	request := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/register-artifact.json")
+	if err := ValidateRegisterArtifact(request); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, mutate := range map[string]func(map[string]any){
+		"revision": func(value map[string]any) { value["expectedRunRevision"] = json.Number("0") },
+		"grant":    func(value map[string]any) { value["grantId"] = json.Number("1") },
+		"slot":     func(value map[string]any) { value["slot"] = "invalid_slot" },
+		"size":     func(value map[string]any) { value["size"] = json.Number("0") },
+		"checksum": func(value map[string]any) { value["sha256"] = strings.Repeat("A", 64) },
+		"unknown":  func(value map[string]any) { value["uri"] = "s3://worker-selected" },
+		"missing":  func(value map[string]any) { delete(value, "attemptId") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			value := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/register-artifact.json")
+			mutate(value)
+			if ValidateRegisterArtifact(value) == nil {
+				t.Fatal("accepted invalid artifact-registration request")
+			}
+		})
+	}
+}
+
 func TestNativeWorkerUploadGrantSnapshotUsesPresignedPut(t *testing.T) {
 	grant := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/upload-grant.json")
 	uploadURL, ok := grant["uploadUrl"].(string)

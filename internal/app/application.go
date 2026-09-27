@@ -53,6 +53,7 @@ func NewApplicationRuntime(
 		resources.Authentication,
 		resources.Registry,
 		resources.NativeUploadSigner,
+		resources.ArtifactStorage,
 	)
 	if err != nil {
 		return nil, ErrInvalidConfiguration

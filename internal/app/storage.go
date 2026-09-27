@@ -23,8 +23,8 @@ type loadAWSConfig func(
 
 type newS3Client func(aws.Config, ...func(*s3.Options)) *s3.Client
 
-// ArtifactStorageResources contains the read-side artifact adapters and the
-// native upload signer constructed from one configured S3 client.
+// ArtifactStorageResources contains artifact readers, the native upload
+// verifier and signer constructed from one configured S3 client.
 type ArtifactStorageResources struct {
 	Access       *objectstore.S3ArtifactAccess
 	UploadSigner nativeworker.UploadSigner

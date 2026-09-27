@@ -47,15 +47,28 @@ func (verifier *NativeUploadVerifier) VerifyNativeArtifact(
 	reservation := candidate.Reservation
 	object, err := verifier.getter.GetObject(ctx, verifier.bucket, reservation.ObjectKey)
 	if err != nil {
+		if errors.Is(err, ErrObjectNotFound) {
+			return nativeworker.VerifiedArtifact{},
+				errors.Join(nativeworker.ErrArtifactVerification, err)
+		}
 		return nativeworker.VerifiedArtifact{}, err
 	}
 	if object.Body == nil {
-		return nativeworker.VerifiedArtifact{}, ErrObjectMismatch
+		return nativeworker.VerifiedArtifact{},
+			errors.Join(nativeworker.ErrArtifactVerification, ErrObjectMismatch)
 	}
 	if object.SizeBytes != reservation.Size || object.MediaType != reservation.MediaType {
-		return nativeworker.VerifiedArtifact{}, errors.Join(ErrObjectMismatch, object.Body.Close())
+		return nativeworker.VerifiedArtifact{}, errors.Join(
+			nativeworker.ErrArtifactVerification,
+			ErrObjectMismatch,
+			object.Body.Close(),
+		)
 	}
 	if err = verifyNativeUploadBody(ctx, object.Body, reservation.Size, reservation.SHA256); err != nil {
+		if errors.Is(err, ErrObjectMismatch) {
+			return nativeworker.VerifiedArtifact{},
+				errors.Join(nativeworker.ErrArtifactVerification, err)
+		}
 		return nativeworker.VerifiedArtifact{}, err
 	}
 

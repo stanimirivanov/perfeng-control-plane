@@ -35,6 +35,7 @@ func TestNativeWorkerReleaseBindsAuthenticatedAuthority(t *testing.T) {
 			return nil
 		},
 		noNativeUploadGrant,
+		noNativeArtifactRegistration,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -81,6 +82,7 @@ func TestNativeWorkerReleaseRejectsMissingOrInvalidAuthorityBeforeRelease(t *tes
 			return nil
 		},
 		noNativeUploadGrant,
+		noNativeArtifactRegistration,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -128,6 +130,7 @@ func TestNativeWorkerReleaseRequiresCurrentWorkerAuthorization(t *testing.T) {
 			return nil
 		},
 		noNativeUploadGrant,
+		noNativeArtifactRegistration,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -159,6 +162,7 @@ func TestNativeWorkerReleaseRejectsInvalidRequestBeforeRelease(t *testing.T) {
 			return nil
 		},
 		noNativeUploadGrant,
+		noNativeArtifactRegistration,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -214,6 +218,7 @@ func TestNativeWorkerReleaseMapsAuthorityAndConcurrencyFailures(t *testing.T) {
 					return test.err
 				},
 				noNativeUploadGrant,
+				noNativeArtifactRegistration,
 			)
 			if err != nil {
 				t.Fatal(err)
