@@ -8,6 +8,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
+	"github.com/stanimirivanov/perfeng-control-plane/internal/nativeworker"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/objectstore"
 )
 
@@ -20,7 +21,14 @@ type loadAWSConfig func(
 	...func(*awsconfig.LoadOptions) error,
 ) (aws.Config, error)
 
-type newS3Client func(aws.Config, ...func(*s3.Options)) objectstore.S3API
+type newS3Client func(aws.Config, ...func(*s3.Options)) *s3.Client
+
+// ArtifactStorageResources contains the read-side artifact adapters and the
+// native upload signer constructed from one configured S3 client.
+type ArtifactStorageResources struct {
+	Access       *objectstore.S3ArtifactAccess
+	UploadSigner nativeworker.UploadSigner
+}
 
 // NewArtifactStorage loads the standard AWS configuration and composes the S3
 // artifact adapters. Loading config may inspect environment or shared files;
@@ -28,7 +36,7 @@ type newS3Client func(aws.Config, ...func(*s3.Options)) objectstore.S3API
 func NewArtifactStorage(
 	ctx context.Context,
 	config ArtifactStorageConfig,
-) (*objectstore.S3ArtifactAccess, error) {
+) (*ArtifactStorageResources, error) {
 	return newArtifactStorage(ctx, config, awsconfig.LoadDefaultConfig, s3ClientFromConfig)
 }
 
@@ -37,7 +45,7 @@ func newArtifactStorage(
 	config ArtifactStorageConfig,
 	load loadAWSConfig,
 	newClient newS3Client,
-) (*objectstore.S3ArtifactAccess, error) {
+) (*ArtifactStorageResources, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -68,14 +76,21 @@ func newArtifactStorage(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	uploadSigner, err := objectstore.NewS3UploadPresigner(
+		s3.NewPresignClient(client),
+		config.Access.Bucket,
+	)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
 
-	return access, nil
+	return &ArtifactStorageResources{Access: access, UploadSigner: uploadSigner}, nil
 }
 
 func s3ClientFromConfig(
 	config aws.Config,
 	options ...func(*s3.Options),
-) objectstore.S3API {
+) *s3.Client {
 	return s3.NewFromConfig(config, options...)
 }
 

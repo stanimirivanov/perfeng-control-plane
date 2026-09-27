@@ -60,6 +60,9 @@ func TestNewApplicationRuntimeRejectsIncompleteResources(t *testing.T) {
 		"artifact storage": func(resources *StartupResources) {
 			resources.ArtifactStorage = nil
 		},
+		"native uploads": func(resources *StartupResources) {
+			resources.NativeUploadSigner = nil
+		},
 		"Kubernetes namespace": func(resources *StartupResources) {
 			resources.Kubernetes.Namespace = "different"
 		},

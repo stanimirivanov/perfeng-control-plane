@@ -138,6 +138,17 @@ the capability nor message is returned in the response. A
 advances a cancelling Run to `ABORTED`; the other release reasons relinquish
 authority without inventing terminal evidence.
 
+`POST /native-worker/v1/leases/{leaseId}/upload-grants` requires the same
+authenticated worker, acquisition authorization and single `X-Perfeng-Lease`
+capability. The body declares the attempt, expected Run revision, assigned
+artifact slot, byte size, media type and full-object SHA-256. The server first
+commits a lease-fenced, non-secret reservation and then creates a two-minute
+S3 SigV4 `PUT` authorization outside the database transaction. Success returns
+`201` with `Cache-Control: no-store`. A changed retry returns
+`DUPLICATE_CONFLICT`; an unassigned slot or incompatible declaration returns
+`ARTIFACT_MISMATCH`; stale revision and absent lease authority remain distinct
+`409` and `410` responses.
+
 Only SHA-256 token digests are read and retained. The bearer tokens themselves
 must be generated with sufficient entropy and delivered separately to clients;
 they do not belong in this document, process arguments, ordinary logs or the
@@ -171,15 +182,19 @@ An absent endpoint selects normal AWS endpoint resolution and requires
 host and optional port. User information, paths, queries and fragments are
 rejected. HTTPS is the default; HTTP is accepted only when the explicit flag is
 true. This supports isolated local SeaweedFS without silently weakening a
-production deployment.
+production deployment. Native upload grants are stricter: the URL delivered to
+a worker must resolve to HTTPS. When this endpoint is configured with HTTP for
+cluster-internal reads, the upload-grant operation fails closed with `503` until
+the environment supplies a worker-reachable HTTPS S3 endpoint.
 
 Credentials are not part of this configuration value. `NewArtifactStorage`
 loads the AWS SDK's standard credential provider chain, populated by the runtime
 Secret or workload identity. It applies the configured region, standard retry
 mode, maximum attempts, endpoint and addressing style before composing
-`S3ArtifactAccess`. Loading configuration may inspect environment variables or
-shared files, but it performs no S3 request. Provider errors are redacted;
-caller cancellation and deadlines retain their standard identity.
+`S3ArtifactAccess` and the native upload signer from one client. Loading
+configuration may inspect environment variables or shared files, but it
+performs no S3 request. Provider errors are redacted; caller cancellation and
+deadlines retain their standard identity.
 
 The loader produces `S3ClientConfig` together with the validated
 `S3ArtifactAccessConfig`. Authentication and registry settings remain separate

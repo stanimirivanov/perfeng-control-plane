@@ -161,14 +161,21 @@ header.
 
 ## Remaining integration
 
-This package intentionally does not construct the configured AWS SDK client or
-presign client, load credentials, choose endpoints, expose an upload HTTP
-operation, parse raw-result or normalized-result or analysis-result contracts,
-or change Run lifecycle state. Client construction belongs to the executable
-composition root; parsing and lifecycle changes belong to the reconciliation
-collectors. Tests exercise the real SDK presign middleware with static fake
-credentials and an inert HTTPS endpoint, so they perform no object-storage or
-network request.
+The executable composition root now constructs artifact readers and the
+presign client from one configured AWS SDK client. The authenticated Native
+Worker API exposes the upload-grant operation and returns its sensitive response
+with `Cache-Control: no-store`. This package still does not load credentials,
+choose endpoints, parse raw-result or normalized-result or analysis-result
+contracts, or change Run lifecycle state. Parsing and lifecycle changes belong
+to the reconciliation collectors. Tests exercise the real SDK presign
+middleware with static fake credentials and an inert HTTPS endpoint, so they
+perform no object-storage or network request.
+
+The deployment must still provide a worker-reachable HTTPS S3 endpoint. An
+HTTP-only cluster-internal endpoint remains valid for existing artifact reads,
+but its generated upload authorization is rejected before delivery. Native
+artifact registration, byte verification and worker-side upload execution are
+later M03 slices.
 
 The application composition layer combines this access bundle with immutable
 registry trust, baseline persistence and one pinned contracts version to create

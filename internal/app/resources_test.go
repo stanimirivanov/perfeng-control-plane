@@ -11,6 +11,7 @@ import (
 	kubernetesfake "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/authentication"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/nativeworker"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/objectstore"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/registry"
 )
@@ -19,6 +20,15 @@ type startupDatabaseStub struct {
 	Database
 	closeCalls int
 	closeErr   error
+}
+
+type startupUploadSignerStub struct{}
+
+func (startupUploadSignerStub) PresignNativeUpload(
+	context.Context,
+	nativeworker.UploadReservation,
+) (nativeworker.UploadAuthorization, error) {
+	return nativeworker.UploadAuthorization{}, nil
 }
 
 func (database *startupDatabaseStub) Close() error {
@@ -39,6 +49,7 @@ func TestNewStartupResourcesAcquiresDatabaseLastAndClosesItOnce(t *testing.T) {
 	}
 	if resources.Database != database || resources.Authentication == nil ||
 		resources.Registry == nil || resources.ArtifactStorage == nil ||
+		resources.NativeUploadSigner == nil ||
 		resources.Kubernetes.Jobs == nil || resources.Kubernetes.Pods == nil ||
 		resources.ExecutorConfig.Validate() != nil {
 		t.Fatal("startup resources are incomplete")
@@ -84,7 +95,7 @@ func TestNewStartupResourcesClassifiesDependencyFailures(t *testing.T) {
 	config := validApplicationConfig(t)
 	database := &startupDatabaseStub{}
 	builders := validStartupResourceBuilders(t, nil, database)
-	builders.artifactStorage = func(context.Context, ArtifactStorageConfig) (*objectstore.S3ArtifactAccess, error) {
+	builders.artifactStorage = func(context.Context, ArtifactStorageConfig) (*ArtifactStorageResources, error) {
 		return nil, errors.New("provider response contains secret")
 	}
 
@@ -93,6 +104,37 @@ func TestNewStartupResourcesClassifiesDependencyFailures(t *testing.T) {
 		strings.Contains(err.Error(), "secret") || database.closeCalls != 0 {
 		t.Fatalf("resources = %v, error = %v, database close calls = %d",
 			resources, err, database.closeCalls)
+	}
+}
+
+func TestNewStartupResourcesRejectsIncompleteArtifactStorage(t *testing.T) {
+	config := validApplicationConfig(t)
+	for name, storage := range map[string]*ArtifactStorageResources{
+		"bundle": nil,
+		"access": {UploadSigner: startupUploadSignerStub{}},
+		"signer": {Access: &objectstore.S3ArtifactAccess{}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			database := &startupDatabaseStub{}
+			builders := validStartupResourceBuilders(t, nil, database)
+			builders.artifactStorage = func(
+				context.Context,
+				ArtifactStorageConfig,
+			) (*ArtifactStorageResources, error) {
+				return storage, nil
+			}
+
+			resources, err := newStartupResources(context.Background(), config, builders)
+			if resources != nil || !errors.Is(err, ErrDependencyInitialization) ||
+				database.closeCalls != 0 {
+				t.Fatalf(
+					"resources = %v, error = %v, database close calls = %d",
+					resources,
+					err,
+					database.closeCalls,
+				)
+			}
+		})
 	}
 }
 
@@ -206,10 +248,13 @@ func validStartupResourceBuilders(
 
 			return executorConfig, nil
 		},
-		artifactStorage: func(context.Context, ArtifactStorageConfig) (*objectstore.S3ArtifactAccess, error) {
+		artifactStorage: func(context.Context, ArtifactStorageConfig) (*ArtifactStorageResources, error) {
 			record("artifact storage")
 
-			return &objectstore.S3ArtifactAccess{}, nil
+			return &ArtifactStorageResources{
+				Access:       &objectstore.S3ArtifactAccess{},
+				UploadSigner: startupUploadSignerStub{},
+			}, nil
 		},
 		kubernetes: func(_ context.Context, config KubernetesConfig) (KubernetesClients, error) {
 			record("Kubernetes")
