@@ -42,7 +42,7 @@ func TestNewArtifactStorageAppliesReviewedClientPolicy(t *testing.T) {
 	newClient := newS3Client(func(
 		awsConfig aws.Config,
 		options ...func(*s3.Options),
-	) objectstore.S3API {
+	) *s3.Client {
 		clientCalls++
 		configured := s3.Options{}
 		for _, apply := range options {
@@ -57,12 +57,13 @@ func TestNewArtifactStorageAppliesReviewedClientPolicy(t *testing.T) {
 		return s3.NewFromConfig(awsConfig, options...)
 	})
 
-	access, err := newArtifactStorage(context.Background(), config, load, newClient)
+	resources, err := newArtifactStorage(context.Background(), config, load, newClient)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if access == nil || loadCalls != 1 || clientCalls != 1 {
-		t.Fatalf("access = %v, load calls = %d, client calls = %d", access, loadCalls, clientCalls)
+	if resources == nil || resources.Access == nil || resources.UploadSigner == nil ||
+		loadCalls != 1 || clientCalls != 1 {
+		t.Fatalf("resources = %v, load calls = %d, client calls = %d", resources, loadCalls, clientCalls)
 	}
 }
 
@@ -75,7 +76,7 @@ func TestNewArtifactStorageLeavesDefaultEndpointUnset(t *testing.T) {
 	newClient := newS3Client(func(
 		awsConfig aws.Config,
 		options ...func(*s3.Options),
-	) objectstore.S3API {
+	) *s3.Client {
 		configured := s3.Options{}
 		for _, apply := range options {
 			apply(&configured)
@@ -87,14 +88,14 @@ func TestNewArtifactStorageLeavesDefaultEndpointUnset(t *testing.T) {
 		return s3.NewFromConfig(awsConfig, options...)
 	})
 
-	access, err := newArtifactStorage(
+	resources, err := newArtifactStorage(
 		context.Background(),
 		config,
 		acceptAWSConfig,
 		newClient,
 	)
-	if err != nil || access == nil {
-		t.Fatalf("NewArtifactStorage() = %v, %v", access, err)
+	if err != nil || resources == nil || resources.Access == nil || resources.UploadSigner == nil {
+		t.Fatalf("NewArtifactStorage() = %v, %v", resources, err)
 	}
 }
 
@@ -122,7 +123,7 @@ func TestNewArtifactStorageRejectsDependenciesAndInvalidPolicy(t *testing.T) {
 		"nil client": {
 			config: valid,
 			load:   acceptAWSConfig,
-			newClient: func(aws.Config, ...func(*s3.Options)) objectstore.S3API {
+			newClient: func(aws.Config, ...func(*s3.Options)) *s3.Client {
 				return nil
 			},
 			want: ErrDependencyInitialization,
@@ -239,6 +240,6 @@ func acceptAWSConfig(
 func acceptS3Client(
 	config aws.Config,
 	options ...func(*s3.Options),
-) objectstore.S3API {
+) *s3.Client {
 	return s3.NewFromConfig(config, options...)
 }

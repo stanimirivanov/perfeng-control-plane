@@ -50,6 +50,14 @@ type NativeWorkerRenew func(
 // complete worker, attempt, revision and capability authority.
 type NativeWorkerRelease func(context.Context, string, nativeworker.ReleaseRequest) error
 
+// NativeWorkerUploadGrant reserves an assigned artifact upload and returns
+// short-lived delivery material for the authenticated worker.
+type NativeWorkerUploadGrant func(
+	context.Context,
+	string,
+	nativeworker.UploadRequest,
+) (nativeworker.UploadGrant, error)
+
 // NativeWorkerPresenceRecord is the complete last-seen state persisted for an
 // authenticated worker. Document is an independently owned JSON value.
 type NativeWorkerPresenceRecord struct {
@@ -73,23 +81,27 @@ type NativeWorkerHandler struct {
 	acquire      NativeWorkerAcquire
 	renew        NativeWorkerRenew
 	release      NativeWorkerRelease
+	uploadGrant  NativeWorkerUploadGrant
 }
 
 // NewNativeWorkerHandler constructs the worker HTTP boundary from mandatory
-// authentication, presence and lease-lifecycle dependencies.
+// authentication, presence, lease-lifecycle and upload-grant dependencies.
 func NewNativeWorkerHandler(
 	store NativeWorkerPresenceStore,
 	authenticate NativeWorkerAuthenticate,
 	acquire NativeWorkerAcquire,
 	renew NativeWorkerRenew,
 	release NativeWorkerRelease,
+	uploadGrant NativeWorkerUploadGrant,
 ) (*NativeWorkerHandler, error) {
-	if store == nil || authenticate == nil || acquire == nil || renew == nil || release == nil {
-		return nil, errors.New("native worker authentication, presence, acquisition, renewal and release are required")
+	if store == nil || authenticate == nil || acquire == nil || renew == nil || release == nil ||
+		uploadGrant == nil {
+		return nil, errors.New("native worker authentication, presence, lease lifecycle and upload grants are required")
 	}
 
 	return &NativeWorkerHandler{
-		store: store, authenticate: authenticate, acquire: acquire, renew: renew, release: release,
+		store: store, authenticate: authenticate, acquire: acquire, renew: renew,
+		release: release, uploadGrant: uploadGrant,
 	}, nil
 }
 
@@ -111,8 +123,9 @@ type workerPresenceStatus struct {
 func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	leaseID, renewal := nativeWorkerRenewalLeaseID(r.URL.Path)
 	releaseLeaseID, release := nativeWorkerReleaseLeaseID(r.URL.Path)
+	uploadLeaseID, upload := nativeWorkerUploadGrantLeaseID(r.URL.Path)
 	if r.Method != http.MethodPost || (r.URL.Path != nativeWorkerPresencePath &&
-		r.URL.Path != nativeWorkerLeasePath && !renewal && !release) {
+		r.URL.Path != nativeWorkerLeasePath && !renewal && !release && !upload) {
 		fail(w, http.StatusNotFound, "NOT_FOUND")
 		return
 	}
@@ -132,7 +145,11 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		handler.renewLease(w, r, identity, leaseID)
 		return
 	}
-	handler.releaseLease(w, r, identity, releaseLeaseID)
+	if release {
+		handler.releaseLease(w, r, identity, releaseLeaseID)
+		return
+	}
+	handler.createUploadGrant(w, r, identity, uploadLeaseID)
 }
 
 func (handler *NativeWorkerHandler) authenticateRequest(

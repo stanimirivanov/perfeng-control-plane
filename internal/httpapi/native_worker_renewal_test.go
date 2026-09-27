@@ -38,6 +38,7 @@ func TestNativeWorkerRenewBindsAuthenticatedAuthorityAndReturnsCancellation(t *t
 			return want, nil
 		},
 		noNativeRelease,
+		noNativeUploadGrant,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -86,6 +87,7 @@ func TestNativeWorkerRenewRejectsMissingOrInvalidAuthorityBeforeRenewal(t *testi
 			return nativeworker.Renewal{}, nil
 		},
 		noNativeRelease,
+		noNativeUploadGrant,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -133,6 +135,7 @@ func TestNativeWorkerRenewRequiresCurrentWorkerAuthorization(t *testing.T) {
 			return nativeworker.Renewal{}, nil
 		},
 		noNativeRelease,
+		noNativeUploadGrant,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -163,6 +166,7 @@ func TestNativeWorkerRenewRejectsInvalidRequestBeforeRenewal(t *testing.T) {
 			return nativeworker.Renewal{}, nil
 		},
 		noNativeRelease,
+		noNativeUploadGrant,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -216,6 +220,7 @@ func TestNativeWorkerRenewMapsAuthorityAndConcurrencyFailures(t *testing.T) {
 					return nativeworker.Renewal{}, test.err
 				},
 				noNativeRelease,
+				noNativeUploadGrant,
 			)
 			if err != nil {
 				t.Fatal(err)

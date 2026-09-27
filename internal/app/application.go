@@ -52,6 +52,7 @@ func NewApplicationRuntime(
 		resources.Database,
 		resources.Authentication,
 		resources.Registry,
+		resources.NativeUploadSigner,
 	)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
@@ -100,6 +101,7 @@ func validRuntimeResources(config ApplicationConfig, resources *StartupResources
 	return resources != nil && resources.Authentication != nil &&
 		resources.Database != nil && resources.Registry != nil &&
 		resources.ArtifactStorage != nil &&
+		resources.NativeUploadSigner != nil &&
 		resources.Kubernetes.Namespace == config.Kubernetes.Namespace &&
 		resources.Kubernetes.Jobs != nil && resources.Kubernetes.Pods != nil &&
 		resources.ExecutorConfig.Validate() == nil

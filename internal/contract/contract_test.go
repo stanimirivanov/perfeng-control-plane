@@ -177,6 +177,31 @@ func TestNativeWorkerReleaseRuntimeValidation(t *testing.T) {
 	}
 }
 
+func TestNativeWorkerUploadGrantRequestRuntimeValidation(t *testing.T) {
+	request := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/upload-request.json")
+	if err := ValidateUploadGrantRequest(request); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, mutate := range map[string]func(map[string]any){
+		"revision": func(value map[string]any) { value["expectedRunRevision"] = json.Number("0") },
+		"slot":     func(value map[string]any) { value["slot"] = "invalid_slot" },
+		"size":     func(value map[string]any) { value["size"] = json.Number("0") },
+		"checksum": func(value map[string]any) { value["sha256"] = strings.Repeat("A", 64) },
+		"media":    func(value map[string]any) { value["mediaType"] = "Application/JSON" },
+		"unknown":  func(value map[string]any) { value["objectKey"] = "caller-selected" },
+		"missing":  func(value map[string]any) { delete(value, "attemptId") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			value := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/upload-request.json")
+			mutate(value)
+			if ValidateUploadGrantRequest(value) == nil {
+				t.Fatal("accepted invalid upload-grant request")
+			}
+		})
+	}
+}
+
 func TestNativeWorkerUploadGrantSnapshotUsesPresignedPut(t *testing.T) {
 	grant := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/upload-grant.json")
 	uploadURL, ok := grant["uploadUrl"].(string)

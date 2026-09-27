@@ -78,6 +78,8 @@ coordination, not load generation or statistical decisions.
   server-selected attempt-scoped object keys and no delivery credentials at rest.
 - Secret-safe S3 SigV4 presigning for exact native artifact PUT requests,
   composed only after the durable upload reservation commits.
+- Authenticated native upload-grant HTTP delivery with strict request,
+  capability, error and no-store response handling.
 - Bounded worker and in-cluster Kubernetes client/controller runtime composition.
 - Cross-validated reconciliation-stage timing configuration.
 - Strict, generation-aware parsing and structural validation of raw-result/v1
@@ -376,10 +378,11 @@ contract content is Apache-2.0, as in this repository.
 Review contract updates explicitly, refresh the snapshot and checksums, and
 rerun tests. The current runtime validator implements only the schema features
 reached by CreateRun, CreateBaseline, BaselineTransition, WorkerPresence,
-AcquireLease, RenewLease and ReleaseLease, not arbitrary JSON Schema or full
-response validation. The authenticated `/native-worker/v1/presence`,
+AcquireLease, RenewLease, ReleaseLease and UploadGrantRequest, not arbitrary
+JSON Schema or full response validation. The authenticated `/native-worker/v1/presence`,
 `/native-worker/v1/leases`, `/native-worker/v1/leases/{leaseId}/renew` and
-`/native-worker/v1/leases/{leaseId}/release`
+`/native-worker/v1/leases/{leaseId}/release`, and
+`/native-worker/v1/leases/{leaseId}/upload-grants`
 operations, typed worker-capability matching, reviewed native assignment
 resolution and durable lease acquisition, renewal, release and non-secret upload
 reservation are implemented.
@@ -392,10 +395,12 @@ material rather than evidence. Upload reservation persists only a grant ID,
 lease/attempt/slot fence, canonical object key, declared object facts and bounded
 expiry. The AWS SDK adapter and native use case produce ephemeral delivery material
 outside the reservation transaction, validate its actual signature expiry and
-redact it from diagnostics. Runtime composition and the upload-grant HTTP
-operation are not yet implemented. The upload-grant, artifact and terminal
-operations remain unavailable until their later M03 slices. Renewal, release and
-upload reservation use the native worker-before-Run lock order.
+redact it from diagnostics. Runtime composition and authenticated upload-grant
+delivery are implemented. Native artifact registration and terminal operations
+remain unavailable until their later M03 slices. Renewal, release and upload
+reservation use the native worker-before-Run lock order. The deployment must
+still expose a worker-reachable HTTPS S3 endpoint before native uploads can pass
+live acceptance.
 Schema regular expressions are compiled once during initialization. Invalid
 patterns, references or reachable unsupported constructs reject the embedded
 snapshot before requests are handled.

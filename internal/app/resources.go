@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/authentication"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/nativeworker"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/objectstore"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/registry"
 )
@@ -17,12 +18,13 @@ var ErrResourceShutdown = errors.New("runtime resource shutdown failed")
 // StartupResources contains the external and file-backed dependencies needed
 // for inert service composition. It owns Database and must not be copied.
 type StartupResources struct {
-	Authentication  *authentication.Static
-	Database        Database
-	Registry        *registry.ReportPolicyRegistry
-	ArtifactStorage *objectstore.S3ArtifactAccess
-	Kubernetes      KubernetesClients
-	ExecutorConfig  KubernetesExecutorConfig
+	Authentication     *authentication.Static
+	Database           Database
+	Registry           *registry.ReportPolicyRegistry
+	ArtifactStorage    *objectstore.S3ArtifactAccess
+	NativeUploadSigner nativeworker.UploadSigner
+	Kubernetes         KubernetesClients
+	ExecutorConfig     KubernetesExecutorConfig
 
 	closeOnce sync.Once
 	closeErr  error
@@ -37,7 +39,7 @@ type startupResourceBuilders struct {
 	executorConfig func(
 		KubernetesExecutorTemplateConfig,
 	) (KubernetesExecutorConfig, error)
-	artifactStorage func(context.Context, ArtifactStorageConfig) (*objectstore.S3ArtifactAccess, error)
+	artifactStorage func(context.Context, ArtifactStorageConfig) (*ArtifactStorageResources, error)
 	kubernetes      func(context.Context, KubernetesConfig) (KubernetesClients, error)
 	database        func(context.Context, DatabaseConfig) (Database, error)
 }
@@ -92,7 +94,7 @@ func newStartupResources(
 	if err != nil {
 		return nil, classifyDependencyInitialization(ctx, err)
 	}
-	if artifactStorage == nil {
+	if artifactStorage == nil || artifactStorage.Access == nil || artifactStorage.UploadSigner == nil {
 		return nil, ErrDependencyInitialization
 	}
 	kubernetes, err := builders.kubernetes(ctx, config.Kubernetes)
@@ -112,12 +114,13 @@ func newStartupResources(
 	}
 
 	return &StartupResources{
-		Authentication:  authenticator,
-		Database:        database,
-		Registry:        loadedRegistry,
-		ArtifactStorage: artifactStorage,
-		Kubernetes:      kubernetes,
-		ExecutorConfig:  executorConfig,
+		Authentication:     authenticator,
+		Database:           database,
+		Registry:           loadedRegistry,
+		ArtifactStorage:    artifactStorage.Access,
+		NativeUploadSigner: artifactStorage.UploadSigner,
+		Kubernetes:         kubernetes,
+		ExecutorConfig:     executorConfig,
 	}, nil
 }
 

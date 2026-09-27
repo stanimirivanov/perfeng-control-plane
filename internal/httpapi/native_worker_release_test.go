@@ -34,6 +34,7 @@ func TestNativeWorkerReleaseBindsAuthenticatedAuthority(t *testing.T) {
 
 			return nil
 		},
+		noNativeUploadGrant,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -79,6 +80,7 @@ func TestNativeWorkerReleaseRejectsMissingOrInvalidAuthorityBeforeRelease(t *tes
 
 			return nil
 		},
+		noNativeUploadGrant,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -91,7 +93,7 @@ func TestNativeWorkerReleaseRejectsMissingOrInvalidAuthorityBeforeRelease(t *tes
 	} {
 		t.Run(name, func(t *testing.T) {
 			response := serveNativeRelease(t, handler, nativeReleaseFixture(t), capability)
-			assertNativeReleaseError(t, response, http.StatusForbidden, "CAPABILITY_MISMATCH")
+			assertNativeWorkerError(t, response, http.StatusForbidden, "CAPABILITY_MISMATCH")
 			if called {
 				t.Fatal("release called without valid authority")
 			}
@@ -102,7 +104,7 @@ func TestNativeWorkerReleaseRejectsMissingOrInvalidAuthorityBeforeRelease(t *tes
 	request.Header.Add("X-Perfeng-Lease", nativeLeaseCapability)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	assertNativeReleaseError(t, response, http.StatusForbidden, "CAPABILITY_MISMATCH")
+	assertNativeWorkerError(t, response, http.StatusForbidden, "CAPABILITY_MISMATCH")
 	if called {
 		t.Fatal("release called with duplicate capability headers")
 	}
@@ -125,13 +127,14 @@ func TestNativeWorkerReleaseRequiresCurrentWorkerAuthorization(t *testing.T) {
 
 			return nil
 		},
+		noNativeUploadGrant,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	response := serveNativeRelease(t, handler, nativeReleaseFixture(t), nativeLeaseCapability)
-	assertNativeReleaseError(t, response, http.StatusForbidden, "NOT_AUTHORIZED")
+	assertNativeWorkerError(t, response, http.StatusForbidden, "NOT_AUTHORIZED")
 	if called {
 		t.Fatal("release called for unauthorized worker")
 	}
@@ -155,6 +158,7 @@ func TestNativeWorkerReleaseRejectsInvalidRequestBeforeRelease(t *testing.T) {
 
 			return nil
 		},
+		noNativeUploadGrant,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -175,7 +179,7 @@ func TestNativeWorkerReleaseRejectsInvalidRequestBeforeRelease(t *testing.T) {
 			request.URL.Path = nativeWorkerLeasePath + "/" + test.leaseID + "/release"
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)
-			assertNativeReleaseError(t, response, http.StatusBadRequest, "INVALID_REQUEST")
+			assertNativeWorkerError(t, response, http.StatusBadRequest, "INVALID_REQUEST")
 			if called {
 				t.Fatal("release called for invalid request")
 			}
@@ -209,12 +213,13 @@ func TestNativeWorkerReleaseMapsAuthorityAndConcurrencyFailures(t *testing.T) {
 				func(context.Context, string, nativeworker.ReleaseRequest) error {
 					return test.err
 				},
+				noNativeUploadGrant,
 			)
 			if err != nil {
 				t.Fatal(err)
 			}
 			response := serveNativeRelease(t, handler, nativeReleaseFixture(t), nativeLeaseCapability)
-			assertNativeReleaseError(t, response, test.status, test.code)
+			assertNativeWorkerError(t, response, test.status, test.code)
 		})
 	}
 }
@@ -279,7 +284,7 @@ func nativeReleaseFixture(t *testing.T) []byte {
 	return document
 }
 
-func assertNativeReleaseError(
+func assertNativeWorkerError(
 	t *testing.T,
 	response *httptest.ResponseRecorder,
 	wantStatus int,

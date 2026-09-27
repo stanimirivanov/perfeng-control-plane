@@ -18,6 +18,7 @@ const (
 	nativeWorkerLeaseTTL           = 2 * time.Minute
 	nativeWorkerLeaseRenewAfter    = 40 * time.Second
 	nativeWorkerCancellationGrace  = 30 * time.Second
+	nativeWorkerUploadGrantTTL     = 2 * time.Minute
 	nativeWorkerCandidateLimit     = 100
 )
 
@@ -85,6 +86,7 @@ type NativeWorkerStore interface {
 	nativeworker.LeaseStore
 	nativeworker.RenewalStore
 	nativeworker.ReleaseStore
+	nativeworker.UploadGrantStore
 }
 
 // NewNativeWorkerAPIHandler composes worker authentication, durable presence
@@ -94,8 +96,9 @@ func NewNativeWorkerAPIHandler(
 	store NativeWorkerStore,
 	authenticator NativeWorkerAuthenticator,
 	resolver nativeworker.PlanResolver,
+	uploadSigner nativeworker.UploadSigner,
 ) (http.Handler, error) {
-	if store == nil || authenticator == nil || resolver == nil {
+	if store == nil || authenticator == nil || resolver == nil || uploadSigner == nil {
 		return nil, ErrInvalidConfiguration
 	}
 	acquirer, err := nativeworker.NewAcquirer(
@@ -121,12 +124,21 @@ func NewNativeWorkerAPIHandler(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	uploadIssuer, err := nativeworker.NewUploadGrantIssuer(
+		store,
+		uploadSigner,
+		nativeWorkerUploadGrantTTL,
+	)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
 	handler, err := httpapi.NewNativeWorkerHandler(
 		store,
 		authenticator.AuthenticateWorker,
 		acquirer.Acquire,
 		renewer.Renew,
 		releaser.Release,
+		uploadIssuer.Issue,
 	)
 	if err != nil {
 		return nil, ErrInvalidConfiguration

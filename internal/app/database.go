@@ -18,6 +18,7 @@ type Database interface {
 	nativeworker.LeaseStore
 	nativeworker.RenewalStore
 	nativeworker.ReleaseStore
+	nativeworker.UploadGrantStore
 	run.ArtifactRepository
 	run.ReconciliationStore
 	kubernetes.ExecutionStore
