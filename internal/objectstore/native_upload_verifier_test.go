@@ -34,7 +34,7 @@ func nativeUploadCandidate(content []byte) nativeworker.ArtifactCandidate {
 	return nativeworker.ArtifactCandidate{
 		Reservation: reservation,
 		Kind:        "measurements",
-		Format:      "playwright-measurements-v2",
+		Format:      "playwright-measurements/v2",
 	}
 }
 

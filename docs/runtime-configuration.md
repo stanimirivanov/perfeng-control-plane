@@ -261,7 +261,7 @@ A source-checkout or release-archive entry must include `nativeAssignment`:
       "slot": "measurements",
       "kind": "measurements",
       "mediaType": "application/json",
-      "format": "playwright-measurements-v2",
+      "format": "playwright-measurements/v2",
       "maximumBytes": 1048576,
       "required": true
     },
@@ -269,7 +269,7 @@ A source-checkout or release-archive entry must include `nativeAssignment`:
       "slot": "manifest",
       "kind": "manifest",
       "mediaType": "application/json",
-      "format": "raw-result-v2",
+      "format": "raw-result/v2",
       "maximumBytes": 1048576,
       "required": true
     }
@@ -282,6 +282,10 @@ identity from the already reviewed entry. Native Worker API v1 accepts only the
 Playwright producer. The registry also rejects a native assignment on a
 Kubernetes entry, a missing assignment on native provenance, non-HTTPS targets,
 unsupported browsers or diagnostics, duplicate slots and unbounded artifacts.
+The `measurements` and `manifest` slots require the exact registered formats
+shown above. The obsolete hyphenated placeholders are rejected. Before rolling
+out this version, allow any lease created from an older candidate to expire or
+release it, then reacquire it from the updated registry configuration.
 This configuration is resolved before native lease acquisition; workers and Run
 callers cannot supply or override it.
 

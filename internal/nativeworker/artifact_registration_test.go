@@ -68,7 +68,7 @@ func nativeArtifactRegistrationFixture() (
 	candidate := ArtifactCandidate{
 		Reservation: reservation,
 		Kind:        "measurements",
-		Format:      "playwright-measurements-v2",
+		Format:      "playwright-measurements/v2",
 	}
 	reference := ArtifactReference{
 		ArtifactID: "33333333-3333-4333-8333-333333333333",
@@ -196,6 +196,11 @@ func TestArtifactRegistrationValidationAndDiagnostics(t *testing.T) {
 	invalidCandidate.Format = ""
 	if invalidCandidate.Valid() {
 		t.Fatal("invalid artifact candidate accepted")
+	}
+	invalidCandidate = candidate
+	invalidCandidate.Format = "playwright-measurements-v2"
+	if invalidCandidate.Valid() {
+		t.Fatal("obsolete artifact format accepted")
 	}
 	for name, uri := range map[string]string{
 		"https": "https://perfeng-artifacts/" + candidate.Reservation.ObjectKey,

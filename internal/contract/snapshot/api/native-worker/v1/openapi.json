@@ -172,6 +172,7 @@
       "Timestamp": {"type": "string", "format": "date-time"},
       "Sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
       "Identifier": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$"},
+      "ArtifactFormat": {"type": "string", "minLength": 1, "pattern": "^[a-z0-9][a-z0-9._/-]*$"},
       "SemanticVersion": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$"},
       "RunId": {"type": "string", "pattern": "^perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$"},
       "LeaseCapability": {"type": "string", "minLength": 32, "maxLength": 4096, "writeOnly": true},
@@ -285,7 +286,7 @@
           "slot": {"$ref": "#/components/schemas/Identifier"},
           "kind": {"$ref": "#/components/schemas/Identifier"},
           "mediaType": {"type": "string", "pattern": "^[a-z0-9.+-]+/[a-z0-9.+-]+$"},
-          "format": {"$ref": "#/components/schemas/Identifier"},
+          "format": {"$ref": "#/components/schemas/ArtifactFormat"},
           "maximumBytes": {"type": "integer", "minimum": 1, "maximum": 536870912},
           "required": {"type": "boolean"}
         }

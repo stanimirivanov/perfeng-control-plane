@@ -26,8 +26,8 @@ func TestPinnedSnapshot(t *testing.T) {
 	if err := json.Unmarshal(b, &lock); err != nil {
 		t.Fatal(err)
 	}
-	if lock.Commit != "af98d52cc09e0650bc73daf33439a12d5ad62ef7" ||
-		lock.BundleVersion != "0.16.0" || lock.RunManagementAPIVersion != "0.4.0" ||
+	if lock.Commit != "be847a4c7c0ad22c799389410a8c234d5492abc3" ||
+		lock.BundleVersion != "0.17.0" || lock.RunManagementAPIVersion != "0.4.0" ||
 		lock.NativeWorkerAPIVersion != "1.0.0" || len(lock.SHA256) != 37 {
 		t.Fatal("unexpected contract provenance")
 	}
@@ -60,6 +60,19 @@ func TestPinnedSnapshot(t *testing.T) {
 		actual := sha256.Sum256(b)
 		if hex.EncodeToString(actual[:]) != expected {
 			t.Fatalf("snapshot checksum mismatch: %s", name)
+		}
+	}
+}
+
+func TestNativeWorkerArtifactFormatRuntimeValidation(t *testing.T) {
+	for _, value := range []string{"playwright-measurements/v2", "raw-result/v2"} {
+		if !ValidNativeArtifactFormat(value) {
+			t.Fatalf("canonical artifact format %q rejected", value)
+		}
+	}
+	for _, value := range []string{"", "Playwright-measurements/v2", "../raw-result/v2"} {
+		if ValidNativeArtifactFormat(value) {
+			t.Fatalf("invalid artifact format %q accepted", value)
 		}
 	}
 }

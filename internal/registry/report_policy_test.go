@@ -50,8 +50,8 @@ func nativeAssignmentTemplate() *nativeworker.AssignmentTemplate {
 		BaseURL: "https://sut.perfeng.invalid/search", Browser: "edge",
 		DiagnosticMode: "trace",
 		ArtifactPlan: []nativeworker.ArtifactSlot{
-			{Slot: "measurements", Kind: "measurements", MediaType: "application/json", Format: "playwright-measurements-v2", MaximumBytes: 1 << 20, Required: true},
-			{Slot: "manifest", Kind: "manifest", MediaType: "application/json", Format: "raw-result-v2", MaximumBytes: 1 << 20, Required: true},
+			{Slot: "measurements", Kind: "measurements", MediaType: "application/json", Format: "playwright-measurements/v2", MaximumBytes: 1 << 20, Required: true},
+			{Slot: "manifest", Kind: "manifest", MediaType: "application/json", Format: "raw-result/v2", MaximumBytes: 1 << 20, Required: true},
 		},
 	}
 }
