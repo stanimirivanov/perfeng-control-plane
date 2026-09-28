@@ -65,7 +65,7 @@ func TestNativeArtifactRegistrationPersistsVerifiedExactRetry(t *testing.T) {
 		request,
 	)
 	if err != nil || !candidate.Valid() || candidate.Kind != "measurements" ||
-		candidate.Format != "playwright-measurements-v2" {
+		candidate.Format != "playwright-measurements/v2" {
 		t.Fatalf("candidate = %#v, error = %v", candidate, err)
 	}
 	verified := nativeworker.VerifiedArtifact{

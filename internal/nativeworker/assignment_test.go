@@ -17,8 +17,8 @@ func assignmentTemplate() AssignmentTemplate {
 		BaseURL: "https://sut.perfeng.invalid/search", Browser: "edge",
 		DiagnosticMode: "trace",
 		ArtifactPlan: []ArtifactSlot{
-			{Slot: "measurements", Kind: "measurements", MediaType: "application/json", Format: "playwright-measurements-v2", MaximumBytes: 1 << 20, Required: true},
-			{Slot: "manifest", Kind: "manifest", MediaType: "application/json", Format: "raw-result-v2", MaximumBytes: 1 << 20, Required: true},
+			{Slot: "measurements", Kind: "measurements", MediaType: "application/json", Format: playwrightMeasurementsV2Format, MaximumBytes: 1 << 20, Required: true},
+			{Slot: "manifest", Kind: "manifest", MediaType: "application/json", Format: rawResultV2Format, MaximumBytes: 1 << 20, Required: true},
 		},
 	}
 }
@@ -90,6 +90,8 @@ func TestAssignmentTemplateRejectsInvalidReviewedValues(t *testing.T) {
 		{name: "empty plan", mutate: func(value *AssignmentTemplate) { value.ArtifactPlan = nil }},
 		{name: "duplicate slot", mutate: func(value *AssignmentTemplate) { value.ArtifactPlan[1].Slot = value.ArtifactPlan[0].Slot }},
 		{name: "media type", mutate: func(value *AssignmentTemplate) { value.ArtifactPlan[0].MediaType = "Application/JSON" }},
+		{name: "artifact format", mutate: func(value *AssignmentTemplate) { value.ArtifactPlan[0].Format = "Playwright-measurements/v2" }},
+		{name: "obsolete artifact format", mutate: func(value *AssignmentTemplate) { value.ArtifactPlan[0].Format = "playwright-measurements-v2" }},
 		{name: "size", mutate: func(value *AssignmentTemplate) { value.ArtifactPlan[0].MaximumBytes = maximumArtifactBytes + 1 }},
 	} {
 		t.Run(test.name, func(t *testing.T) {

@@ -311,6 +311,12 @@ func ValidNativeWorkerIdentifier(value string) bool {
 	return validateWithSchemas(nativeWorkerSchemas["Identifier"], value, nativeWorkerSchemas) == nil
 }
 
+// ValidNativeArtifactFormat reports whether value satisfies the shared
+// artifact-format grammar embedded in Native Worker API v1.
+func ValidNativeArtifactFormat(value string) bool {
+	return validateWithSchemas(nativeWorkerSchemas["ArtifactFormat"], value, nativeWorkerSchemas) == nil
+}
+
 func validate(s schema, value any) error {
 	return validateWithSchemas(s, value, schemas)
 }

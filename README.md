@@ -369,7 +369,7 @@ signal, authentication or deployment policy.
 ## Contract provenance
 
 The [snapshot lock](internal/contract/snapshot/lock.json) pins perfeng-contracts
-commit `af98d52cc09e0650bc73daf33439a12d5ad62ef7`, candidate bundle 0.16.0,
+commit `be847a4c7c0ad22c799389410a8c234d5492abc3`, candidate bundle 0.17.0,
 Run Management API 0.4.0 and Native Worker API 1.0.0. The Run Management
 OpenAPI document, transitions and selected request fixtures; the current
 generated performance-policy schema and browser example; and the complete

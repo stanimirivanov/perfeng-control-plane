@@ -376,7 +376,7 @@ func nativeArtifactReferenceFixture(t *testing.T) nativeworker.ArtifactReference
 	if json.Unmarshal(document, &reference) != nil {
 		t.Fatal("invalid pinned native artifact fixture")
 	}
-	reference.Format = "playwright-measurements-v2"
+	reference.Format = "playwright-measurements/v2"
 	if !reference.Valid() {
 		t.Fatal("invalid native artifact reference fixture")
 	}

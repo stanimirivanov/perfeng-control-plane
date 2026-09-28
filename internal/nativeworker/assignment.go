@@ -5,11 +5,16 @@ import (
 	"net/url"
 	"regexp"
 
+	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/rawresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
-const maximumArtifactBytes int64 = 512 * 1024 * 1024
+const (
+	maximumArtifactBytes           int64 = 512 * 1024 * 1024
+	playwrightMeasurementsV2Format       = "playwright-measurements/v2"
+	rawResultV2Format                    = "raw-result/v2"
+)
 
 var mediaTypePattern = regexp.MustCompile(`^[a-z0-9.+-]+/[a-z0-9.+-]+$`)
 
@@ -186,7 +191,7 @@ func validArtifactPlan(plan []ArtifactSlot) bool {
 	seen := make(map[string]struct{}, len(plan))
 	for _, slot := range plan {
 		if !rawresult.ValidResourceID(slot.Slot) || !rawresult.ValidResourceID(slot.Kind) ||
-			!mediaTypePattern.MatchString(slot.MediaType) || !rawresult.ValidResourceID(slot.Format) ||
+			!mediaTypePattern.MatchString(slot.MediaType) || !validArtifactSlotFormat(slot.Slot, slot.Format) ||
 			slot.MaximumBytes < 1 || slot.MaximumBytes > maximumArtifactBytes {
 			return false
 		}
@@ -197,6 +202,20 @@ func validArtifactPlan(plan []ArtifactSlot) bool {
 	}
 
 	return true
+}
+
+func validArtifactSlotFormat(slot string, format string) bool {
+	if !contract.ValidNativeArtifactFormat(format) {
+		return false
+	}
+	switch slot {
+	case "measurements":
+		return format == playwrightMeasurementsV2Format
+	case "manifest":
+		return format == rawResultV2Format
+	default:
+		return true
+	}
 }
 
 func executionArtifact(artifact rawresult.ExecutionArtifact) ExecutionArtifact {

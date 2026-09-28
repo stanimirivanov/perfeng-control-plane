@@ -28,7 +28,7 @@
       "slot": "measurements",
       "kind": "measurements",
       "mediaType": "application/json",
-      "format": "playwright-measurements-v2",
+      "format": "playwright-measurements/v2",
       "maximumBytes": 1048576,
       "required": true
     },
@@ -36,7 +36,7 @@
       "slot": "manifest",
       "kind": "manifest",
       "mediaType": "application/json",
-      "format": "raw-result-v2",
+      "format": "raw-result/v2",
       "maximumBytes": 1048576,
       "required": true
     }

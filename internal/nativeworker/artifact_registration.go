@@ -74,7 +74,7 @@ type ArtifactCandidate struct {
 // Valid checks the complete immutable candidate selected from durable state.
 func (candidate ArtifactCandidate) Valid() bool {
 	return candidate.Reservation.Valid() && rawresult.ValidResourceID(candidate.Kind) &&
-		rawresult.ValidResourceID(candidate.Format)
+		validArtifactSlotFormat(candidate.Reservation.Slot, candidate.Format)
 }
 
 // VerifiedArtifact records the approved object location after exact bytes and
@@ -118,7 +118,8 @@ func (reference ArtifactReference) Valid() bool {
 
 	return ValidLeaseIdentifier(reference.ArtifactID) && contract.ValidID(reference.RunID) &&
 		ValidLeaseIdentifier(reference.AttemptID) && rawresult.ValidResourceID(reference.Slot) &&
-		rawresult.ValidResourceID(reference.Kind) && rawresult.ValidResourceID(reference.Format) &&
+		rawresult.ValidResourceID(reference.Kind) &&
+		validArtifactSlotFormat(reference.Slot, reference.Format) &&
 		validNativeArtifactURI(reference.URI, key) && reference.Size >= 1 &&
 		reference.Size <= maximumArtifactBytes && uploadSHA256Pattern.MatchString(reference.SHA256) &&
 		mediaTypePattern.MatchString(reference.MediaType) && !reference.RegisteredAt.IsZero() &&
