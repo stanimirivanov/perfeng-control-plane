@@ -1,0 +1,82 @@
+version: 2
+
+updates:
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Europe/Amsterdam
+    open-pull-requests-limit: 5
+    reviewers: [stanimirivanov]
+    commit-message:
+      prefix: "deps(go)"
+    groups:
+      go-non-major:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+      go-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: "/tools/quality"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:15"
+      timezone: Europe/Amsterdam
+    open-pull-requests-limit: 3
+    reviewers: [stanimirivanov]
+    commit-message:
+      prefix: "deps(quality)"
+    groups:
+      quality-non-major:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+      quality-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: "/tools/actionlint"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:30"
+      timezone: Europe/Amsterdam
+    open-pull-requests-limit: 3
+    reviewers: [stanimirivanov]
+    commit-message:
+      prefix: "deps(actionlint)"
+    groups:
+      actionlint-non-major:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+      actionlint-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:45"
+      timezone: Europe/Amsterdam
+    open-pull-requests-limit: 3
+    reviewers: [stanimirivanov]
+    commit-message:
+      prefix: "deps(actions)"
+    groups:
+      actions-non-major:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+      actions-security:
+        applies-to: security-updates
+        patterns: ["*"]

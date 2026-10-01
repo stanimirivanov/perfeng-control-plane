@@ -8,65 +8,109 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOTOOLCHAIN: local
+
 jobs:
   validate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: false
-      - name: Check formatting
-        run: test -z "$(gofmt -l .)"
-      - name: Lint report (informational)
-        uses: golangci/golangci-lint-action@db9de0fc1a667e1a49d2291a1a042dff081d78f6 # v9
-        with:
-          version-file: .golangci-lint-version
-          args: --config=.golangci.yml ./...
-          skip-cache: true
-      - name: Verify dependencies
-        run: go mod verify
-      - name: Test with race detector
-        run: go test -vet=off -race -count=1 ./...
-      - name: Fuzz JSON parser
-        run: go test -vet=off ./internal/httpapi -run=^$ -fuzz=FuzzParseJSON -fuzztime=10s
-
-  image:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: false
-      - name: Build and verify standalone image
-        run: |
-          docker build --platform linux/amd64 --build-arg VCS_REF="$GITHUB_SHA" -t perfeng-control-plane:ci .
-          go run ./cmd/verify-image verify perfeng-control-plane:ci "$GITHUB_SHA"
+          check-latest: false
+          cache: true
+          cache-dependency-path: |
+            go.mod
+            go.sum
+            tools/quality/go.mod
+            tools/quality/go.sum
+            tools/actionlint/go.mod
+            tools/actionlint/go.sum
+      - name: Resolve pinned dependencies
+        run: make bootstrap
+      - name: Run fast verification suite
+        run: make verify
 
-  vulnerabilities:
-    runs-on: ubuntu-latest
+  race:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: true
+      - name: Run race suite
+        run: make race
+
+  fuzz:
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: false
-      - name: Scan reachable vulnerabilities
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+          check-latest: false
+          cache: true
+      - name: Run bounded parser fuzzing
+        run: make fuzz
+
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: true
+      - name: Build and verify standalone image
+        run: make image IMAGE=perfeng-control-plane:ci VCS_REF="$GITHUB_SHA"
+
+  vulnerabilities:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: |
+            go.mod
+            go.sum
+            tools/quality/go.mod
+            tools/quality/go.sum
+            tools/actionlint/go.mod
+            tools/actionlint/go.sum
+      - name: Resolve pinned dependencies
+        run: make bootstrap
+      - name: Run supply-chain suite
+        run: make supply-chain
 
   postgres:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     services:
       postgres:
@@ -81,29 +125,31 @@ jobs:
           --health-timeout 5s
           --health-retries 12
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: false
+          check-latest: false
+          cache: true
       - name: PostgreSQL integration and restart tests
         env:
-          PERFENG_TEST_DATABASE_URL: postgres://postgres@127.0.0.1:${{ job.services.postgres.ports[5432] }}/postgres?sslmode=disable
-        run: go test -vet=off -race -count=1 -timeout=3m -v ./internal/postgres
+          PERFENG_TEST_DATABASE_URL: postgres://postgres@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/postgres?sslmode=disable
+        run: make db-validate
 
   kubernetes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: false
+          check-latest: false
+          cache: true
       - name: Install kind
         run: go install sigs.k8s.io/kind@v0.31.0
       - name: Create pinned Kubernetes cluster
@@ -118,7 +164,7 @@ jobs:
       - name: Kubernetes API integration tests
         env:
           PERFENG_TEST_KUBECONFIG: ${{ runner.temp }}/perfeng-kubeconfig
-        run: go test -vet=off -race -count=1 -timeout=3m -run TestDispatcherAgainstAPIServer -v ./internal/kubernetes
+        run: make kubernetes-validate
       - name: Delete Kubernetes cluster
         if: always()
         run: kind delete cluster --name perfeng-test

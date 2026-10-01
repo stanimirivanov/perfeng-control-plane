@@ -21,17 +21,18 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: false
+          check-latest: false
+          cache: true
       - name: Test source
         run: |
-          go mod verify
-          go test -vet=off -count=1 ./...
+          make bootstrap
+          make verify
       - name: Build and verify Linux AMD64 image
         shell: bash
         run: |

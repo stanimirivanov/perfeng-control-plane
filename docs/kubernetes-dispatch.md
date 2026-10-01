@@ -58,10 +58,12 @@ for ambiguous outcomes and unbound-cancellation recovery.
 
 An opt-in integration test creates an isolated namespace against a real API
 server and verifies create, replay adoption and observation after defaulting. Set
-`PERFENG_TEST_KUBECONFIG` to run it locally. CI runs kind v0.31.0 against
-Kubernetes v1.35.0 using a digest-pinned node image. When Kubernetes dependencies
-or the cluster version change, review the canonical defaults and rerun this test;
-do not broadly discard unknown fields.
+`PERFENG_TEST_KUBECONFIG` to the disposable `kind-perfeng-test` context to run it
+locally. The test rejects a different context or a non-loopback API server before
+creating a namespace. CI runs kind v0.31.0 against Kubernetes v1.35.0 using a
+digest-pinned node image. When Kubernetes dependencies or the cluster version
+change, review the canonical defaults and rerun this test; do not broadly discard
+unknown fields.
 
 ## Observe and stop
 

@@ -9,12 +9,15 @@ run:
 linters:
   default: none
   enable:
+    - bodyclose
     - govet
     - staticcheck
     - unused
     - ineffassign
     - errcheck
     - errorlint
+    - godoclint
+    - nolintlint
     - sqlclosecheck
     - rowserrcheck
     - revive

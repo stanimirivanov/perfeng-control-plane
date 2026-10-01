@@ -11,8 +11,8 @@
   persisted Kubernetes execution identity for restart safety.
 - External HTTP, JSON, registry, object-store and Kubernetes data is validated
   before domain policy uses it.
-- Start with the contributor harness and use `make validate` or the listed Go
-  commands before review.
+- Start with the [documentation map](docs/README.md), run `make bootstrap` once,
+  use `make verify` during development, and run `make validate` before review.
 
 Go implementation of the candidate run-management API and lifecycle from
 performance-platform proposal sections 12-13. The control plane owns run
@@ -137,8 +137,10 @@ the registry digest back, verifies the published bytes, and prints the immutable
 GHCR reference for the environment repository. It does not publish mutable
 release or `latest` tags.
 
-Start with [contributing and Go code-quality standards](CONTRIBUTING.md) for
-pinned tool installation, the review checklist and the complete local checks.
+Start with the [documentation map](docs/README.md) and
+[contributor policy](CONTRIBUTING.md). The
+[coding harness](docs/development/harness.md) defines pinned setup, command
+tiers and complete local checks.
 The [repository working agreement](AGENTS.md),
 [engineering standards](docs/development/engineering-standards.md),
 [SQL migration policy](docs/development/sql-migrations.md),
@@ -149,20 +151,17 @@ harness. Cross-repository sequencing remains in the centralized
 From this repository in PowerShell or a shell:
 
 ~~~sh
-go test -vet=off ./...
-golangci-lint run ./...
-gofmt -l .
-go test -vet=off -race ./...
-go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+make bootstrap
+make verify
+make validate
 ~~~
 
-On systems with Make, `make validate` runs the same non-live formatting, lint,
-module, race, fuzz and vulnerability checks. The individual commands remain the
-portable, authoritative interface.
+The Makefile is the portable, authoritative command surface. `make verify` is
+the fast network-independent loop after bootstrap; `make validate` adds race,
+fuzz, vulnerability and license checks.
 
 Lint findings, including vet, are informational: review them and decide which
-changes improve the code. The separate gofmt check must print nothing.
-To format changes: `golangci-lint fmt`.
+changes improve the code. To format changes, run `make fmt`.
 Race detection requires a supported C toolchain; CI runs it on Linux. Optional
 bounded parser fuzzing:
 
