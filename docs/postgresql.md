@@ -118,7 +118,9 @@ it does not rewrite existing lease values or Run snapshots. Migration 0009 adds
 the initially empty native-upload-grant table without scanning, rewriting or
 backfilling existing tables. Migration 0010 adds accepted native artifact
 identities, and migration 0011 adds the first accepted native terminal outcome;
-both are additive empty-table migrations.
+both are additive empty-table migrations. Migration 0012 widens the native
+artifact format check to accept canonical Native Worker API values such as
+`playwright-measurements/v2` and `raw-result/v2`.
 See [worker-claim semantics](reconciliation.md).
 
 Provision that role/login through infrastructure; the migration does not create
@@ -340,6 +342,13 @@ does not scan,
 rewrite or backfill existing application rows. Older binaries ignore the new
 table. Roll back application code while retaining accepted identities and
 repair forward rather than editing the migration.
+
+Migration 0012 replaces only the `native_artifacts.format` check. It accepts
+the pinned contract's format shape without changing existing rows or meaning.
+Adding the replacement check validates existing rows and takes an `ALTER TABLE`
+lock on `native_artifacts`; schedule it before sustained artifact traffic. The
+migration is transactional, and older binaries can continue using existing
+formats. Roll back application code without reversing the expanded check.
 
 ## Native terminal reporting
 
