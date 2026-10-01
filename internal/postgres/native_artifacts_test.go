@@ -246,6 +246,8 @@ func TestNativeArtifactMigrationUpgrade(t *testing.T) {
 		"0007_native_execution_leases.sql",
 		"0008_native_lease_releases.sql",
 		"0009_native_upload_grants.sql",
+		"0010_native_artifacts.sql",
+		"0011_native_terminal_reports.sql",
 	} {
 		document, err := migrations.ReadFile("migrations/" + name)
 		if err != nil {

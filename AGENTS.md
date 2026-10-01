@@ -17,10 +17,9 @@ Normative terms such as MUST, SHOULD and MAY have the meanings defined there.
 1. You MUST read [CONTRIBUTING.md](CONTRIBUTING.md), especially its ambiguity,
    issue-timing, verification and external-side-effect rules.
 2. You MUST inspect the branch and working tree and preserve pre-existing work.
-3. You MUST read the relevant
-   [engineering standards](docs/development/engineering-standards.md),
-   [SQL migration policy](docs/development/sql-migrations.md), operational guide
-   and accepted [ADRs](docs/decisions/README.md).
+3. You MUST use the [documentation map](docs/README.md) to read the relevant
+   engineering standard, operational guide and accepted ADR. Do not bulk-read
+   unrelated guides or decisions.
 4. You MUST use repository-local checks and MUST NOT claim that an unavailable
    or unexecuted check passed.
 
@@ -71,6 +70,11 @@ definitions or environment deployment composition.
 
 Follow the engineering and migration standards and the relevant operational
 documentation.
+
+The [coding harness guide](docs/development/harness.md) defines the command
+tiers and feedback sensors. New packages MUST join the architecture
+classification and new recurring guidance MUST be routed from the documentation
+map.
 
 ## Quality and documentation
 

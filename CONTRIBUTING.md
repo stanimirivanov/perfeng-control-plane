@@ -30,7 +30,10 @@ silently create another normative level.
 |:--|:--|
 | Contributor workflow, issue timing, escalation and completion | This document |
 | Concise contributor and agent entry point | [AGENTS.md](AGENTS.md) |
+| Task-oriented documentation routing | [docs/README.md](docs/README.md) |
+| Coding harness and verification tiers | [docs/development/harness.md](docs/development/harness.md) |
 | Architecture and Go engineering | [docs/development/engineering-standards.md](docs/development/engineering-standards.md) and repository-specific rules below |
+| Dependency admission and supply-chain policy | [docs/development/dependency-policy.md](docs/development/dependency-policy.md) |
 | PostgreSQL schema evolution | [docs/development/sql-migrations.md](docs/development/sql-migrations.md) |
 | Architecture decisions | [docs/decisions](docs/decisions/README.md) |
 | Cross-repository milestones | [perfeng-environment roadmap](https://github.com/stanimirivanov/perfeng-environment/blob/main/docs/roadmap/milestones.md) |
@@ -184,63 +187,29 @@ granted authority.
 
 ## Toolchain and local checks
 
-Use the Go version in go.mod (currently 1.26.6). With Go's default
-`GOTOOLCHAIN=auto`, an older Go installation downloads the required toolchain.
-With `GOTOOLCHAIN=local`, install that version yourself. Race tests also need
-a supported C compiler; CI uses Linux.
-
-The linter version is pinned in [.golangci-lint-version](.golangci-lint-version).
-Use the official release binary; do not let the editor install `@latest`.
-The linter bundles gofmt/goimports, so no separate formatter installation is
-needed for the acceptance checks. For Windows x64, from this repository:
-
-~~~powershell
-$lintVersion = (Get-Content .golangci-lint-version -Raw).Trim()
-$lintArchive = "golangci-lint-$lintVersion-windows-amd64.zip"
-$lintDirectory = Join-Path $PWD ".local/quality-tools"
-New-Item -ItemType Directory -Force $lintDirectory | Out-Null
-Invoke-WebRequest "https://github.com/golangci/golangci-lint/releases/download/v$lintVersion/$lintArchive" -OutFile "$lintDirectory/$lintArchive"
-$lintHash = (Get-FileHash "$lintDirectory/$lintArchive" -Algorithm SHA256).Hash
-if ($lintHash -ne "4735fdc8e84a0cfb7a15a1c364a650942f88215e0d36c674ebc4024f7b554524") {
-  throw "Linter checksum mismatch; do not execute the download"
-}
-Expand-Archive "$lintDirectory/$lintArchive" -DestinationPath $lintDirectory -Force
-$env:PATH = "$lintDirectory/golangci-lint-$lintVersion-windows-amd64;$env:PATH"
-golangci-lint version
-~~~
-
-This changes PATH for the current shell only. For VS Code, make that extracted
-directory available on your user PATH and fully restart VS Code, or set the
-Go extension's `go.alternateTools` entry for `golangci-lint` to the binary's
-absolute path in your user settings. Do not commit machine-specific paths.
-Other platforms should download the matching archive from the same
-[official release](https://github.com/golangci/golangci-lint/releases/tag/v2.13.2)
-and verify its published checksum before placing the binary on PATH.
-
-From the repository root, run each command and check its exit status before
-continuing (PowerShell does not stop automatically after a native command fails):
+Use the Go version in `go.mod` and repository-pinned quality tools. Setup, the
+daily loop and troubleshooting are defined in the
+[developer quickstart](docs/development/developer-quickstart.md); command cost
+and ownership are defined in the [harness guide](docs/development/harness.md).
+From the repository root:
 
 ~~~sh
-go version
-golangci-lint version
-golangci-lint config verify
-golangci-lint run ./...
-gofmt -l .
-go mod verify
-go test -vet=off -race -count=1 ./...
-go test -vet=off ./internal/httpapi -run=^$ -fuzz=FuzzParseJSON -fuzztime=10s
-go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+make bootstrap
+make doctor
+make verify
+make validate
 ~~~
 
-`golangci-lint run` reports findings without changing files or failing on
-warnings. Read the report; a zero exit status does not mean there are no findings.
-The separate `gofmt -l .` check must print nothing. Use
-`golangci-lint fmt` to apply gofmt and goimports, then review the diff. Do not
-apply lint autofixes over the whole repository as part of unrelated changes.
-VS Code uses gopls formatting/import organization on save and the same
-informational lint configuration as CI for package diagnostics. Keep the Go
-extension current enough to support
-`golangci-lint-v2`. Automatic tool updates are disabled.
+`make verify` is the network-independent inner loop after bootstrap.
+`make validate` adds race, bounded fuzzing, vulnerability and license checks.
+Run specialized PostgreSQL, Kubernetes and image targets when their boundaries
+change. The Makefile is the executable source of truth; hidden or ambient
+substitutes are not acceptance evidence.
+
+The pinned linter reports findings without changing files or failing on
+warnings. Read the report; a zero exit status does not mean there are no
+findings. `make fmt` applies gofmt/goimports and must be followed by diff review.
+Do not apply broad autofixes or add suppression comments as unrelated cleanup.
 
 Tests use `-vet=off` because vet already runs in the informational lint
 report; the implicit vet pass in `go test` must not turn those findings into
@@ -255,9 +224,10 @@ including restart and concurrency checks. Never use a production database.
 ## Verification and constrained environments
 
 A contributor MUST run every applicable required check supported by the current
-environment. `make validate` wraps the non-live formatting, lint report, module,
-race, fuzz and vulnerability checks. Focused PostgreSQL, Kubernetes and image
-checks remain required when the changed boundary needs them.
+environment. `make verify` is the fast build/check/test loop. `make validate`
+adds the non-live race, fuzz, vulnerability and license checks. Focused
+PostgreSQL, Kubernetes and image checks remain required when the changed
+boundary needs them.
 
 Narrower checks MAY provide interim feedback but MUST NOT be presented as the
 complete suite. When a required check cannot execute because of platform,

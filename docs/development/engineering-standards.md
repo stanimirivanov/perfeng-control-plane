@@ -44,6 +44,14 @@ composition, explicit ownership and the simplest design preserving the boundary.
 Do not add an interface, generic repository, manager, queue or cache without
 current behavior that requires it.
 
+`make architecture-check` exhaustively classifies production packages and
+prevents core packages from acquiring infrastructure authority. Its current
+edge classification is intentionally transitional: reconciliation, registry
+and some adapters still share concrete boundary types. Treat an allowed
+edge-to-edge import as existing structure, not blanket approval for new adapter
+coupling; tighten those relationships through focused refactoring and then
+tighten the executable policy.
+
 ## Go design
 
 - Use the Go version in `go.mod` and pinned quality tools from repository
@@ -132,14 +140,16 @@ artifact bytes, PostgreSQL records and Kubernetes resources are untrusted input.
 - Comments explain decisions and constraints, not syntax or standard-library
   behavior.
 - Long documents follow the TL;DR policy in CONTRIBUTING.
-- Dependencies require a current need, compatible license, maintained release,
-  pinned resolution, security review and a replacement boundary proportionate
-  to risk.
+- Dependencies follow the
+  [dependency policy](dependency-policy.md): they require a current need,
+  compatible license, maintained release, pinned resolution, security review
+  and a replacement boundary proportionate to risk.
 - Operational behavior changes update the relevant guide in the same pull
   request.
 
 ## Required verification
 
-Run the exact checks in CONTRIBUTING plus PostgreSQL, Kubernetes, image or other
-focused integration tests required by the affected boundary. Unavailable checks
-follow the constrained-environment protocol and MUST NOT be reported as passed.
+Run `make verify` and `make validate` as defined by the
+[harness guide](harness.md), plus PostgreSQL, Kubernetes, image or other focused
+integration tests required by the affected boundary. Unavailable checks follow
+the constrained-environment protocol and MUST NOT be reported as passed.
