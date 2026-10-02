@@ -17,6 +17,7 @@ import (
 
 type nativePresenceStoreStub struct {
 	record NativeWorkerPresenceRecord
+	v2     bool
 	at     time.Time
 	err    error
 }
@@ -100,6 +101,16 @@ func (store *nativePresenceStoreStub) RecordNativeWorkerPresence(
 	return store.at, store.err
 }
 
+func (store *nativePresenceStoreStub) RecordNativeWorkerV2Presence(
+	_ context.Context,
+	record NativeWorkerPresenceRecord,
+) (time.Time, error) {
+	store.record = record
+	store.v2 = true
+
+	return store.at, store.err
+}
+
 func TestNativeWorkerPresenceAuthenticatesQualifiesAndPersists(t *testing.T) {
 	document, evidence := nativePresenceFixture(t)
 	observedAt := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
@@ -138,6 +149,94 @@ func TestNativeWorkerPresenceAuthenticatesQualifiesAndPersists(t *testing.T) {
 		!store.record.AuthorizedToAcquire || store.record.Availability != "AVAILABLE" ||
 		string(store.record.ObservedDocument) != string(document) {
 		t.Fatalf("presence record = %#v", store.record)
+	}
+}
+
+func TestNativeWorkerV2PresenceUsesSeparateStorageAndRejectsMixedVersions(t *testing.T) {
+	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/presence.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var value map[string]any
+	if err := json.Unmarshal(document, &value); err != nil {
+		t.Fatal(err)
+	}
+	evidence, err := json.Marshal(value["qualificationEvidence"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &nativePresenceStoreStub{at: time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)}
+	handler, err := NewNativeWorkerHandler(store, func(context.Context, string) (WorkerIdentity, error) {
+		return WorkerIdentity{
+			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+			QualificationEvidence: evidence,
+		}, nil
+	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant,
+		noNativeArtifactRegistration, noNativeTerminal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serve := func(path string, body []byte) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(string(body)))
+		request.Header.Set("Authorization", "Bearer worker-token")
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+
+		return response
+	}
+	response := serve(nativeWorkerV2PresencePath, document)
+	if response.Code != http.StatusOK || !store.v2 || !store.record.Qualified ||
+		store.record.AuthorizedToAcquire ||
+		string(store.record.ObservedDocument) != string(document) {
+		t.Fatalf("v2 presence status = %d, record = %#v", response.Code, store.record)
+	}
+	var status workerPresenceStatus
+	if err := json.Unmarshal(response.Body.Bytes(), &status); err != nil ||
+		status.Qualification.Status != "QUALIFIED" || status.AuthorizedToAcquire {
+		t.Fatalf("v2 status = %#v, err = %v", status, err)
+	}
+	var unapproved map[string]any
+	if err := json.Unmarshal(evidence, &unapproved); err != nil {
+		t.Fatal(err)
+	}
+	unapproved["environmentSha256"] = strings.Repeat("d", 64)
+	unapprovedEvidence, err := json.Marshal(unapproved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unqualified, err := NewNativeWorkerHandler(store, func(context.Context, string) (WorkerIdentity, error) {
+		return WorkerIdentity{
+			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+			QualificationEvidence: unapprovedEvidence,
+		}, nil
+	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant,
+		noNativeArtifactRegistration, noNativeTerminal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, nativeWorkerV2PresencePath,
+		strings.NewReader(string(document)))
+	request.Header.Set("Authorization", "Bearer worker-token")
+	request.Header.Set("Content-Type", "application/json")
+	unqualifiedResponse := httptest.NewRecorder()
+	unqualified.ServeHTTP(unqualifiedResponse, request)
+	if err := json.Unmarshal(unqualifiedResponse.Body.Bytes(), &status); err != nil ||
+		unqualifiedResponse.Code != http.StatusOK || status.Qualification.Status != "UNQUALIFIED" ||
+		store.record.Qualified || store.record.AuthorizedToAcquire {
+		t.Fatalf("unapproved v2 evidence was qualified: status=%#v, record=%#v, err=%v",
+			status, store.record, err)
+	}
+	store.v2 = false
+	store.record = NativeWorkerPresenceRecord{}
+	if response := serve(nativeWorkerPresencePath, document); response.Code != http.StatusBadRequest ||
+		store.record.WorkerID != "" {
+		t.Fatal("v2 document entered v1 presence storage")
+	}
+	v1, _ := nativePresenceFixture(t)
+	if response := serve(nativeWorkerV2PresencePath, v1); response.Code != http.StatusBadRequest ||
+		store.record.WorkerID != "" {
+		t.Fatal("v1 document entered v2 presence storage")
 	}
 }
 

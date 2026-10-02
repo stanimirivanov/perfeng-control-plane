@@ -17,6 +17,7 @@ import (
 
 const (
 	nativeWorkerPresencePath     = "/native-worker/v1/presence"
+	nativeWorkerV2PresencePath   = "/native-worker/v2/presence"
 	nativeWorkerLeasePath        = "/native-worker/v1/leases"
 	nativeWorkerHeartbeat        = 30
 	nativeWorkerLeaseRetryAfter  = 15
@@ -84,10 +85,15 @@ type NativeWorkerPresenceRecord struct {
 	AuthorizedToAcquire bool
 }
 
-// NativeWorkerPresenceStore durably replaces a worker's last-seen presence and
-// returns the authoritative database observation time.
+// NativeWorkerPresenceStore durably replaces a worker's last-seen presence in
+// the selected API generation and returns the authoritative database time.
 type NativeWorkerPresenceStore interface {
+	// RecordNativeWorkerPresence replaces only the v1 report for the
+	// authenticated worker and returns its database observation time.
 	RecordNativeWorkerPresence(context.Context, NativeWorkerPresenceRecord) (time.Time, error)
+	// RecordNativeWorkerV2Presence replaces only the v2 report. It must keep
+	// acquisition disabled until the v2 lease path is reviewed and deployed.
+	RecordNativeWorkerV2Presence(context.Context, NativeWorkerPresenceRecord) (time.Time, error)
 }
 
 // NativeWorkerHandler serves the independently authenticated Native Worker API.
@@ -148,6 +154,7 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	artifactLeaseID, artifact := nativeWorkerArtifactLeaseID(r.URL.Path)
 	terminalLeaseID, terminal := nativeWorkerTerminalLeaseID(r.URL.Path)
 	if r.Method != http.MethodPost || (r.URL.Path != nativeWorkerPresencePath &&
+		r.URL.Path != nativeWorkerV2PresencePath &&
 		r.URL.Path != nativeWorkerLeasePath && !renewal && !release && !upload && !artifact &&
 		!terminal) {
 		fail(w, http.StatusNotFound, "NOT_FOUND")
@@ -157,8 +164,8 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
-	if r.URL.Path == nativeWorkerPresencePath {
-		handler.reportPresence(w, r, identity)
+	if r.URL.Path == nativeWorkerPresencePath || r.URL.Path == nativeWorkerV2PresencePath {
+		handler.reportPresence(w, r, identity, r.URL.Path == nativeWorkerV2PresencePath)
 		return
 	}
 	if r.URL.Path == nativeWorkerLeasePath {
@@ -211,25 +218,33 @@ func (handler *NativeWorkerHandler) reportPresence(
 	w http.ResponseWriter,
 	r *http.Request,
 	identity WorkerIdentity,
+	v2 bool,
 ) {
 	document, _, ok := readJSONBodyWithCode(w, r, "INVALID_REQUEST")
 	if !ok {
 		return
 	}
-	presence, err := nativeworker.ParsePresence(document, MaxBodyBytes)
+	parse := nativeworker.ParsePresence
+	if v2 {
+		parse = nativeworker.ParseV2Presence
+	}
+	presence, err := parse(document, MaxBodyBytes)
 	if err != nil {
 		fail(w, http.StatusBadRequest, "INVALID_REQUEST")
 		return
 	}
 	qualified := bytes.Equal(presence.QualificationEvidence, identity.QualificationEvidence)
-	observedAt, err := handler.store.RecordNativeWorkerPresence(
-		r.Context(),
-		NativeWorkerPresenceRecord{
-			WorkerID: identity.WorkerID, ObservedDocument: append(json.RawMessage(nil), document...),
-			Availability: presence.Availability, Qualified: qualified,
-			AuthorizedToAcquire: identity.AuthorizedToAcquire,
-		},
-	)
+	authorizedToAcquire := identity.AuthorizedToAcquire && !v2
+	record := NativeWorkerPresenceRecord{
+		WorkerID: identity.WorkerID, ObservedDocument: append(json.RawMessage(nil), document...),
+		Availability: presence.Availability, Qualified: qualified,
+		AuthorizedToAcquire: authorizedToAcquire,
+	}
+	recordPresence := handler.store.RecordNativeWorkerPresence
+	if v2 {
+		recordPresence = handler.store.RecordNativeWorkerV2Presence
+	}
+	observedAt, err := recordPresence(r.Context(), record)
 	if err != nil {
 		failNativeWorkerRepository(w, err)
 		return
@@ -246,7 +261,7 @@ func (handler *NativeWorkerHandler) reportPresence(
 	writeJSON(w, http.StatusOK, workerPresenceStatus{
 		WorkerID: identity.WorkerID, ServerTime: observedAt,
 		NextHeartbeat: nativeWorkerHeartbeat, Availability: presence.Availability,
-		Qualification: decision, AuthorizedToAcquire: identity.AuthorizedToAcquire,
+		Qualification: decision, AuthorizedToAcquire: authorizedToAcquire,
 	})
 }
 

@@ -66,8 +66,9 @@ coordination, not load generation or statistical decisions.
 - Complete inert composition of the authenticated HTTP and reconciliation runtime.
 - Signal-aware process entry point with structured, value-free lifecycle reporting.
 - Unauthenticated liveness/readiness endpoints and fixed-cardinality Prometheus metrics.
-- Independently authenticated Native Worker presence with strict contract
-  validation, server-owned qualification and durable last-seen PostgreSQL state.
+- Independently authenticated v1 and v2 Native Worker presence with strict
+  contract validation, server-owned qualification and generation-isolated
+  last-seen PostgreSQL state.
 - Authenticated native lease acquisition with reviewed capability matching,
   database-fenced ownership and header-only bearer capability delivery.
 - Database-fenced native lease renewal with monotonic phase progression and
@@ -385,16 +386,17 @@ presence, acquisition requests, complete leases and recipes, and renewal
 responses. Conditional cache/reuse and cancellation rules and ordered artifact
 slots are enforced. The registry can now resolve a complete, reviewed v2
 baseline recipe from an optional `nativeBaseline` template and immutable Run
-context; the v1 lease path excludes those entries. Resolution alone neither
-issues a v2 lease nor enables a v2 endpoint. The deployed Native Worker API
-remains v1 until durable lease identity and worker lifecycle are composed.
+context; the v1 lease path excludes those entries. The authenticated v2
+presence endpoint records qualification separately from v1. It does not issue
+v2 leases; acquisition and lease-scoped operations remain v1 until durable v2
+lease identity and worker lifecycle are composed.
 
 Review contract updates explicitly, refresh the snapshot and checksums, and
 rerun tests. The current runtime validator implements only the schema features
 reached by CreateRun, CreateBaseline, BaselineTransition, the v1 Native Worker
 operations and the pinned v2 presence, acquisition, lease, recipe and renewal
 shapes, not arbitrary JSON Schema. The authenticated
-`/native-worker/v1/presence`,
+`/native-worker/v1/presence`, `/native-worker/v2/presence`,
 `/native-worker/v1/leases`, `/native-worker/v1/leases/{leaseId}/renew` and
 `/native-worker/v1/leases/{leaseId}/release`, and
 `/native-worker/v1/leases/{leaseId}/upload-grants` and

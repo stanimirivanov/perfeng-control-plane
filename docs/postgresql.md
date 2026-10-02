@@ -27,6 +27,7 @@ runners do not write these tables directly.
 | kubernetes_executions | Immutable Job UID and specification identity per Run |
 | baselines | Principal-owned baseline versions and lifecycle snapshots |
 | native_worker_presence | Last authenticated capability and qualification report per native worker |
+| native_worker_presence_v2 | Latest authenticated v2 capability and qualification report, isolated from v1 scheduling |
 | native_execution_leases | Current fenced native attempt, reviewed plan and hashed lease capability per Run |
 | native_upload_grants | Durable non-secret declaration and exact object identity per native attempt and slot |
 | native_artifacts | Server-issued identity and verified location for an accepted native upload grant |
@@ -98,6 +99,7 @@ GRANT SELECT, INSERT, UPDATE ON perfeng_control.create_bindings TO perfeng_runti
 GRANT SELECT, INSERT ON perfeng_control.artifacts TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.baselines TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.native_worker_presence TO perfeng_runtime;
+GRANT SELECT, INSERT, UPDATE ON perfeng_control.native_worker_presence_v2 TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.native_execution_leases TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.native_upload_grants TO perfeng_runtime;
 GRANT SELECT, INSERT ON perfeng_control.native_artifacts TO perfeng_runtime;
@@ -121,6 +123,11 @@ identities, and migration 0011 adds the first accepted native terminal outcome;
 both are additive empty-table migrations. Migration 0012 widens the native
 artifact format check to accept canonical Native Worker API values such as
 `playwright-measurements/v2` and `raw-result/v2`.
+Migration 0013 adds the empty v2 presence table without changing existing v1
+rows or constraints. The old binary ignores it; the new binary's v1 lease path
+continues to use only the v1 table. The v2 table constrains
+`authorized_to_acquire` to false until a later reviewed migration enables v2
+leasing.
 See [worker-claim semantics](reconciliation.md).
 
 Provision that role/login through infrastructure; the migration does not create

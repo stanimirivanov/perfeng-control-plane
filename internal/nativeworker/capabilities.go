@@ -36,11 +36,25 @@ type Presence struct {
 // ParsePresence validates and decodes one bounded Native Worker API v1
 // presence document.
 func ParsePresence(document []byte, maximumBytes int) (Presence, error) {
+	return parsePresence(document, maximumBytes, contract.ValidateWorkerPresence)
+}
+
+// ParseV2Presence validates and decodes one bounded Native Worker API v2
+// presence document without interpreting it as a v1 scheduling report.
+func ParseV2Presence(document []byte, maximumBytes int) (Presence, error) {
+	return parsePresence(document, maximumBytes, contract.ValidateNativeWorkerV2Presence)
+}
+
+func parsePresence(
+	document []byte,
+	maximumBytes int,
+	validate func(any) error,
+) (Presence, error) {
 	if !jsondocument.Valid(document, maximumBytes) {
 		return Presence{}, run.ErrValidation
 	}
 	var value any
-	if !jsondocument.Decode(document, &value) || contract.ValidateWorkerPresence(value) != nil {
+	if !jsondocument.Decode(document, &value) || validate(value) != nil {
 		return Presence{}, run.ErrValidation
 	}
 	var presence Presence

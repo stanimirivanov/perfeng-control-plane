@@ -106,6 +106,15 @@ using PostgreSQL time. The initial policy requests another heartbeat after 30
 seconds and qualifies matching evidence for two minutes. These values are
 server-owned; the worker cannot extend them.
 
+`POST /native-worker/v2/presence` uses the pinned v2 presence shape and the
+same worker-audience authentication and server-owned qualification decision.
+It records the latest report in a separate table, leaving v1 presence and v1
+lease selection unchanged. A qualified, AVAILABLE v2 report does not yet make
+the worker eligible for a v2 lease: `authorizedToAcquire` remains false and no
+v2 acquisition endpoint is enabled.
+The returned heartbeat and qualification timing remain server-owned.
+Apply migration 0013 before deploying a binary that serves the v2 route.
+
 `POST /native-worker/v1/leases` accepts the pinned protocol version and a
 bounded `maxWaitSeconds` hint. This initial implementation responds immediately:
 `200` returns one compatible durable lease and places its one-time plaintext
