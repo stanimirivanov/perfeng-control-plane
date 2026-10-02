@@ -1,0 +1,27 @@
+{
+  "protocolVersion": 2,
+  "agentVersion": "1.0.0",
+  "availability": "AVAILABLE",
+  "capabilities": {
+    "capacity": 1,
+    "tool": "playwright",
+    "operatingSystem": "windows",
+    "architecture": "x64",
+    "browsers": ["chromium"],
+    "runnerContract": 2,
+    "executionArtifacts": ["source-checkout"],
+    "artifactKinds": ["measurements", "manifest"],
+    "diagnosticModes": ["baseline"]
+  },
+  "qualificationEvidence": {
+    "environmentId": "windows-mainstream",
+    "environmentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "runner": {
+      "kind": "source-checkout",
+      "repository": "https://example.invalid/perfeng-playwright.git",
+      "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "lockfile": "pnpm-lock.yaml",
+      "lockfileSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  }
+}

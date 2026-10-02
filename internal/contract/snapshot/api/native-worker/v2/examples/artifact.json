@@ -1,0 +1,12 @@
+{
+  "artifactId": "33333333-3333-4333-8333-333333333333",
+  "runId": "perf-20260918-120000-a1b2c3d4",
+  "attemptId": "22222222-2222-4222-8222-222222222222",
+  "slot": "measurements",
+  "kind": "measurements",
+  "uri": "s3://perfeng/runs/perf-20260918-120000-a1b2c3d4/attempts/22222222-2222-4222-8222-222222222222/measurements",
+  "size": 4096,
+  "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "mediaType": "application/json",
+  "registeredAt": "2026-09-18T12:01:15Z"
+}
