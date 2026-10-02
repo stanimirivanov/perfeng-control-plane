@@ -1,0 +1,108 @@
+[
+  {
+    "operationId": "reportWorkerPresence",
+    "status": 200,
+    "request": "presence",
+    "response": "presence-status"
+  },
+  {
+    "operationId": "acquireNativeLease",
+    "status": 200,
+    "request": "acquire",
+    "response": "lease",
+    "headers": {
+      "X-Perfeng-Lease": "example-not-a-real-lease-capability-0001"
+    }
+  },
+  {
+    "operationId": "acquireNativeLease",
+    "status": 204,
+    "request": "acquire",
+    "headers": {
+      "Retry-After": 15
+    }
+  },
+  {
+    "operationId": "renewNativeLease",
+    "status": 200,
+    "pathParameters": {
+      "leaseId": "11111111-1111-4111-8111-111111111111"
+    },
+    "requestHeaders": {
+      "X-Perfeng-Lease": "example-not-a-real-lease-capability-0001"
+    },
+    "request": "renew",
+    "response": "renewal"
+  },
+  {
+    "operationId": "renewNativeLease",
+    "status": 410,
+    "pathParameters": {
+      "leaseId": "11111111-1111-4111-8111-111111111111"
+    },
+    "requestHeaders": {
+      "X-Perfeng-Lease": "example-not-a-real-lease-capability-0001"
+    },
+    "request": "renew",
+    "response": "lease-gone-error"
+  },
+  {
+    "operationId": "releaseNativeLease",
+    "status": 204,
+    "pathParameters": {
+      "leaseId": "11111111-1111-4111-8111-111111111111"
+    },
+    "requestHeaders": {
+      "X-Perfeng-Lease": "example-not-a-real-lease-capability-0001"
+    },
+    "request": "release"
+  },
+  {
+    "operationId": "createNativeUploadGrant",
+    "status": 201,
+    "pathParameters": {
+      "leaseId": "11111111-1111-4111-8111-111111111111"
+    },
+    "requestHeaders": {
+      "X-Perfeng-Lease": "example-not-a-real-lease-capability-0001"
+    },
+    "request": "upload-request",
+    "response": "upload-grant"
+  },
+  {
+    "operationId": "registerNativeArtifact",
+    "status": 201,
+    "pathParameters": {
+      "leaseId": "11111111-1111-4111-8111-111111111111"
+    },
+    "requestHeaders": {
+      "X-Perfeng-Lease": "example-not-a-real-lease-capability-0001"
+    },
+    "request": "register-artifact",
+    "response": "artifact"
+  },
+  {
+    "operationId": "reportNativeTerminal",
+    "status": 200,
+    "pathParameters": {
+      "leaseId": "11111111-1111-4111-8111-111111111111"
+    },
+    "requestHeaders": {
+      "X-Perfeng-Lease": "example-not-a-real-lease-capability-0001"
+    },
+    "request": "terminal-completed",
+    "response": "terminal-ack"
+  },
+  {
+    "operationId": "reportNativeTerminal",
+    "status": 200,
+    "pathParameters": {
+      "leaseId": "11111111-1111-4111-8111-111111111111"
+    },
+    "requestHeaders": {
+      "X-Perfeng-Lease": "example-not-a-real-lease-capability-0001"
+    },
+    "request": "terminal-completed",
+    "response": "terminal-ack-duplicate"
+  }
+]

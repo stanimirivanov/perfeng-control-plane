@@ -2,6 +2,7 @@
 package contract
 
 import (
+	"bytes"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -30,7 +31,12 @@ type schema struct {
 	AdditionalProperties *bool             `json:"additionalProperties"`
 	AllOf                []schema          `json:"allOf"`
 	OneOf                []schema          `json:"oneOf"`
-	Items                *schema           `json:"items"`
+	Items                json.RawMessage   `json:"items"`
+	PrefixItems          []schema          `json:"prefixItems"`
+	If                   *schema           `json:"if"`
+	Then                 *schema           `json:"then"`
+	Else                 *schema           `json:"else"`
+	Not                  *schema           `json:"not"`
 	MinLength            *int              `json:"minLength"`
 	MaxLength            *int              `json:"maxLength"`
 	Minimum              *float64          `json:"minimum"`
@@ -39,10 +45,13 @@ type schema struct {
 	MaxItems             *int              `json:"maxItems"`
 	UniqueItems          bool              `json:"uniqueItems"`
 	pattern              *regexp.Regexp
+	itemsSchema          *schema
+	itemsForbidden       bool
 }
 
 var schemas map[string]schema
 var nativeWorkerSchemas map[string]schema
+var nativeWorkerV2Schemas map[string]schema
 var transitions map[string][]string
 
 func init() {
@@ -79,6 +88,19 @@ func init() {
 		nativeWorkerDocument.Components.Schemas,
 		"WorkerPresence", "AcquireLease", "RenewLease", "ReleaseLease", "UploadGrantRequest",
 		"RegisterArtifact", "TerminalReport", "TerminalAck",
+	)
+	if err != nil {
+		panic(err)
+	}
+	var nativeWorkerV2Document struct {
+		Components struct {
+			Schemas map[string]schema `json:"schemas"`
+		} `json:"components"`
+	}
+	read("api/native-worker/v2/openapi.json", &nativeWorkerV2Document)
+	nativeWorkerV2Schemas, err = prepareSchemas(
+		nativeWorkerV2Document.Components.Schemas,
+		"WorkerPresence", "AcquireLease", "Lease", "ExecutionRecipe", "LeaseRenewal",
 	)
 	if err != nil {
 		panic(err)
@@ -137,12 +159,37 @@ func compilePatterns(definition schema) (schema, error) {
 		}
 		definition.OneOf[index] = compiled
 	}
-	if definition.Items != nil {
-		compiled, err := compilePatterns(*definition.Items)
-		if err != nil {
-			return schema{}, fmt.Errorf("items: %w", err)
+	if len(definition.Items) != 0 {
+		if bytes.Equal(bytes.TrimSpace(definition.Items), []byte("false")) {
+			definition.itemsForbidden = true
+		} else {
+			var item schema
+			if err := json.Unmarshal(definition.Items, &item); err != nil {
+				return schema{}, fmt.Errorf("items: %w", err)
+			}
+			compiled, err := compilePatterns(item)
+			if err != nil {
+				return schema{}, fmt.Errorf("items: %w", err)
+			}
+			definition.itemsSchema = &compiled
 		}
-		definition.Items = &compiled
+	}
+	for index, child := range definition.PrefixItems {
+		compiled, err := compilePatterns(child)
+		if err != nil {
+			return schema{}, fmt.Errorf("prefixItems: %w", err)
+		}
+		definition.PrefixItems[index] = compiled
+	}
+	for _, child := range []*schema{definition.If, definition.Then, definition.Else, definition.Not} {
+		if child == nil {
+			continue
+		}
+		compiled, err := compilePatterns(*child)
+		if err != nil {
+			return schema{}, err
+		}
+		*child = compiled
 	}
 
 	return definition, nil
@@ -176,9 +223,21 @@ func validateSupportedSchema(
 			return err
 		}
 	}
-	if definition.Items != nil {
-		if err := validateSupportedSchema(*definition.Items, all, visited); err != nil {
+	if definition.itemsSchema != nil {
+		if err := validateSupportedSchema(*definition.itemsSchema, all, visited); err != nil {
 			return fmt.Errorf("items: %w", err)
+		}
+	}
+	for _, child := range definition.PrefixItems {
+		if err := validateSupportedSchema(child, all, visited); err != nil {
+			return fmt.Errorf("prefixItems: %w", err)
+		}
+	}
+	for _, child := range []*schema{definition.If, definition.Then, definition.Else, definition.Not} {
+		if child != nil {
+			if err := validateSupportedSchema(*child, all, visited); err != nil {
+				return err
+			}
 		}
 	}
 	if definition.Ref != "" {
@@ -192,9 +251,13 @@ func validateSupportedSchema(
 
 	switch definition.Type {
 	case "object", "":
-		if definition.Type == "" && len(definition.Properties) == 0 {
+		if definition.Type == "" && len(definition.Properties) == 0 &&
+			len(definition.Required) == 0 && definition.AdditionalProperties == nil {
 			if definition.Const == nil && len(definition.Enum) == 0 &&
-				len(definition.AllOf) == 0 && len(definition.OneOf) == 0 {
+				len(definition.AllOf) == 0 && len(definition.OneOf) == 0 &&
+				definition.If == nil && definition.Not == nil &&
+				len(definition.Items) == 0 && len(definition.PrefixItems) == 0 &&
+				definition.MinItems == nil && definition.MaxItems == nil {
 				return fmt.Errorf("unsupported empty schema")
 			}
 
@@ -241,6 +304,34 @@ func ValidateWorkerPresence(value any) error {
 // Worker API v1 AcquireLease schema.
 func ValidateAcquireLease(value any) error {
 	return validateWithSchemas(nativeWorkerSchemas["AcquireLease"], value, nativeWorkerSchemas)
+}
+
+// ValidateNativeWorkerV2Presence checks the candidate v2 presence document.
+// It does not make the server's qualification or authorization decision.
+func ValidateNativeWorkerV2Presence(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["WorkerPresence"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2AcquireLease checks a candidate v2 acquisition request.
+func ValidateNativeWorkerV2AcquireLease(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["AcquireLease"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2Lease checks a candidate v2 lease including its closed
+// execution recipe and ordered artifact plan.
+func ValidateNativeWorkerV2Lease(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["Lease"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2ExecutionRecipe checks the candidate v2 recipe shape.
+func ValidateNativeWorkerV2ExecutionRecipe(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["ExecutionRecipe"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2LeaseRenewal checks cancellation and stop-deadline
+// consistency in a candidate v2 renewal response.
+func ValidateNativeWorkerV2LeaseRenewal(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["LeaseRenewal"], value, nativeWorkerV2Schemas)
 }
 
 // ValidateRenewLease checks a decoded value against the pinned Native Worker
@@ -338,6 +429,20 @@ func validateWithSchemas(s schema, value any, all map[string]schema) error {
 			return fmt.Errorf("expected exactly one matching schema")
 		}
 	}
+	if s.If != nil {
+		branch := s.Else
+		if validateWithSchemas(*s.If, value, all) == nil {
+			branch = s.Then
+		}
+		if branch != nil {
+			if err := validateWithSchemas(*branch, value, all); err != nil {
+				return err
+			}
+		}
+	}
+	if s.Not != nil && validateWithSchemas(*s.Not, value, all) == nil {
+		return fmt.Errorf("excluded value")
+	}
 	if s.Ref != "" {
 		name, ok := schemaReference(s.Ref)
 		if !ok {
@@ -361,11 +466,19 @@ func validateWithSchemas(s schema, value any, all map[string]schema) error {
 
 		return nil
 	}
-	switch s.Type {
-	case "object", "":
-		if s.Type == "" && len(s.Properties) == 0 {
+	kind := s.Type
+	if kind == "" {
+		switch {
+		case len(s.Properties) > 0 || len(s.Required) > 0 || s.AdditionalProperties != nil:
+			kind = "object"
+		case s.MinItems != nil || s.MaxItems != nil || len(s.PrefixItems) > 0 || len(s.Items) > 0:
+			kind = "array"
+		default:
 			return nil
 		}
+	}
+	switch kind {
+	case "object":
 		object, ok := value.(map[string]any)
 		if !ok {
 			return fmt.Errorf("expected object")
@@ -436,9 +549,15 @@ func validateWithSchemas(s schema, value any, all map[string]schema) error {
 			return fmt.Errorf("too many items")
 		}
 		seen := make(map[string]struct{}, len(array))
-		for _, item := range array {
-			if s.Items != nil {
-				if err := validateWithSchemas(*s.Items, item, all); err != nil {
+		for index, item := range array {
+			if index < len(s.PrefixItems) {
+				if err := validateWithSchemas(s.PrefixItems[index], item, all); err != nil {
+					return err
+				}
+			} else if s.itemsForbidden {
+				return fmt.Errorf("additional item")
+			} else if s.itemsSchema != nil {
+				if err := validateWithSchemas(*s.itemsSchema, item, all); err != nil {
 					return err
 				}
 			}

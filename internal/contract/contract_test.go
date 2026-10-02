@@ -17,18 +17,24 @@ func TestPinnedSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	var lock struct {
-		Commit                  string
-		BundleVersion           string
-		RunManagementAPIVersion string
-		NativeWorkerAPIVersion  string
-		SHA256                  map[string]string
+		Commit                      string
+		BundleVersion               string
+		RunManagementAPIVersion     string
+		NativeWorkerAPIVersion      string
+		NativeWorkerV2Commit        string
+		NativeWorkerV2BundleVersion string
+		NativeWorkerV2ApiVersion    string
+		SHA256                      map[string]string
 	}
 	if err := json.Unmarshal(b, &lock); err != nil {
 		t.Fatal(err)
 	}
 	if lock.Commit != "be847a4c7c0ad22c799389410a8c234d5492abc3" ||
 		lock.BundleVersion != "0.17.0" || lock.RunManagementAPIVersion != "0.4.0" ||
-		lock.NativeWorkerAPIVersion != "1.0.0" || len(lock.SHA256) != 37 {
+		lock.NativeWorkerAPIVersion != "1.0.0" ||
+		lock.NativeWorkerV2Commit != "a019d8fa3f473b0dce1650208fadfe47e959ab6d" ||
+		lock.NativeWorkerV2BundleVersion != "0.18.0" ||
+		lock.NativeWorkerV2ApiVersion != "2.0.0" || len(lock.SHA256) != 70 {
 		t.Fatal("unexpected contract provenance")
 	}
 	actualFiles := make(map[string]struct{}, len(lock.SHA256))

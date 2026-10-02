@@ -378,11 +378,20 @@ snapshot file, and tests reject undeclared or absent files. There is no
 sibling-checkout or network dependency at build, test or runtime. Imported
 contract content is Apache-2.0, as in this repository.
 
+The lock separately pins the complete candidate Native Worker API v2 snapshot
+from perfeng-contracts commit `a019d8fa3f473b0dce1650208fadfe47e959ab6d`
+(bundle 0.18.0, API 2.0.0). Its runtime contract boundary validates v2
+presence, acquisition requests, complete leases and recipes, and renewal
+responses. Conditional cache/reuse and cancellation rules and ordered artifact
+slots are enforced; validation alone neither issues a v2 lease nor enables a
+v2 endpoint. The deployed Native Worker API remains v1 until reviewed recipe
+resolution, durable lease identity and worker lifecycle are composed.
+
 Review contract updates explicitly, refresh the snapshot and checksums, and
 rerun tests. The current runtime validator implements only the schema features
-reached by CreateRun, CreateBaseline, BaselineTransition, WorkerPresence,
-AcquireLease, RenewLease, ReleaseLease, UploadGrantRequest, RegisterArtifact,
-TerminalReport and TerminalAck, not arbitrary JSON Schema. The authenticated
+reached by CreateRun, CreateBaseline, BaselineTransition, the v1 Native Worker
+operations and the pinned v2 presence, acquisition, lease, recipe and renewal
+shapes, not arbitrary JSON Schema. The authenticated
 `/native-worker/v1/presence`,
 `/native-worker/v1/leases`, `/native-worker/v1/leases/{leaseId}/renew` and
 `/native-worker/v1/leases/{leaseId}/release`, and

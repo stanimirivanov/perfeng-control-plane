@@ -1,0 +1,21 @@
+{
+  "schema": "ExecutionRecipe",
+  "value": {
+    "journeyId": "search",
+    "workloadVersion": "1.0.0",
+    "workloadSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "scenario": {
+      "cacheProfile": "cold", "pageReuse": "per-iteration",
+      "warmupIterations": 1, "measurementIterations": 5
+    },
+    "environment": {
+      "profileId": "windows-mainstream", "profileVersion": "1.0.0",
+      "fingerprint": "9999999999999999999999999999999999999999999999999999999999999999",
+      "evidenceSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "browserSettings": {
+      "headless": false, "viewport": {"width": 0, "height": 768},
+      "deviceScaleFactor": 1
+    }
+  }
+}
