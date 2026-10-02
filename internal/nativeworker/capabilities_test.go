@@ -59,6 +59,34 @@ func TestParsePresenceRejectsInvalidDocuments(t *testing.T) {
 	}
 }
 
+func TestParseV2PresenceKeepsProtocolGenerationsDistinct(t *testing.T) {
+	v2, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/presence.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	presence, err := ParseV2Presence(v2, len(v2))
+	if err != nil || presence.ProtocolVersion != 2 ||
+		presence.Capabilities.RunnerContract != 2 || presence.Availability != "AVAILABLE" {
+		t.Fatalf("v2 presence = %#v, err = %v", presence, err)
+	}
+	if bytes.Contains(presence.QualificationEvidence, []byte("\n")) {
+		t.Fatal("v2 qualification evidence is not canonical")
+	}
+	if _, err := ParsePresence(v2, len(v2)); err == nil {
+		t.Fatal("v2 presence accepted as v1")
+	}
+	v1, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/presence.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ParseV2Presence(v1, len(v1)); err == nil {
+		t.Fatal("v1 presence accepted as v2")
+	}
+	if _, err := ParseV2Presence(v2, len(v2)-1); err == nil {
+		t.Fatal("oversized v2 presence accepted")
+	}
+}
+
 func TestCapabilitiesSupportEveryReviewedPlanRequirement(t *testing.T) {
 	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/presence.json")
 	if err != nil {

@@ -83,3 +83,4 @@ How will assumptions and consequences be verified?
 | ADR | Decision | Status |
 |:--|:--|:--|
 | [0001](0001-use-expiring-native-lease-capabilities.md) | Use expiring capabilities for native execution ownership | Accepted |
+| [0002](0002-isolate-native-worker-presence-by-api-generation.md) | Isolate Native Worker presence by API generation | Proposed |
