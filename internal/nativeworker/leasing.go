@@ -178,6 +178,9 @@ func (acquirer *Acquirer) Acquire(
 			return Lease{}, false, run.ErrValidation
 		}
 		plan, err := acquirer.resolver.ResolveNativePlan(ctx, candidate.Principal, candidate.Run)
+		if errors.Is(err, run.ErrForbidden) {
+			continue
+		}
 		if err != nil {
 			return Lease{}, false, err
 		}

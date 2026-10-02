@@ -33,6 +33,8 @@ Each entry binds exact policy bytes to:
   raw-producer image;
 - for native execution, one assignment template containing the reviewed HTTPS
   target, browser, diagnostic mode and bounded artifact slots;
+- optionally, for a v2 baseline browser Run, a reviewed measurement recipe
+  template with qualified Windows-host evidence and rendering settings;
 - one digest-pinned report producer;
 - one or more digest-pinned candidate images; and
 - one or more authorized principals.
@@ -79,6 +81,24 @@ environment and raw execution-artifact identities. The resulting value matches
 the Native Worker API v1 lease `assignment` and `artifactPlan` shapes and is
 returned as an isolated copy. It does not acquire a lease, inspect worker claims
 or accept assignment values from the Run caller.
+
+A native entry may additionally declare `nativeBaseline` when it uses contracts
+bundle 0.18.0 and a Playwright source checkout. Construction validates the
+cache/reuse and iteration policy, qualified host profile
+ID/version/fingerprint/evidence digest, browser viewport and scale, and the two
+artifact limits. The HTTPS target remains owned by the native assignment.
+`ResolveNativeBaselinePlan` then combines that template with the immutable Run,
+workload and producer identities to form the complete Native Worker v2 baseline
+recipe: Chromium, search journey, baseline mode, and ordered measurements/v2
+and raw-result/v2 slots. The Run's environment ID identifies the SUT; the
+recipe's qualified host profile identifies the Windows execution environment.
+These are deliberately different identities. The result is an isolated copy,
+validated against the pinned v2 lease contract in tests.
+
+An entry with `nativeBaseline` is ineligible for the v1 plan resolver and v1
+lease acquisition skips it. This prevents a v1 lease from silently discarding
+the reviewed v2 recipe. Plan resolution does not persist or issue a v2 lease,
+and this registry change does not expose a v2 worker endpoint.
 
 The native-worker domain decodes authenticated presence documents through the
 pinned contract and compares their capabilities with a resolved plan. A match
@@ -141,6 +161,9 @@ one relative manifest path. The manifest has `schemaVersion: 1` and a non-empty
 - `normalization` contains `sourceFormat` and `layout`. k6 summary sources require
   a reviewed typed or legacy-export layout; Playwright measurements/v2 and
   kube-burner pod-latency sources require an empty layout.
+
+Native entries may include the optional `nativeBaseline` object described above;
+entries without it retain the v1 native-worker behavior.
 
 The loader bounds the manifest to 4 MiB and each referenced policy or Job to
 1 MiB. JSON must use UTF-8, unique keys, known fields and no more than the shared
