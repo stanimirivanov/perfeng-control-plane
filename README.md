@@ -383,9 +383,11 @@ from perfeng-contracts commit `a019d8fa3f473b0dce1650208fadfe47e959ab6d`
 (bundle 0.18.0, API 2.0.0). Its runtime contract boundary validates v2
 presence, acquisition requests, complete leases and recipes, and renewal
 responses. Conditional cache/reuse and cancellation rules and ordered artifact
-slots are enforced; validation alone neither issues a v2 lease nor enables a
-v2 endpoint. The deployed Native Worker API remains v1 until reviewed recipe
-resolution, durable lease identity and worker lifecycle are composed.
+slots are enforced. The registry can now resolve a complete, reviewed v2
+baseline recipe from an optional `nativeBaseline` template and immutable Run
+context; the v1 lease path excludes those entries. Resolution alone neither
+issues a v2 lease nor enables a v2 endpoint. The deployed Native Worker API
+remains v1 until durable lease identity and worker lifecycle are composed.
 
 Review contract updates explicitly, refresh the snapshot and checksums, and
 rerun tests. The current runtime validator implements only the schema features

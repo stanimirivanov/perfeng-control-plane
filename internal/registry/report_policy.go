@@ -32,6 +32,7 @@ type ReportPolicyEntry struct {
 	ReportProducer     rawresult.Producer
 	ExecutionTemplate  *batchv1.Job
 	NativeAssignment   *nativeworker.AssignmentTemplate
+	NativeBaseline     *nativeworker.BaselineTemplate
 	Workload           rawresult.Identity
 	Environment        baseline.Environment
 	Dataset            baseline.Dataset
@@ -65,6 +66,7 @@ type reportPolicyValue struct {
 	executionTemplate  *batchv1.Job
 	executionTarget    run.ExecutionTarget
 	nativeAssignment   *nativeworker.AssignmentTemplate
+	nativeBaseline     *nativeworker.BaselineTemplate
 	workload           rawresult.Identity
 	baselines          []baseline.Selection
 	candidates         map[string]struct{}
@@ -114,11 +116,12 @@ func (registry *ReportPolicyRegistry) ValidateContractsVersion(version string) e
 func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 	executionTarget, validExecution := classifyExecution(entry.RawProducer, entry.ExecutionTemplate)
 	validAssignment := validNativeAssignment(executionTarget, entry.RawProducer, entry.NativeAssignment)
+	validBaseline := validNativeBaseline(executionTarget, entry)
 	document, err := policy.Parse(entry.PolicyBytes)
 	if err != nil || !rawresult.ValidResourceID(entry.TestID) ||
 		!rawresult.ValidContractsVersion(entry.ContractsVersion) ||
 		!validReference(entry.Catalogue) || !rawresult.ValidResourceID(entry.Profile) ||
-		!validExecution || !validAssignment ||
+		!validExecution || !validAssignment || !validBaseline ||
 		entry.NormalizerProducer.Validate() != nil ||
 		entry.Normalization.Validate() != nil ||
 		entry.ReportProducer.Validate() != nil ||
@@ -185,6 +188,7 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 			executionTemplate:  cloneJob(entry.ExecutionTemplate),
 			executionTarget:    executionTarget,
 			nativeAssignment:   cloneNativeAssignment(entry.NativeAssignment),
+			nativeBaseline:     cloneNativeBaseline(entry.NativeBaseline),
 			workload:           entry.Workload,
 			baselines:          cloneSelections(baselines),
 			candidates:         cloneSet(candidates),
@@ -211,7 +215,8 @@ func (registry *ReportPolicyRegistry) ResolveNativePlan(
 
 	entry, exists := registry.lookup(principal, current.Request)
 	if !exists || entry.executionTarget != run.ExecutionTargetNativeWindows ||
-		entry.nativeAssignment == nil || entry.rawProducer.Artifact == nil {
+		entry.nativeAssignment == nil || entry.nativeBaseline != nil ||
+		entry.rawProducer.Artifact == nil {
 		return nativeworker.Plan{}, run.ErrForbidden
 	}
 	if _, approved := entry.candidates[current.Request.Candidate.Image]; !approved {
@@ -522,6 +527,27 @@ func validNativeAssignment(
 	}
 
 	return assignment == nil
+}
+
+func validNativeBaseline(target run.ExecutionTarget, entry ReportPolicyEntry) bool {
+	if entry.NativeBaseline == nil {
+		return true
+	}
+	return target == run.ExecutionTargetNativeWindows &&
+		entry.ContractsVersion == nativeworker.BaselineContractsVersion &&
+		entry.NativeAssignment != nil &&
+		entry.RawProducer.Artifact != nil &&
+		entry.RawProducer.Artifact.Kind == "source-checkout" &&
+		entry.NativeBaseline.Validate() == nil
+}
+
+func cloneNativeBaseline(template *nativeworker.BaselineTemplate) *nativeworker.BaselineTemplate {
+	if template == nil {
+		return nil
+	}
+	clone := *template
+
+	return &clone
 }
 
 func cloneNativeAssignment(

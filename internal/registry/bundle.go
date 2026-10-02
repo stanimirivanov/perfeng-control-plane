@@ -38,6 +38,7 @@ type reportPolicyBundleEntry struct {
 	ReportProducer     rawresult.Producer               `json:"reportProducer"`
 	ExecutionTemplate  string                           `json:"executionTemplate,omitempty"`
 	NativeAssignment   *nativeworker.AssignmentTemplate `json:"nativeAssignment,omitempty"`
+	NativeBaseline     *nativeworker.BaselineTemplate   `json:"nativeBaseline,omitempty"`
 	Workload           rawresult.Identity               `json:"workload"`
 	Environment        baseline.Environment             `json:"environment"`
 	Dataset            baseline.Dataset                 `json:"dataset"`
@@ -101,6 +102,7 @@ func loadReportPolicyEntry(
 		},
 		ReportProducer: configured.ReportProducer, ExecutionTemplate: template,
 		NativeAssignment: configured.NativeAssignment,
+		NativeBaseline:   configured.NativeBaseline,
 		Workload:         configured.Workload, Environment: configured.Environment,
 		Dataset: configured.Dataset, CandidateImages: configured.CandidateImages,
 		Principals: configured.Principals,

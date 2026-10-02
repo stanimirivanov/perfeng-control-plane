@@ -153,6 +153,27 @@ func TestAcquirerTreatsIneligiblePresenceAsNoWork(t *testing.T) {
 	}
 }
 
+func TestAcquirerSkipsRunWithoutV1Plan(t *testing.T) {
+	store := &leaseStoreStub{
+		presence: nativePresenceObservation(t),
+		candidates: []Candidate{
+			{Principal: "alice", Run: run.Run{ID: "v2-only", State: run.StateCreated}},
+		},
+	}
+	acquirer, err := NewAcquirer(
+		store, planResolverStub{err: run.ErrForbidden},
+		2*time.Minute, 2*time.Minute, 40*time.Second, 10,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lease, acquired, err := acquirer.Acquire(context.Background(), "windows-laptop-01")
+	if err != nil || acquired || lease.LeaseID != "" || len(store.attempts) != 0 {
+		t.Fatalf("ineligible Run reached v1 leasing: lease=%#v acquired=%t attempts=%v err=%v",
+			lease, acquired, store.attempts, err)
+	}
+}
+
 func TestAcquirerReturnsResolverAndStorageFailures(t *testing.T) {
 	expected := errors.New("resolution failed")
 	store := &leaseStoreStub{
