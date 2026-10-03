@@ -95,14 +95,23 @@ func (capabilities Capabilities) Supports(plan Plan) bool {
 }
 
 func (capabilities Capabilities) valid() bool {
+	return capabilities.validForRunnerContract(1)
+}
+
+func (capabilities Capabilities) validForRunnerContract(version int) bool {
+	validMode := validDiagnosticMode
+	if version == 2 {
+		validMode = func(value string) bool { return value == "baseline" }
+	}
+
 	return capabilities.Capacity == 1 && capabilities.Tool == "playwright" &&
 		capabilities.OperatingSystem == "windows" &&
 		(capabilities.Architecture == "x64" || capabilities.Architecture == "arm64") &&
-		capabilities.RunnerContract == 1 &&
+		capabilities.RunnerContract == version &&
 		validSet(capabilities.Browsers, 1, 4, validBrowser) &&
 		validSet(capabilities.ExecutionArtifacts, 1, 2, validNativeArtifactKind) &&
 		validSet(capabilities.ArtifactKinds, 1, 16, rawresult.ValidResourceID) &&
-		validSet(capabilities.DiagnosticModes, 1, 8, validDiagnosticMode)
+		validSet(capabilities.DiagnosticModes, 1, 8, validMode)
 }
 
 func validNativeArtifactKind(value string) bool {
