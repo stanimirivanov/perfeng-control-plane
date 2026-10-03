@@ -163,3 +163,26 @@ func TestBaselinePlanRejectsChangedOutput(t *testing.T) {
 		})
 	}
 }
+
+func TestBaselinePlanMatchesOnlyReviewedArtifactSlots(t *testing.T) {
+	plan := baselinePlanFixture(t)
+	for _, expected := range plan.ArtifactPlan {
+		slot, matched := plan.MatchArtifactSlot(expected.Slot, expected.MediaType, expected.MaximumBytes)
+		if !matched || slot != expected {
+			t.Fatalf("reviewed slot %q = %#v, matched=%t", expected.Slot, slot, matched)
+		}
+		if _, matched := plan.MatchArtifactSlot(expected.Slot, expected.MediaType, expected.MaximumBytes+1); matched {
+			t.Fatalf("oversized %q artifact was accepted", expected.Slot)
+		}
+	}
+	if _, matched := plan.MatchArtifactSlot("trace", "application/json", 1); matched {
+		t.Fatal("unreviewed artifact slot was accepted")
+	}
+	if _, matched := plan.MatchArtifactSlot("measurements", "application/octet-stream", 1); matched {
+		t.Fatal("unreviewed artifact media type was accepted")
+	}
+	plan.ArtifactPlan[0].Format = "unknown/v1"
+	if _, matched := plan.MatchArtifactSlot("measurements", "application/json", 1); matched {
+		t.Fatal("invalid baseline plan was accepted")
+	}
+}
