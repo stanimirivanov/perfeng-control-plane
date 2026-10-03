@@ -28,13 +28,17 @@ and require cross-table coordination for capacity and recovery.
 Keep `native_execution_leases` as the shared, current Run authority. Migration
 0014 adds `protocol_version` with a v1 default for existing rows and old v1
 writers. Generated worker columns refer to the v1 or v2 presence table according
-to that version. The shared primary key, expiry and worker-capacity queries
-continue to arbitrate across generations. The storage write includes the
-protocol version, plan JSON and only a digest of the bearer capability.
+to that version. The shared primary key and expiry rules arbitrate Run ownership
+across generations. Both acquisition paths lock existing presence rows for the
+authenticated worker ID in v1-then-v2 order before the Run row; the shared
+worker-capacity query is safe only after that serialization. The storage write
+includes the protocol version, plan JSON and only a digest of the bearer
+capability.
 
-V1 mutation lookup accepts only v1 lease rows. This change does not authorize
-v2 presence, expose a v2 acquisition route, or let v1 handlers interpret a v2
-plan. Those changes require their own reviewed transaction and tests.
+V1 mutation lookup accepts only v1 lease rows. The v2 acquisition transaction
+uses the same authority, but the presence constraint does not authorize v2
+workers. No v2 acquisition route is exposed, and v1 handlers cannot interpret
+a v2 plan. Lease-scoped v2 mutations require separate review and tests.
 
 ## Alternatives considered
 
@@ -71,8 +75,9 @@ plan. Those changes require their own reviewed transaction and tests.
 
 ### Neutral or follow-up
 
-- The v2 presence gate remains false. Later work must add generation-aware
-  eligibility, plan matching and lease-scoped mutation paths before issuance.
+- The v2 presence gate remains false. Generation-aware selection and acquisition
+  can be exercised on a disposable database; later work must add lease-scoped
+  mutations before issuance is enabled.
 - Historical v1 terminal reports still reference v1 presence; v2 terminal
   reporting needs a separate compatible persistence change.
 
