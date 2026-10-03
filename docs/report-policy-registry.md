@@ -95,13 +95,23 @@ recipe's qualified host profile identifies the Windows execution environment.
 These are deliberately different identities. The result is an isolated copy,
 validated against the pinned v2 lease contract in tests.
 
+V2 baseline selection compares that reviewed plan with a contract-validated
+worker report. It requires runner contract 2, Windows/Playwright capacity one,
+the browser, baseline mode, execution transport and both artifact kinds. The
+reported qualification evidence must identify the reviewed host profile and
+evidence digest and the exact runner artifact revision and lockfile. A missing
+v2 registry entry is skipped; a registry failure is returned. Selection is
+advisory and does not establish freshness, worker authorization, Run ownership
+or lease capacity. Those remain storage decisions under locks; the v2
+acquisition gate and HTTP lease route remain disabled in this change.
+
 An entry with `nativeBaseline` is ineligible for the v1 plan resolver and v1
 lease acquisition skips it. This prevents a v1 lease from silently discarding
 the reviewed v2 recipe. Plan resolution does not persist or issue a v2 lease,
 and this registry change does not expose a v2 worker endpoint.
 
-The native-worker domain decodes authenticated presence documents through the
-pinned contract and compares their capabilities with a resolved plan. A match
+For v1, the native-worker domain decodes authenticated presence documents through
+the pinned contract and compares their capabilities with a resolved plan. A match
 requires the reported browser, diagnostic mode, execution-artifact transport
 and every planned artifact kind. Invalid capability values and invalid plans
 never match. Availability, freshness, qualification, authorization and capacity
