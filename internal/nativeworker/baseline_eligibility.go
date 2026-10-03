@@ -16,6 +16,7 @@ type BaselinePlanResolver interface {
 // BaselineSelection is an advisory candidate and reviewed plan. Lease issuance
 // must recheck both under storage locks; selection grants no worker authority.
 type BaselineSelection struct {
+	Index     int
 	Candidate Candidate
 	Plan      BaselinePlan
 }
@@ -35,7 +36,7 @@ func SelectBaselineCandidate(
 	if err := ctx.Err(); err != nil {
 		return BaselineSelection{}, false, err
 	}
-	for _, candidate := range candidates {
+	for index, candidate := range candidates {
 		if candidate.Principal == "" || candidate.Run.State != run.StateCreated {
 			return BaselineSelection{}, false, run.ErrValidation
 		}
@@ -47,7 +48,7 @@ func SelectBaselineCandidate(
 			return BaselineSelection{}, false, err
 		}
 		if presence.SupportsBaseline(plan) {
-			return BaselineSelection{Candidate: candidate, Plan: plan}, true, nil
+			return BaselineSelection{Index: index, Candidate: candidate, Plan: plan}, true, nil
 		}
 	}
 

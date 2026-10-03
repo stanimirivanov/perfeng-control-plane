@@ -102,8 +102,8 @@ reported qualification evidence must identify the reviewed host profile and
 evidence digest and the exact runner artifact revision and lockfile. A missing
 v2 registry entry is skipped; a registry failure is returned. Selection is
 advisory and does not establish freshness, worker authorization, Run ownership
-or lease capacity. Those remain storage decisions under locks; the v2
-acquisition gate and HTTP lease route remain disabled in this change.
+or lease capacity. The v2 storage transaction rechecks these under locks; the
+authorization gate and HTTP lease route remain disabled.
 
 An entry with `nativeBaseline` is ineligible for the v1 plan resolver and v1
 lease acquisition skips it. This prevents a v1 lease from silently discarding

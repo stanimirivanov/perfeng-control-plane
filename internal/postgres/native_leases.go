@@ -160,6 +160,9 @@ func (r *Repository) AcquireNativeLease(
 	}
 	defer tx.Rollback()
 
+	if err := lockNativeWorkerCapacity(ctx, tx, workerID); err != nil {
+		return nativeworker.Lease{}, false, err
+	}
 	observedAt, presence, eligible, err := lockNativeWorkerPresence(ctx, tx, workerID)
 	if err != nil {
 		return nativeworker.Lease{}, false, err
@@ -214,6 +217,29 @@ func (r *Repository) AcquireNativeLease(
 	}
 
 	return lease, true, nil
+}
+
+// lockNativeWorkerCapacity serializes acquisitions for one worker ID across
+// protocol generations before either transaction locks a Run. Both callers
+// acquire existing presence rows in the same v1-then-v2 order.
+func lockNativeWorkerCapacity(ctx context.Context, tx *sql.Tx, workerID string) error {
+	var lockedID string
+	err := tx.QueryRowContext(ctx, `
+		SELECT worker_id FROM perfeng_control.native_worker_presence
+		WHERE worker_id=$1 FOR UPDATE
+	`, workerID).Scan(&lockedID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return storageError(err)
+	}
+	err = tx.QueryRowContext(ctx, `
+		SELECT worker_id FROM perfeng_control.native_worker_presence_v2
+		WHERE worker_id=$1 FOR UPDATE
+	`, workerID).Scan(&lockedID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return storageError(err)
+	}
+
+	return nil
 }
 
 func validNativeLeaseRequest(

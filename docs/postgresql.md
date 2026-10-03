@@ -242,25 +242,31 @@ The ownership and capability model is proposed in
 [ADR-0001](decisions/0001-use-expiring-native-lease-capabilities.md).
 Native scheduling first reads one fresh, AVAILABLE, qualified and authorized
 presence observation, then resolves compatible reviewed plans outside database
-transactions. Final acquisition locks the worker row before the selected Run
-row and rechecks the exact presence timestamp, freshness, capabilities, worker
+transactions. Final acquisition locks the worker's existing v1 and v2 presence
+rows in that order before the selected Run row and rechecks the exact presence
+timestamp, freshness, capabilities, worker
 capacity, Run target/state/revision and competing Run ownership using the
 database clock. Registry resolution and all other external work remain outside
 the transaction.
 
-Native Worker API v1 capacity is one active lease per worker. Concurrent workers
+Native Worker capacity is one active lease per worker across both API generations.
+The common presence-row lock order serializes a worker reporting both protocols
+even when acquisitions target different Runs. Concurrent workers
 can consider the same Run, but the shared Run-row lock permits only one active
 lease. Expired rows are replaced with new lease and attempt UUIDs and new bearer
 authority, allowing crash recovery without preserving process-local state.
 Acquisition deliberately leaves the Run in CREATED: coordination metadata does
 not claim that preparation or execution has started, and an expired attempt can
-be planned again. Authenticated renewal owns those lifecycle transitions.
+be planned again. Authenticated renewal owns those lifecycle transitions. The
+v2 transaction is implemented but the database authorization gate remains
+closed until v2 renewal, release and terminal paths are ready; no v2 HTTP
+acquisition route is exposed yet.
 
 The worker receives a random lease capability once. PostgreSQL stores only its
 SHA-256 digest; JSON and diagnostic formatting exclude plaintext capability
 bytes. A commit failure has an uncertain outcome and does not return the
 capability. The possibly committed row becomes recoverable only after expiry.
-The authenticated acquisition HTTP operation composes this transaction with
+The v1 authenticated acquisition HTTP operation composes its transaction with
 reviewed plan resolution. It validates the complete returned lease before
 placing the plaintext capability only in `X-Perfeng-Lease`; no-work responses
 do not distinguish which eligibility condition was absent.
