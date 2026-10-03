@@ -28,7 +28,7 @@ const (
 	PhaseFinalizing Phase = "FINALIZING"
 )
 
-// Valid reports whether phase belongs to Native Worker API v1.
+// Valid reports whether phase belongs to Native Worker API v1 or v2.
 func (phase Phase) Valid() bool {
 	switch phase {
 	case PhasePreparing, PhaseRunning, PhaseUploading, PhaseFinalizing:
@@ -80,7 +80,7 @@ type Renewal struct {
 	StopBy                *time.Time `json:"stopBy,omitempty"`
 }
 
-// Valid checks a renewal response against Native Worker API v1 timing and
+// Valid checks a renewal response against Native Worker API timing and
 // cancellation invariants.
 func (renewal Renewal) Valid() bool {
 	ttl := renewal.ExpiresAt.Sub(renewal.ServerTime)

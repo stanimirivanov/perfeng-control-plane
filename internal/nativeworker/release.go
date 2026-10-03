@@ -25,7 +25,7 @@ const (
 	ReleasePreparationFailed ReleaseReason = "PREPARATION_FAILED"
 )
 
-// Valid reports whether reason belongs to Native Worker API v1.
+// Valid reports whether reason belongs to Native Worker API v1 or v2.
 func (reason ReleaseReason) Valid() bool {
 	switch reason {
 	case ReleaseCancellationRequested, ReleaseLeaseLost,
