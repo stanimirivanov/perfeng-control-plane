@@ -47,6 +47,50 @@ func reserveNativeArtifactForTest(
 	return lease, nativeArtifactRegistrationRequest(lease, reservation)
 }
 
+func insertOldStyleNativeUploadGrant(
+	t *testing.T,
+	repository *Repository,
+	lease nativeworker.Lease,
+) nativeworker.UploadReservation {
+	t.Helper()
+	request := nativeUploadRequest(lease)
+	slot, matched := lease.Plan.MatchArtifactSlot(request.Slot, request.MediaType, request.Size)
+	if !matched {
+		t.Fatal("old-style upload declaration does not match the lease plan")
+	}
+	grantID, err := newUUID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	checksum, err := hex.DecodeString(request.SHA256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reservation := nativeworker.UploadReservation{
+		GrantID: grantID, LeaseID: lease.LeaseID, AttemptID: lease.AttemptID,
+		RunID: lease.RunID, Slot: request.Slot,
+		ObjectKey: "runs/" + lease.RunID + "/attempts/" + lease.AttemptID + "/" + request.Slot,
+		Size:      request.Size, MaximumBytes: slot.MaximumBytes, SHA256: request.SHA256,
+		MediaType: request.MediaType, IssuedAt: lease.IssuedAt, ExpiresAt: lease.ExpiresAt,
+	}
+	if !reservation.Valid() {
+		t.Fatal("invalid old-style native upload grant fixture")
+	}
+	if _, err := repository.db.Exec(`
+		INSERT INTO perfeng_control.native_upload_grants(
+			grant_id,run_id,lease_id,attempt_id,slot,object_key,
+			declared_size,maximum_bytes,sha256,media_type,issued_at,expires_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+	`, reservation.GrantID, reservation.RunID, reservation.LeaseID,
+		reservation.AttemptID, reservation.Slot, reservation.ObjectKey,
+		reservation.Size, reservation.MaximumBytes, checksum, reservation.MediaType,
+		reservation.IssuedAt, reservation.ExpiresAt); err != nil {
+		t.Fatal(err)
+	}
+
+	return reservation
+}
+
 func TestNativeArtifactRegistrationPersistsVerifiedExactRetry(t *testing.T) {
 	repository := openTest(t, testDatabase(t))
 	if err := repository.Migrate(testContext); err != nil {
@@ -264,13 +308,11 @@ func TestNativeArtifactMigrationUpgrade(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	_, request := reserveNativeArtifactForTest(
-		t,
-		repository,
-		"alice",
-		"native-artifact-upgrade-0001",
-		"windows-laptop-01",
-	)
+	accepted := acceptNativeRun(t, repository, "alice", "native-artifact-upgrade-0001")
+	recordEligibleNativeWorker(t, repository, "windows-laptop-01")
+	lease := insertOldStyleNativeLease(t, repository, accepted, "windows-laptop-01")
+	reservation := insertOldStyleNativeUploadGrant(t, repository, lease)
+	request := nativeArtifactRegistrationRequest(lease, reservation)
 	if err := repository.Migrate(testContext); err != nil {
 		t.Fatal(err)
 	}

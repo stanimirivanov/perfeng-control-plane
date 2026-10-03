@@ -28,7 +28,7 @@ runners do not write these tables directly.
 | baselines | Principal-owned baseline versions and lifecycle snapshots |
 | native_worker_presence | Last authenticated capability and qualification report per native worker |
 | native_worker_presence_v2 | Latest authenticated v2 capability and qualification report, isolated from v1 scheduling |
-| native_execution_leases | Current fenced native attempt, reviewed plan and hashed lease capability per Run |
+| native_execution_leases | Current fenced, protocol-versioned native attempt, reviewed plan and hashed lease capability per Run |
 | native_upload_grants | Durable non-secret declaration and exact object identity per native attempt and slot |
 | native_artifacts | Server-issued identity and verified location for an accepted native upload grant |
 | native_terminal_reports | First accepted native attempt outcome and retry-stable resulting Run revision |
@@ -128,6 +128,15 @@ rows or constraints. The old binary ignores it; the new binary's v1 lease path
 continues to use only the v1 table. The v2 table constrains
 `authorized_to_acquire` to false until a later reviewed migration enables v2
 leasing.
+Migration 0014 versions the shared native lease table. Existing and old-style
+v1 writes use protocol version 1; generation-specific generated foreign keys
+bind each lease to its matching presence table. The shared Run primary key and
+worker occupancy query apply across versions. V2 issuance remains disabled by
+the v2 presence authorization constraint. Adding generated stored columns
+rewrites the lease table under an `ACCESS EXCLUSIVE` lock: inspect its size,
+disk/WAL headroom and maintenance window before production migration. See
+[ADR-0003](decisions/0003-version-native-lease-authority.md) for compatibility
+and rollback constraints.
 See [worker-claim semantics](reconciliation.md).
 
 Provision that role/login through infrastructure; the migration does not create
