@@ -18,6 +18,19 @@ import (
 
 var _ nativeworker.LeaseStore = (*Repository)(nil)
 
+const (
+	nativeLeaseProtocolV1 = 1
+	nativeLeaseProtocolV2 = 2
+)
+
+type nativeLeaseAuthority struct {
+	leaseID    string
+	attemptID  string
+	capability string
+	issuedAt   time.Time
+	expiresAt  time.Time
+}
+
 // EligibleNativeWorker returns one fresh scheduling observation without locking
 // it beyond this read. Acquisition rechecks the exact observation atomically.
 func (r *Repository) EligibleNativeWorker(
@@ -338,32 +351,62 @@ func writeNativeLease(
 	ttl time.Duration,
 	renewAfter time.Duration,
 ) (nativeworker.Lease, bool, error) {
-	leaseID, err := newUUID()
-	if err != nil {
-		return nativeworker.Lease{}, false, run.ErrUnavailable
-	}
-	attemptID, err := newUUID()
-	if err != nil {
-		return nativeworker.Lease{}, false, run.ErrUnavailable
-	}
-	capability, capabilityDigest, err := newNativeLeaseCapability()
-	if err != nil {
-		return nativeworker.Lease{}, false, run.ErrUnavailable
-	}
 	planBytes, err := json.Marshal(plan)
 	if err != nil {
 		return nativeworker.Lease{}, false, run.ErrValidation
 	}
+	authority, written, err := persistNativeLease(
+		ctx, tx, workerID, current.ID, nativeLeaseProtocolV1, planBytes, now, ttl, renewAfter,
+	)
+	if err != nil || !written {
+		return nativeworker.Lease{}, false, err
+	}
+
+	return nativeworker.Lease{
+		LeaseID: authority.leaseID, AttemptID: authority.attemptID, RunID: current.ID,
+		RunRevision: current.Revision, IssuedAt: authority.issuedAt,
+		ExpiresAt:         authority.expiresAt,
+		RenewAfterSeconds: int(renewAfter / time.Second), Plan: plan.Clone(),
+		Capability: authority.capability,
+	}, true, nil
+}
+
+// persistNativeLease requires locked worker and Run rows and a validated plan.
+// It retains one Run authority across both worker protocol generations.
+func persistNativeLease(
+	ctx context.Context,
+	tx *sql.Tx,
+	workerID string,
+	runID string,
+	protocolVersion int,
+	planBytes []byte,
+	now time.Time,
+	ttl time.Duration,
+	renewAfter time.Duration,
+) (nativeLeaseAuthority, bool, error) {
+	leaseID, err := newUUID()
+	if err != nil {
+		return nativeLeaseAuthority{}, false, run.ErrUnavailable
+	}
+	attemptID, err := newUUID()
+	if err != nil {
+		return nativeLeaseAuthority{}, false, run.ErrUnavailable
+	}
+	capability, capabilityDigest, err := newNativeLeaseCapability()
+	if err != nil {
+		return nativeLeaseAuthority{}, false, run.ErrUnavailable
+	}
 	expiresAt := now.Add(ttl)
 	result, err := tx.ExecContext(ctx, `
 		INSERT INTO perfeng_control.native_execution_leases(
-			run_id,lease_id,attempt_id,worker_id,capability_sha256,
+			run_id,lease_id,attempt_id,worker_id,protocol_version,capability_sha256,
 			issued_at,expires_at,renew_after_seconds,plan
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 		ON CONFLICT (run_id) DO UPDATE SET
 			lease_id=EXCLUDED.lease_id,
 			attempt_id=EXCLUDED.attempt_id,
 			worker_id=EXCLUDED.worker_id,
+			protocol_version=EXCLUDED.protocol_version,
 			capability_sha256=EXCLUDED.capability_sha256,
 			issued_at=EXCLUDED.issued_at,
 			expires_at=EXCLUDED.expires_at,
@@ -374,24 +417,22 @@ func writeNativeLease(
 			release_message=NULL
 		WHERE perfeng_control.native_execution_leases.released_at IS NOT NULL
 		OR perfeng_control.native_execution_leases.expires_at <= EXCLUDED.issued_at
-	`, current.ID, leaseID, attemptID, workerID, capabilityDigest[:], now, expiresAt,
+	`, runID, leaseID, attemptID, workerID, protocolVersion, capabilityDigest[:], now, expiresAt,
 		int(renewAfter/time.Second), planBytes)
 	if err != nil {
-		return nativeworker.Lease{}, false, storageError(err)
+		return nativeLeaseAuthority{}, false, storageError(err)
 	}
 	changed, err := result.RowsAffected()
 	if err != nil {
-		return nativeworker.Lease{}, false, storageError(err)
+		return nativeLeaseAuthority{}, false, storageError(err)
 	}
 	if changed != 1 {
-		return nativeworker.Lease{}, false, nil
+		return nativeLeaseAuthority{}, false, nil
 	}
 
-	return nativeworker.Lease{
-		LeaseID: leaseID, AttemptID: attemptID, RunID: current.ID,
-		RunRevision: current.Revision, IssuedAt: now, ExpiresAt: expiresAt,
-		RenewAfterSeconds: int(renewAfter / time.Second), Plan: plan.Clone(),
-		Capability: capability,
+	return nativeLeaseAuthority{
+		leaseID: leaseID, attemptID: attemptID, capability: capability,
+		issuedAt: now, expiresAt: expiresAt,
 	}, true, nil
 }
 

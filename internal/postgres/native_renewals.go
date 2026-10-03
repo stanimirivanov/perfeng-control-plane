@@ -176,7 +176,7 @@ func nativeLeaseLocation(
 	err := tx.QueryRowContext(ctx, `
 		SELECT run_id,worker_id
 		FROM perfeng_control.native_execution_leases
-		WHERE lease_id=$1
+		WHERE lease_id=$1 AND protocol_version=1
 	`, leaseID).Scan(&runID, &workerID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", "", nativeworker.ErrLeaseGone
@@ -219,7 +219,7 @@ func lockedNativeLease(
 			issued_at,expires_at,renew_after_seconds,
 			released_at,release_reason,release_message,plan
 		FROM perfeng_control.native_execution_leases
-		WHERE run_id=$1
+		WHERE run_id=$1 AND protocol_version=1
 		FOR UPDATE
 	`, runID).Scan(
 		&stored.leaseID,
