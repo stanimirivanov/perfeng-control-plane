@@ -19,6 +19,25 @@ func (r *Repository) ReleaseNativeLease(
 	workerID string,
 	request nativeworker.ReleaseRequest,
 ) error {
+	return r.releaseNativeLease(ctx, workerID, request, nativeLeaseProtocolV1)
+}
+
+// ReleaseNativeBaselineLease expires only v2 authority and preserves exact
+// retry and cancellation semantics for an already-issued attempt.
+func (r *Repository) ReleaseNativeBaselineLease(
+	ctx context.Context,
+	workerID string,
+	request nativeworker.ReleaseRequest,
+) error {
+	return r.releaseNativeLease(ctx, workerID, request, nativeLeaseProtocolV2)
+}
+
+func (r *Repository) releaseNativeLease(
+	ctx context.Context,
+	workerID string,
+	request nativeworker.ReleaseRequest,
+	protocolVersion int,
+) error {
 	if !contract.ValidNativeWorkerIdentifier(workerID) || !request.Valid() {
 		return run.ErrValidation
 	}
@@ -32,7 +51,9 @@ func (r *Repository) ReleaseNativeLease(
 	}
 	defer tx.Rollback()
 
-	scope, err := r.lockNativeRenewalScope(ctx, tx, workerID, request.LeaseID)
+	scope, err := r.lockNativeRenewalScopeVersion(
+		ctx, tx, workerID, request.LeaseID, protocolVersion,
+	)
 	if err != nil {
 		return err
 	}

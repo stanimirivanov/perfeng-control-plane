@@ -258,9 +258,8 @@ authority, allowing crash recovery without preserving process-local state.
 Acquisition deliberately leaves the Run in CREATED: coordination metadata does
 not claim that preparation or execution has started, and an expired attempt can
 be planned again. Authenticated renewal owns those lifecycle transitions. The
-v2 transaction is implemented but the database authorization gate remains
-closed until v2 renewal, release and terminal paths are ready; no v2 HTTP
-acquisition route is exposed yet.
+v2 acquisition transaction is implemented but the database authorization gate
+remains closed until the remaining artifact, terminal and HTTP paths are ready.
 
 The worker receives a random lease capability once. PostgreSQL stores only its
 SHA-256 digest; JSON and diagnostic formatting exclude plaintext capability
@@ -280,9 +279,17 @@ crosses the internal validation and provisioning states into `WARMING_UP`,
 `COLLECTING`. A `CANCELLING` Run takes precedence over phase advancement and
 returns a bounded stop deadline without changing its revision. Terminal,
 expired and mismatched authority share the lease-gone result.
-The Native Worker HTTP boundary supplies the authenticated worker identity and
+The v1 Native Worker HTTP boundary supplies the authenticated worker identity and
 header-only capability, validates the pinned request and maps stale revision to
 `409` and lost authority to `410`.
+
+V2 renewal and release now use the same lifecycle, cancellation and exact-retry
+rules, but locate and lock only protocol-version-2 leases and the matching v2
+presence row. V1 operations continue to locate only version-1 leases. The
+acquisition authorization gate is not a revocation mechanism for an existing
+lease: a worker must still be able to observe cancellation and release its
+attempt if new v2 acquisitions are paused. No v2 renewal or release HTTP route
+is exposed yet.
 
 Explicit release uses the same lock order and complete authority check. The
 first release expires the lease at database time and records a bounded reason
