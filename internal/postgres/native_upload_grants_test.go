@@ -335,13 +335,9 @@ func TestNativeUploadGrantMigrationUpgrade(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	_, lease := acquireNativeLeaseForTest(
-		t,
-		repository,
-		"alice",
-		"native-upload-upgrade-0001",
-		"windows-laptop-01",
-	)
+	accepted := acceptNativeRun(t, repository, "alice", "native-upload-upgrade-0001")
+	recordEligibleNativeWorker(t, repository, "windows-laptop-01")
+	lease := insertOldStyleNativeLease(t, repository, accepted, "windows-laptop-01")
 	if err := repository.Migrate(testContext); err != nil {
 		t.Fatal(err)
 	}

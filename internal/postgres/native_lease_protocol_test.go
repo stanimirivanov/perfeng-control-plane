@@ -53,11 +53,7 @@ func TestNativeLeaseProtocolUpgradePreservesV1(t *testing.T) {
 
 	recordEligibleNativeWorker(t, repository, "windows-laptop-01")
 	first := acceptNativeRun(t, repository, "alice", "native-protocol-upgrade-0001")
-	plan, err := json.Marshal(postgresNativePlan(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	insertOldStyleNativeLease(t, repository, first.Run.ID, "windows-laptop-01", plan)
+	insertOldStyleNativeLease(t, repository, first, "windows-laptop-01")
 	if err := repository.Migrate(testContext); err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +69,7 @@ func TestNativeLeaseProtocolUpgradePreservesV1(t *testing.T) {
 	}
 
 	second := acceptNativeRun(t, repository, "alice", "native-protocol-upgrade-0002")
-	insertOldStyleNativeLease(t, repository, second.Run.ID, "windows-laptop-01", plan)
+	insertOldStyleNativeLease(t, repository, second, "windows-laptop-01")
 	if err := repository.db.QueryRow(`
 		SELECT protocol_version FROM perfeng_control.native_execution_leases WHERE run_id=$1
 	`, second.Run.ID).Scan(&version); err != nil || version != nativeLeaseProtocolV1 {
@@ -87,8 +83,18 @@ func TestNativeLeaseProtocolUpgradePreservesV1(t *testing.T) {
 	}
 }
 
-func insertOldStyleNativeLease(t *testing.T, repository *Repository, runID, workerID string, plan []byte) {
+func insertOldStyleNativeLease(
+	t *testing.T,
+	repository *Repository,
+	accepted run.Accepted,
+	workerID string,
+) nativeworker.Lease {
 	t.Helper()
+	plan := postgresNativePlan(t)
+	planBytes, err := json.Marshal(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
 	leaseID, err := newUUID()
 	if err != nil {
 		t.Fatal(err)
@@ -97,15 +103,36 @@ func insertOldStyleNativeLease(t *testing.T, repository *Repository, runID, work
 	if err != nil {
 		t.Fatal(err)
 	}
+	capability, digest, err := newNativeLeaseCapability()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var issuedAt time.Time
+	if err := repository.db.QueryRow("SELECT clock_timestamp()").Scan(&issuedAt); err != nil {
+		t.Fatal(err)
+	}
+	issuedAt = issuedAt.UTC()
+	expiresAt := issuedAt.Add(2 * time.Minute)
 	if _, err := repository.db.Exec(`
 		INSERT INTO perfeng_control.native_execution_leases(
 			run_id,lease_id,attempt_id,worker_id,capability_sha256,
 			issued_at,expires_at,renew_after_seconds,plan
-		) VALUES ($1,$2,$3,$4,$5,clock_timestamp(),
-			clock_timestamp()+interval '2 minutes',40,$6)
-	`, runID, leaseID, attemptID, workerID, make([]byte, sha256.Size), plan); err != nil {
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,40,$8)
+	`, accepted.Run.ID, leaseID, attemptID, workerID, digest[:], issuedAt,
+		expiresAt, planBytes); err != nil {
 		t.Fatal(err)
 	}
+	lease := nativeworker.Lease{
+		LeaseID: leaseID, AttemptID: attemptID, RunID: accepted.Run.ID,
+		RunRevision: accepted.Run.Revision, IssuedAt: issuedAt,
+		ExpiresAt: expiresAt, RenewAfterSeconds: 40, Plan: plan,
+		Capability: capability,
+	}
+	if !lease.Valid() {
+		t.Fatal("invalid old-style native lease fixture")
+	}
+
+	return lease
 }
 
 type nativeV2LeaseFixture struct {
