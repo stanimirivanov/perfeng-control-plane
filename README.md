@@ -388,8 +388,10 @@ slots are enforced. The registry can now resolve a complete, reviewed v2
 baseline recipe from an optional `nativeBaseline` template and immutable Run
 context; the v1 lease path excludes those entries. The authenticated v2
 presence endpoint records qualification separately from v1. It does not issue
-v2 leases; acquisition and lease-scoped operations remain v1 until durable v2
-lease identity and worker lifecycle are composed.
+v2 leases; acquisition and lease-scoped HTTP operations remain v1 while v2
+storage paths are completed and reviewed. V2 renewal, release, upload reservation
+and artifact registration are available only behind the persistence boundary;
+the v2 issuance gate remains closed pending terminal reporting and HTTP composition.
 
 Review contract updates explicitly, refresh the snapshot and checksums, and
 rerun tests. The current runtime validator implements only the schema features

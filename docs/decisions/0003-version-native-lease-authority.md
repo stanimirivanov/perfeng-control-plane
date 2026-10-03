@@ -39,7 +39,9 @@ V1 mutation lookup accepts only v1 lease rows. The v2 acquisition transaction
 uses the same authority, but the presence constraint does not authorize v2
 workers. No v2 acquisition route is exposed, and v1 handlers cannot interpret
 a v2 plan. V2 renewal and release use version-scoped lookup and the v2 presence
-row; artifact and terminal mutations still require separate review and tests.
+row. V2 upload reservation and artifact registration likewise use version-scoped
+authority and the persisted baseline plan; terminal mutations still require
+separate review and tests.
 
 ## Alternatives considered
 
@@ -78,7 +80,7 @@ row; artifact and terminal mutations still require separate review and tests.
 
 - The v2 presence gate remains false. Generation-aware selection, acquisition,
   renewal and release can be exercised on a disposable database; later work
-  must add artifact and terminal mutations before issuance is enabled.
+  must add terminal mutations before issuance is enabled.
 - Historical v1 terminal reports still reference v1 presence; v2 terminal
   reporting needs a separate compatible persistence change.
 

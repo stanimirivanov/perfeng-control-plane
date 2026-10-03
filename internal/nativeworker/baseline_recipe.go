@@ -160,6 +160,25 @@ func (plan BaselinePlan) Validate() error {
 	return nil
 }
 
+// MatchArtifactSlot returns a reviewed v2 output slot only when the declared
+// media type and size fit the complete baseline plan.
+func (plan BaselinePlan) MatchArtifactSlot(
+	name string,
+	mediaType string,
+	size int64,
+) (ArtifactSlot, bool) {
+	if plan.Validate() != nil || size < 1 {
+		return ArtifactSlot{}, false
+	}
+	for _, slot := range plan.ArtifactPlan {
+		if slot.Slot == name && slot.MediaType == mediaType && size <= slot.MaximumBytes {
+			return slot, true
+		}
+	}
+
+	return ArtifactSlot{}, false
+}
+
 func (scenario BaselineScenario) valid() bool {
 	return (scenario.CacheProfile == "cold" || scenario.CacheProfile == "warm") &&
 		(scenario.PageReuse == "per-iteration" || scenario.PageReuse == "per-run") &&

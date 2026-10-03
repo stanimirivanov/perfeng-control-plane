@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
@@ -21,6 +20,25 @@ func (r *Repository) PrepareNativeArtifact(
 	workerID string,
 	request nativeworker.ArtifactRegistrationRequest,
 ) (nativeworker.ArtifactCandidate, error) {
+	return r.prepareNativeArtifact(ctx, workerID, request, nativeLeaseProtocolV1)
+}
+
+// PrepareNativeBaselineArtifact selects a v2 upload grant and its immutable
+// reviewed artifact semantics before object verification.
+func (r *Repository) PrepareNativeBaselineArtifact(
+	ctx context.Context,
+	workerID string,
+	request nativeworker.ArtifactRegistrationRequest,
+) (nativeworker.ArtifactCandidate, error) {
+	return r.prepareNativeArtifact(ctx, workerID, request, nativeLeaseProtocolV2)
+}
+
+func (r *Repository) prepareNativeArtifact(
+	ctx context.Context,
+	workerID string,
+	request nativeworker.ArtifactRegistrationRequest,
+	protocolVersion int,
+) (nativeworker.ArtifactCandidate, error) {
 	if !contract.ValidNativeWorkerIdentifier(workerID) || !request.Valid() {
 		return nativeworker.ArtifactCandidate{}, run.ErrValidation
 	}
@@ -33,7 +51,7 @@ func (r *Repository) PrepareNativeArtifact(
 	}
 	defer tx.Rollback()
 
-	candidate, _, err := r.lockNativeArtifactCandidate(ctx, tx, workerID, request)
+	candidate, _, err := r.lockNativeArtifactCandidate(ctx, tx, workerID, request, protocolVersion)
 	return candidate, err
 }
 
@@ -44,6 +62,27 @@ func (r *Repository) RegisterNativeArtifact(
 	workerID string,
 	request nativeworker.ArtifactRegistrationRequest,
 	verified nativeworker.VerifiedArtifact,
+) (nativeworker.ArtifactReference, error) {
+	return r.registerNativeArtifact(ctx, workerID, request, verified, nativeLeaseProtocolV1)
+}
+
+// RegisterNativeBaselineArtifact rechecks v2 lease and grant authority after
+// object verification, retaining the first accepted reference on exact retry.
+func (r *Repository) RegisterNativeBaselineArtifact(
+	ctx context.Context,
+	workerID string,
+	request nativeworker.ArtifactRegistrationRequest,
+	verified nativeworker.VerifiedArtifact,
+) (nativeworker.ArtifactReference, error) {
+	return r.registerNativeArtifact(ctx, workerID, request, verified, nativeLeaseProtocolV2)
+}
+
+func (r *Repository) registerNativeArtifact(
+	ctx context.Context,
+	workerID string,
+	request nativeworker.ArtifactRegistrationRequest,
+	verified nativeworker.VerifiedArtifact,
+	protocolVersion int,
 ) (nativeworker.ArtifactReference, error) {
 	if !contract.ValidNativeWorkerIdentifier(workerID) || !request.Valid() || !verified.Valid() {
 		return nativeworker.ArtifactReference{}, run.ErrValidation
@@ -57,7 +96,7 @@ func (r *Repository) RegisterNativeArtifact(
 	}
 	defer tx.Rollback()
 
-	candidate, scope, err := r.lockNativeArtifactCandidate(ctx, tx, workerID, request)
+	candidate, scope, err := r.lockNativeArtifactCandidate(ctx, tx, workerID, request, protocolVersion)
 	if err != nil {
 		return nativeworker.ArtifactReference{}, err
 	}
@@ -120,8 +159,9 @@ func (r *Repository) lockNativeArtifactCandidate(
 	tx *sql.Tx,
 	workerID string,
 	request nativeworker.ArtifactRegistrationRequest,
+	protocolVersion int,
 ) (nativeworker.ArtifactCandidate, nativeRenewalScope, error) {
-	scope, err := r.lockNativeRenewalScope(ctx, tx, workerID, request.LeaseID)
+	scope, err := r.lockNativeRenewalScopeVersion(ctx, tx, workerID, request.LeaseID, protocolVersion)
 	if err != nil {
 		return nativeworker.ArtifactCandidate{}, nativeRenewalScope{}, err
 	}
@@ -155,19 +195,14 @@ func (r *Repository) lockNativeArtifactCandidate(
 			nativeworker.ErrUploadGrantMismatch
 	}
 
-	var plan nativeworker.Plan
-	if err = json.Unmarshal(scope.stored.plan, &plan); err != nil || plan.Validate() != nil {
-		return nativeworker.ArtifactCandidate{}, nativeRenewalScope{},
-			errors.New("invalid stored native execution plan")
-	}
-	slot, matched := plan.MatchArtifactSlot(
+	slot, err := nativePlannedArtifactSlot(
+		scope.stored.plan, protocolVersion,
 		reservation.Slot,
 		reservation.MediaType,
 		reservation.Size,
 	)
-	if !matched {
-		return nativeworker.ArtifactCandidate{}, nativeRenewalScope{},
-			nativeworker.ErrArtifactPlan
+	if err != nil {
+		return nativeworker.ArtifactCandidate{}, nativeRenewalScope{}, err
 	}
 	candidate := nativeworker.ArtifactCandidate{
 		Reservation: reservation,

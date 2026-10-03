@@ -25,6 +25,27 @@ func (r *Repository) ReserveNativeUploadGrant(
 	request nativeworker.UploadRequest,
 	ttl time.Duration,
 ) (nativeworker.UploadReservation, error) {
+	return r.reserveNativeUploadGrant(ctx, workerID, request, ttl, nativeLeaseProtocolV1)
+}
+
+// ReserveNativeBaselineUploadGrant reserves a declared v2 artifact under the
+// current v2 lease and its persisted baseline plan.
+func (r *Repository) ReserveNativeBaselineUploadGrant(
+	ctx context.Context,
+	workerID string,
+	request nativeworker.UploadRequest,
+	ttl time.Duration,
+) (nativeworker.UploadReservation, error) {
+	return r.reserveNativeUploadGrant(ctx, workerID, request, ttl, nativeLeaseProtocolV2)
+}
+
+func (r *Repository) reserveNativeUploadGrant(
+	ctx context.Context,
+	workerID string,
+	request nativeworker.UploadRequest,
+	ttl time.Duration,
+	protocolVersion int,
+) (nativeworker.UploadReservation, error) {
 	if !contract.ValidNativeWorkerIdentifier(workerID) || !request.Valid() ||
 		!nativeworker.ValidUploadGrantTTL(ttl) {
 		return nativeworker.UploadReservation{}, run.ErrValidation
@@ -39,11 +60,11 @@ func (r *Repository) ReserveNativeUploadGrant(
 	}
 	defer tx.Rollback()
 
-	scope, err := r.lockNativeRenewalScope(ctx, tx, workerID, request.LeaseID)
+	scope, err := r.lockNativeRenewalScopeVersion(ctx, tx, workerID, request.LeaseID, protocolVersion)
 	if err != nil {
 		return nativeworker.UploadReservation{}, err
 	}
-	reservation, err := nativeUploadReservation(scope, workerID, request, ttl)
+	reservation, err := nativeUploadReservation(scope, workerID, request, ttl, protocolVersion)
 	if err != nil {
 		return nativeworker.UploadReservation{}, err
 	}
@@ -66,6 +87,7 @@ func nativeUploadReservation(
 	workerID string,
 	request nativeworker.UploadRequest,
 	ttl time.Duration,
+	protocolVersion int,
 ) (nativeworker.UploadReservation, error) {
 	if !matchingNativeLeaseAuthority(
 		scope.stored,
@@ -81,13 +103,11 @@ func nativeUploadReservation(
 		return nativeworker.UploadReservation{}, run.ErrRevision
 	}
 
-	var plan nativeworker.Plan
-	if err := json.Unmarshal(scope.stored.plan, &plan); err != nil || plan.Validate() != nil {
-		return nativeworker.UploadReservation{}, errors.New("invalid stored native execution plan")
-	}
-	slot, matched := plan.MatchArtifactSlot(request.Slot, request.MediaType, request.Size)
-	if !matched {
-		return nativeworker.UploadReservation{}, nativeworker.ErrArtifactPlan
+	slot, err := nativePlannedArtifactSlot(
+		scope.stored.plan, protocolVersion, request.Slot, request.MediaType, request.Size,
+	)
+	if err != nil {
+		return nativeworker.UploadReservation{}, err
 	}
 
 	expiresAt := scope.now.Add(ttl)
@@ -107,6 +127,38 @@ func nativeUploadReservation(
 		Size: request.Size, MaximumBytes: slot.MaximumBytes, SHA256: request.SHA256,
 		MediaType: request.MediaType, IssuedAt: scope.now, ExpiresAt: expiresAt,
 	}, nil
+}
+
+func nativePlannedArtifactSlot(
+	storedPlan []byte,
+	protocolVersion int,
+	name string,
+	mediaType string,
+	size int64,
+) (nativeworker.ArtifactSlot, error) {
+	var slot nativeworker.ArtifactSlot
+	var matched bool
+	switch protocolVersion {
+	case nativeLeaseProtocolV1:
+		var plan nativeworker.Plan
+		if err := json.Unmarshal(storedPlan, &plan); err != nil || plan.Validate() != nil {
+			return slot, errors.New("invalid stored native execution plan")
+		}
+		slot, matched = plan.MatchArtifactSlot(name, mediaType, size)
+	case nativeLeaseProtocolV2:
+		var plan nativeworker.BaselinePlan
+		if err := json.Unmarshal(storedPlan, &plan); err != nil || plan.Validate() != nil {
+			return slot, errors.New("invalid stored native baseline plan")
+		}
+		slot, matched = plan.MatchArtifactSlot(name, mediaType, size)
+	default:
+		return slot, run.ErrValidation
+	}
+	if !matched {
+		return slot, nativeworker.ErrArtifactPlan
+	}
+
+	return slot, nil
 }
 
 func persistNativeUploadReservation(

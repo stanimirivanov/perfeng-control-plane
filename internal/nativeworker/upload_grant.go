@@ -234,8 +234,8 @@ func (authorization UploadAuthorization) GoString() string {
 	return authorization.String()
 }
 
-// UploadGrant is the Native Worker API v1 response produced from one durable
-// reservation and its ephemeral upload authorization.
+// UploadGrant is the Native Worker API response shape produced from one durable
+// reservation and its ephemeral upload authorization in either generation.
 type UploadGrant struct {
 	GrantID       string        `json:"grantId"`
 	LeaseID       string        `json:"leaseId"`
@@ -251,7 +251,7 @@ type UploadGrant struct {
 	SHA256        string        `json:"sha256"`
 }
 
-// Valid checks the complete Native Worker API v1 upload-grant response.
+// Valid checks the complete Native Worker API upload-grant response.
 func (grant UploadGrant) Valid() bool {
 	expectedKey := fmt.Sprintf(
 		"runs/%s/attempts/%s/%s",

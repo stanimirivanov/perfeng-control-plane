@@ -259,7 +259,7 @@ Acquisition deliberately leaves the Run in CREATED: coordination metadata does
 not claim that preparation or execution has started, and an expired attempt can
 be planned again. Authenticated renewal owns those lifecycle transitions. The
 v2 acquisition transaction is implemented but the database authorization gate
-remains closed until the remaining artifact, terminal and HTTP paths are ready.
+remains closed until the remaining terminal and HTTP paths are ready.
 
 The worker receives a random lease capability once. PostgreSQL stores only its
 SHA-256 digest; JSON and diagnostic formatting exclude plaintext capability
@@ -327,6 +327,13 @@ be generated outside the database transaction. An identical retry for a lease
 and slot retains the grant ID and refreshes its bounded timing; a changed size,
 checksum or media type conflicts instead of rewriting the declaration.
 
+V2 reservations use the same table and retry fence but first select only a v2
+lease and v2 presence row. Slot, media type, size, kind and format are checked
+against the persisted, complete v2 baseline plan; v1 reservations continue to
+require a v1 lease and plan. The acquisition gate does not invalidate an
+already-issued attempt's artifact authority. No v2 upload-grant HTTP route is
+exposed yet.
+
 The lease table keeps only current authority and replaces its row when an
 expired or released CREATED attempt is recovered. Upload reservations therefore
 retain lease and attempt UUIDs as historical fences without foreign-keying them
@@ -363,6 +370,12 @@ grant, canonical S3 URI, reviewed kind and format, and database registration
 time. The grant remains the single durable source for Run, lease, attempt,
 slot, object key, size, checksum and media type. Plaintext lease capabilities,
 presigned URLs and signed request headers are never persisted.
+
+V2 registration uses the same two-transaction verification sequence, with v2
+lease lookup and the persisted baseline plan checked both before and after
+object verification. A v1 registration cannot accept a v2 lease or grant, and
+the converse is also rejected. No v2 artifact-registration HTTP route is
+exposed yet.
 
 Migration 0010 creates one empty table, its primary and unique indexes, and a
 foreign-key constraint. It takes catalog and new-relation locks plus the short

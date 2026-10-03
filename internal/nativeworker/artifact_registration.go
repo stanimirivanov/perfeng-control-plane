@@ -91,7 +91,7 @@ func (artifact VerifiedArtifact) Valid() bool {
 		validNativeArtifactURI(artifact.URI, artifact.Candidate.Reservation.ObjectKey)
 }
 
-// ArtifactReference is the immutable Native Worker API v1 response and durable
+// ArtifactReference is the immutable Native Worker API response and durable
 // evidence identity. Format is retained internally for later manifest handling.
 type ArtifactReference struct {
 	ArtifactID   string    `json:"artifactId"`
