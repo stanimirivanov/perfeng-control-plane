@@ -16,6 +16,7 @@ var _ nativeworker.TerminalStore = (*Repository)(nil)
 
 type storedNativeTerminal struct {
 	workerID          string
+	protocolVersion   int
 	request           nativeworker.TerminalRequest
 	resultingRevision int64
 	acceptedAt        time.Time
@@ -37,6 +38,25 @@ func (r *Repository) ReportNativeTerminal(
 	workerID string,
 	request nativeworker.TerminalRequest,
 ) (nativeworker.TerminalAcknowledgement, error) {
+	return r.reportNativeTerminal(ctx, workerID, request, nativeLeaseProtocolV1)
+}
+
+// ReportNativeBaselineTerminal accepts a v2 terminal outcome under v2 lease
+// authority while retaining the Run's single durable terminal report.
+func (r *Repository) ReportNativeBaselineTerminal(
+	ctx context.Context,
+	workerID string,
+	request nativeworker.TerminalRequest,
+) (nativeworker.TerminalAcknowledgement, error) {
+	return r.reportNativeTerminal(ctx, workerID, request, nativeLeaseProtocolV2)
+}
+
+func (r *Repository) reportNativeTerminal(
+	ctx context.Context,
+	workerID string,
+	request nativeworker.TerminalRequest,
+	protocolVersion int,
+) (nativeworker.TerminalAcknowledgement, error) {
 	if !contract.ValidNativeWorkerIdentifier(workerID) || !request.Valid() {
 		return nativeworker.TerminalAcknowledgement{}, run.ErrValidation
 	}
@@ -50,7 +70,7 @@ func (r *Repository) ReportNativeTerminal(
 	}
 	defer tx.Rollback()
 
-	scope, err := r.lockNativeRenewalScope(ctx, tx, workerID, request.LeaseID)
+	scope, err := r.lockNativeRenewalScopeVersion(ctx, tx, workerID, request.LeaseID, protocolVersion)
 	if err != nil {
 		return nativeworker.TerminalAcknowledgement{}, err
 	}
@@ -69,7 +89,8 @@ func (r *Repository) ReportNativeTerminal(
 		return nativeworker.TerminalAcknowledgement{}, err
 	}
 	if found {
-		if stored.workerID != workerID || !sameNativeTerminal(stored.request, request) {
+		if stored.workerID != workerID || stored.protocolVersion != protocolVersion ||
+			!sameNativeTerminal(stored.request, request) {
 			return nativeworker.TerminalAcknowledgement{}, nativeworker.ErrTerminalConflict
 		}
 
@@ -87,7 +108,7 @@ func (r *Repository) ReportNativeTerminal(
 	}
 
 	if request.Kind == nativeworker.TerminalCompleted {
-		if err = validateNativeTerminalEvidence(ctx, tx, scope, request); err != nil {
+		if err = validateNativeTerminalEvidence(ctx, tx, scope, request, protocolVersion); err != nil {
 			return nativeworker.TerminalAcknowledgement{}, err
 		}
 	}
@@ -100,7 +121,9 @@ func (r *Repository) ReportNativeTerminal(
 			return nativeworker.TerminalAcknowledgement{}, err
 		}
 	}
-	if err = insertNativeTerminal(ctx, tx, scope.runID, workerID, request, next.Revision, scope.now); err != nil {
+	if err = insertNativeTerminal(
+		ctx, tx, scope.runID, workerID, request, next.Revision, scope.now, protocolVersion,
+	); err != nil {
 		return nativeworker.TerminalAcknowledgement{}, err
 	}
 	if _, err = tx.ExecContext(ctx, `
@@ -131,7 +154,7 @@ func lockedNativeTerminal(
 	var failureMessage sql.NullString
 	var failureRetryable sql.NullBool
 	err := tx.QueryRowContext(ctx, `
-		SELECT lease_id::text,attempt_id::text,worker_id,expected_run_revision,kind,
+		SELECT lease_id::text,attempt_id::text,worker_id,protocol_version,expected_run_revision,kind,
 			manifest_artifact_id::text,failure_code,failure_message,failure_retryable,
 			resulting_run_revision,accepted_at
 		FROM perfeng_control.native_terminal_reports
@@ -141,6 +164,7 @@ func lockedNativeTerminal(
 		&stored.request.LeaseID,
 		&stored.request.AttemptID,
 		&stored.workerID,
+		&stored.protocolVersion,
 		&stored.request.ExpectedRunRevision,
 		&stored.request.Kind,
 		&manifestID,
@@ -165,6 +189,7 @@ func lockedNativeTerminal(
 	}
 	stored.acceptedAt = stored.acceptedAt.UTC()
 	if !contract.ValidNativeWorkerIdentifier(stored.workerID) ||
+		(stored.protocolVersion != nativeLeaseProtocolV1 && stored.protocolVersion != nativeLeaseProtocolV2) ||
 		!stored.requestWithoutCapabilityValid() ||
 		stored.resultingRevision < 1 || stored.acceptedAt.IsZero() {
 		return storedNativeTerminal{}, false, errors.New("invalid stored native terminal report")
@@ -197,10 +222,11 @@ func validateNativeTerminalEvidence(
 	tx *sql.Tx,
 	scope nativeRenewalScope,
 	request nativeworker.TerminalRequest,
+	protocolVersion int,
 ) error {
-	var plan nativeworker.Plan
-	if err := json.Unmarshal(scope.stored.plan, &plan); err != nil || plan.Validate() != nil {
-		return errors.New("invalid stored native execution plan")
+	planned, err := nativeTerminalArtifactPlan(scope.stored.plan, protocolVersion)
+	if err != nil {
+		return err
 	}
 	artifacts, err := registeredNativeArtifacts(ctx, tx, scope.runID, request.AttemptID)
 	if err != nil {
@@ -217,7 +243,7 @@ func validateNativeTerminalEvidence(
 	if manifest.artifactID == "" || manifest.kind != "manifest" {
 		return nativeworker.ErrTerminalEvidence
 	}
-	for _, slot := range plan.ArtifactPlan {
+	for _, slot := range planned {
 		artifact, found := bySlot[slot.Slot]
 		if slot.Required && !found {
 			return nativeworker.ErrTerminalEvidence
@@ -229,6 +255,25 @@ func validateNativeTerminalEvidence(
 	}
 
 	return nil
+}
+
+func nativeTerminalArtifactPlan(storedPlan []byte, protocolVersion int) ([]nativeworker.ArtifactSlot, error) {
+	switch protocolVersion {
+	case nativeLeaseProtocolV1:
+		var plan nativeworker.Plan
+		if err := json.Unmarshal(storedPlan, &plan); err != nil || plan.Validate() != nil {
+			return nil, errors.New("invalid stored native execution plan")
+		}
+		return plan.ArtifactPlan, nil
+	case nativeLeaseProtocolV2:
+		var plan nativeworker.BaselinePlan
+		if err := json.Unmarshal(storedPlan, &plan); err != nil || plan.Validate() != nil {
+			return nil, errors.New("invalid stored native baseline plan")
+		}
+		return plan.ArtifactPlan[:], nil
+	default:
+		return nil, run.ErrValidation
+	}
 }
 
 func registeredNativeArtifacts(
@@ -357,6 +402,7 @@ func insertNativeTerminal(
 	request nativeworker.TerminalRequest,
 	resultingRevision int64,
 	acceptedAt time.Time,
+	protocolVersion int,
 ) error {
 	var manifestID any
 	var failureCode any
@@ -371,11 +417,11 @@ func insertNativeTerminal(
 	}
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO perfeng_control.native_terminal_reports(
-			run_id,lease_id,attempt_id,worker_id,expected_run_revision,kind,
+			run_id,lease_id,attempt_id,worker_id,protocol_version,expected_run_revision,kind,
 			manifest_artifact_id,failure_code,failure_message,failure_retryable,
 			resulting_run_revision,accepted_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-	`, runID, request.LeaseID, request.AttemptID, workerID,
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+	`, runID, request.LeaseID, request.AttemptID, workerID, protocolVersion,
 		request.ExpectedRunRevision, request.Kind, manifestID, failureCode,
 		failureMessage, failureRetryable, resultingRevision, acceptedAt)
 

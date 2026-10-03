@@ -29,7 +29,7 @@ const (
 	TerminalFailed TerminalKind = "FAILED"
 )
 
-// Valid reports whether kind belongs to Native Worker API v1.
+// Valid reports whether kind belongs to Native Worker API v1 or v2.
 func (kind TerminalKind) Valid() bool {
 	return kind == TerminalCompleted || kind == TerminalFailed
 }
@@ -50,7 +50,7 @@ const (
 	TerminalFailureHostUnqualified TerminalFailureCode = "HOST_BECAME_UNQUALIFIED"
 )
 
-// Valid reports whether code belongs to Native Worker API v1.
+// Valid reports whether code belongs to Native Worker API v1 or v2.
 func (code TerminalFailureCode) Valid() bool {
 	switch code {
 	case TerminalFailurePreparation, TerminalFailureTool, TerminalFailureCapture,
@@ -69,7 +69,7 @@ type TerminalFailure struct {
 	Retryable bool                `json:"retryable"`
 }
 
-// Valid checks the complete Native Worker API v1 failure shape.
+// Valid checks the complete Native Worker API failure shape.
 func (failure TerminalFailure) Valid() bool {
 	return failure.Code.Valid() && utf8.ValidString(failure.Message) &&
 		utf8.RuneCountInString(failure.Message) >= 1 &&
@@ -138,7 +138,7 @@ type TerminalAcknowledgement struct {
 	Disposition TerminalDisposition `json:"disposition"`
 }
 
-// Valid checks the complete Native Worker API v1 acknowledgement.
+// Valid checks the complete Native Worker API acknowledgement.
 func (acknowledgement TerminalAcknowledgement) Valid() bool {
 	return ValidLeaseIdentifier(acknowledgement.AttemptID) &&
 		acknowledgement.RunRevision >= 1 &&

@@ -40,8 +40,9 @@ uses the same authority, but the presence constraint does not authorize v2
 workers. No v2 acquisition route is exposed, and v1 handlers cannot interpret
 a v2 plan. V2 renewal and release use version-scoped lookup and the v2 presence
 row. V2 upload reservation and artifact registration likewise use version-scoped
-authority and the persisted baseline plan; terminal mutations still require
-separate review and tests.
+authority and the persisted baseline plan. Migration 0015 versions the shared
+terminal-report table with generation-specific worker foreign keys; v2 terminal
+reporting retains the same Run-unique outcome and retry fence.
 
 ## Alternatives considered
 
@@ -65,13 +66,15 @@ separate review and tests.
 
 - Existing rows remain v1, and v1 writers can omit the new column.
 - The Run primary key, worker-capacity query and expiry recovery remain shared.
+- Terminal reports remain one per Run across generations; old rows stay v1.
 - A v2-only worker can be referenced without inserting a false v1 presence.
 
 ### Negative
 
 - Generated stored columns require a table rewrite and an `ACCESS EXCLUSIVE`
-  lock during migration. Schedule it in a maintenance window if the lease table
-  is large; inspect its size and available disk/WAL capacity first.
+  lock during migrations 0014 and 0015. Schedule them in a maintenance window
+  if the lease or terminal table is large; inspect size and available disk/WAL
+  capacity first.
 - A pre-0014 binary does not understand a v2 lease row. Do not roll back to it
   after v2 issuance is enabled without first quiescing v2 acquisition and
   allowing active v2 leases to finish or expire.
@@ -79,10 +82,8 @@ separate review and tests.
 ### Neutral or follow-up
 
 - The v2 presence gate remains false. Generation-aware selection, acquisition,
-  renewal and release can be exercised on a disposable database; later work
-  must add terminal mutations before issuance is enabled.
-- Historical v1 terminal reports still reference v1 presence; v2 terminal
-  reporting needs a separate compatible persistence change.
+  renewal, artifact handling and terminal reporting can be exercised on a
+  disposable database; HTTP composition and authorization remain separate.
 
 ## Compatibility and migration
 
@@ -91,8 +92,12 @@ to version 1, and uses a default so the running v1 binary can continue writing.
 The current binary filters v1 mutation lookup by version. Deploy migration
 before the new binary. Application rollback is safe while v2 issuance remains
 disabled; older migrators still reject the newer checksum ledger as designed.
+Migration 0015 preserves existing terminal rows and old v1 writers through a
+protocol-1 default. Deploy it before the new terminal binary. A pre-0015 binary
+must not handle active v2 attempts after issuance is enabled.
 If migration fails, its transaction leaves the previous schema and ledger
-unchanged. Repair forward with a new migration; do not edit 0014 after release.
+unchanged. Repair forward with a new migration; do not edit 0014 or 0015 after
+release.
 
 ## Security and operations
 
