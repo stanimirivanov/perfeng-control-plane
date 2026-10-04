@@ -381,10 +381,11 @@ contract content is Apache-2.0, as in this repository.
 
 The lock separately pins the complete candidate Native Worker API v2 snapshot
 from perfeng-contracts commit `a019d8fa3f473b0dce1650208fadfe47e959ab6d`
-(bundle 0.18.0, API 2.0.0). Its runtime contract boundary validates v2
-presence, acquisition requests, complete leases and recipes, and renewal
-responses. Conditional cache/reuse and cancellation rules and ordered artifact
-slots are enforced. The registry can now resolve a complete, reviewed v2
+(bundle 0.18.0, API 2.0.0). Its runtime contract boundary validates every
+v2 operation's request and response shape, including complete leases and
+recipes, upload grants, artifact registration and terminal outcomes. Conditional
+cache/reuse and cancellation rules and ordered artifact slots are enforced.
+The registry can now resolve a complete, reviewed v2
 baseline recipe from an optional `nativeBaseline` template and immutable Run
 context; the v1 lease path excludes those entries. The authenticated v2
 presence endpoint records qualification separately from v1. It does not issue
@@ -396,9 +397,8 @@ composition and explicit authorization review.
 
 Review contract updates explicitly, refresh the snapshot and checksums, and
 rerun tests. The current runtime validator implements only the schema features
-reached by CreateRun, CreateBaseline, BaselineTransition, the v1 Native Worker
-operations and the pinned v2 presence, acquisition, lease, recipe and renewal
-shapes, not arbitrary JSON Schema. The authenticated
+reached by CreateRun, CreateBaseline, BaselineTransition and the pinned v1 and
+v2 Native Worker operation shapes, not arbitrary JSON Schema. The authenticated
 `/native-worker/v1/presence`, `/native-worker/v2/presence`,
 `/native-worker/v1/leases`, `/native-worker/v1/leases/{leaseId}/renew` and
 `/native-worker/v1/leases/{leaseId}/release`, and

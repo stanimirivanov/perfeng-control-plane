@@ -37,9 +37,21 @@ func TestNativeWorkerV2RuntimeValidation(t *testing.T) {
 		validate func(any) error
 	}{
 		{"presence", "presence.json", ValidateNativeWorkerV2Presence},
+		{"presence status", "presence-status.json", ValidateNativeWorkerV2PresenceStatus},
 		{"acquire", "acquire.json", ValidateNativeWorkerV2AcquireLease},
 		{"lease", "lease.json", ValidateNativeWorkerV2Lease},
+		{"renew", "renew.json", ValidateNativeWorkerV2RenewLease},
 		{"renewal", "renewal.json", ValidateNativeWorkerV2LeaseRenewal},
+		{"release", "release.json", ValidateNativeWorkerV2ReleaseLease},
+		{"upload request", "upload-request.json", ValidateNativeWorkerV2UploadGrantRequest},
+		{"upload grant", "upload-grant.json", ValidateNativeWorkerV2UploadGrant},
+		{"register artifact", "register-artifact.json", ValidateNativeWorkerV2RegisterArtifact},
+		{"artifact", "artifact.json", ValidateNativeWorkerV2ArtifactReference},
+		{"terminal completed", "terminal-completed.json", ValidateNativeWorkerV2TerminalReport},
+		{"terminal failed", "terminal-failed.json", ValidateNativeWorkerV2TerminalReport},
+		{"terminal acknowledgement", "terminal-ack.json", ValidateNativeWorkerV2TerminalAcknowledgement},
+		{"duplicate terminal acknowledgement", "terminal-ack-duplicate.json", ValidateNativeWorkerV2TerminalAcknowledgement},
+		{"lease gone", "lease-gone-error.json", ValidateNativeWorkerV2Error},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			value := decodeContractValue(t, base+"examples/"+test.fixture)
@@ -69,16 +81,24 @@ func TestNativeWorkerV2RuntimeValidation(t *testing.T) {
 			validate = ValidateNativeWorkerV2ExecutionRecipe
 		case "LeaseRenewal":
 			validate = ValidateNativeWorkerV2LeaseRenewal
+		case "UploadGrantRequest":
+			validate = ValidateNativeWorkerV2UploadGrantRequest
+		case "UploadGrant":
+			validate = ValidateNativeWorkerV2UploadGrant
+		case "RegisterArtifact":
+			validate = ValidateNativeWorkerV2RegisterArtifact
+		case "TerminalReport":
+			validate = ValidateNativeWorkerV2TerminalReport
 		default:
-			continue
+			t.Fatalf("unhandled Native Worker v2 rejection schema %q", fixture["schema"])
 		}
 		validated++
 		if validate(fixture["value"]) == nil {
 			t.Fatalf("accepted rejected Native Worker v2 fixture: %s", path)
 		}
 	}
-	if validated != 9 {
-		t.Fatalf("validated %d v2 rejections, want 9", validated)
+	if validated != len(rejections) {
+		t.Fatalf("validated %d v2 rejections, want %d", validated, len(rejections))
 	}
 }
 

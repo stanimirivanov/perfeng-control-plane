@@ -100,7 +100,9 @@ func init() {
 	read("api/native-worker/v2/openapi.json", &nativeWorkerV2Document)
 	nativeWorkerV2Schemas, err = prepareSchemas(
 		nativeWorkerV2Document.Components.Schemas,
-		"WorkerPresence", "AcquireLease", "Lease", "ExecutionRecipe", "LeaseRenewal",
+		"WorkerPresence", "PresenceStatus", "AcquireLease", "Lease", "ExecutionRecipe", "LeaseRenewal",
+		"RenewLease", "ReleaseLease", "UploadGrantRequest", "UploadGrant",
+		"RegisterArtifact", "ArtifactReference", "TerminalReport", "TerminalAck", "Error",
 	)
 	if err != nil {
 		panic(err)
@@ -312,6 +314,11 @@ func ValidateNativeWorkerV2Presence(value any) error {
 	return validateWithSchemas(nativeWorkerV2Schemas["WorkerPresence"], value, nativeWorkerV2Schemas)
 }
 
+// ValidateNativeWorkerV2PresenceStatus checks a candidate v2 presence response.
+func ValidateNativeWorkerV2PresenceStatus(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["PresenceStatus"], value, nativeWorkerV2Schemas)
+}
+
 // ValidateNativeWorkerV2AcquireLease checks a candidate v2 acquisition request.
 func ValidateNativeWorkerV2AcquireLease(value any) error {
 	return validateWithSchemas(nativeWorkerV2Schemas["AcquireLease"], value, nativeWorkerV2Schemas)
@@ -332,6 +339,51 @@ func ValidateNativeWorkerV2ExecutionRecipe(value any) error {
 // consistency in a candidate v2 renewal response.
 func ValidateNativeWorkerV2LeaseRenewal(value any) error {
 	return validateWithSchemas(nativeWorkerV2Schemas["LeaseRenewal"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2RenewLease checks a candidate v2 renewal request.
+func ValidateNativeWorkerV2RenewLease(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["RenewLease"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2ReleaseLease checks a candidate v2 release request.
+func ValidateNativeWorkerV2ReleaseLease(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["ReleaseLease"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2UploadGrantRequest checks a candidate v2 upload request.
+func ValidateNativeWorkerV2UploadGrantRequest(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["UploadGrantRequest"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2UploadGrant checks a candidate v2 upload grant response.
+func ValidateNativeWorkerV2UploadGrant(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["UploadGrant"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2RegisterArtifact checks a candidate v2 artifact registration.
+func ValidateNativeWorkerV2RegisterArtifact(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["RegisterArtifact"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2ArtifactReference checks a candidate v2 artifact response.
+func ValidateNativeWorkerV2ArtifactReference(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["ArtifactReference"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2TerminalReport checks a candidate v2 terminal outcome.
+func ValidateNativeWorkerV2TerminalReport(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["TerminalReport"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2TerminalAcknowledgement checks a candidate v2 terminal acknowledgement.
+func ValidateNativeWorkerV2TerminalAcknowledgement(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["TerminalAck"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2Error checks a candidate v2 protocol error response.
+func ValidateNativeWorkerV2Error(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["Error"], value, nativeWorkerV2Schemas)
 }
 
 // ValidateRenewLease checks a decoded value against the pinned Native Worker
