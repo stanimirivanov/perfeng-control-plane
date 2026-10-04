@@ -137,6 +137,15 @@ rewrites the lease table under an `ACCESS EXCLUSIVE` lock: inspect its size,
 disk/WAL headroom and maintenance window before production migration. See
 [ADR-0003](decisions/0003-version-native-lease-authority.md) for compatibility
 and rollback constraints.
+Migration 0015 versions the shared terminal-report table. Existing rows and
+old-style v1 writes default to protocol 1; generated worker columns retain
+foreign keys to the matching v1 or v2 presence table. The Run primary key still
+permits only one accepted outcome. Adding the generated stored columns rewrites
+this table under an `ACCESS EXCLUSIVE` lock: inspect table size, disk/WAL
+headroom and a maintenance window before production migration. Deploy this
+migration before the new binary. Application rollback remains safe while v2
+issuance is disabled; after issuance, quiesce v2 attempts before returning to
+a pre-0015 binary. Repair forward without editing the applied migration.
 See [worker-claim semantics](reconciliation.md).
 
 Provision that role/login through infrastructure; the migration does not create
@@ -259,7 +268,7 @@ Acquisition deliberately leaves the Run in CREATED: coordination metadata does
 not claim that preparation or execution has started, and an expired attempt can
 be planned again. Authenticated renewal owns those lifecycle transitions. The
 v2 acquisition transaction is implemented but the database authorization gate
-remains closed until the remaining terminal and HTTP paths are ready.
+remains closed until HTTP composition and authorization are reviewed.
 
 The worker receives a random lease capability once. PostgreSQL stores only its
 SHA-256 digest; JSON and diagnostic formatting exclude plaintext capability
@@ -401,6 +410,12 @@ resulting Run revision and lease expiry commit in one transaction. Once that
 report exists, an identical request returns `ALREADY_ACCEPTED` even though the
 lease is expired; a different report for the attempt conflicts and cannot
 replace the durable outcome.
+
+V2 reporting uses only v2 lease and presence authority. Its outcome is tagged
+with protocol version 2 and checked against the persisted v2 baseline plan;
+v1 terminal operations continue to require v1 authority. The database gate
+for new v2 acquisitions remains closed, and no v2 terminal HTTP route is
+exposed in this slice.
 
 `COMPLETED` names one registered manifest from the same Run and attempt. The
 transaction parses the persisted reviewed artifact plan, requires every

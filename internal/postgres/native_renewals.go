@@ -155,19 +155,8 @@ func (r *Repository) renewNativeLease(
 	return renewal, nil
 }
 
-// lockNativeRenewalScope preserves the worker-before-Run-before-lease order and
-// reads database time only after all current authority is serialized.
-func (r *Repository) lockNativeRenewalScope(
-	ctx context.Context,
-	tx *sql.Tx,
-	workerID string,
-	leaseID string,
-) (nativeRenewalScope, error) {
-	return r.lockNativeRenewalScopeVersion(
-		ctx, tx, workerID, leaseID, nativeLeaseProtocolV1,
-	)
-}
-
+// lockNativeRenewalScopeVersion preserves the worker-before-Run-before-lease
+// order and reads database time only after current authority is serialized.
 func (r *Repository) lockNativeRenewalScopeVersion(
 	ctx context.Context,
 	tx *sql.Tx,

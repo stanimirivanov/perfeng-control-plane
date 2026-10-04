@@ -462,9 +462,16 @@ func TestConcurrentMigrationAndTerminalSnapshots(t *testing.T) {
 	if t.Failed() {
 		return
 	}
+	entries, err := migrations.ReadDir("migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
 	var count int
-	if err := first.db.QueryRow("SELECT count(*) FROM perfeng_control.schema_migrations").Scan(&count); err != nil || count != 14 {
-		t.Fatal("concurrent migration duplicated ledger", err)
+	if err := first.db.QueryRow("SELECT count(*) FROM perfeng_control.schema_migrations").Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != len(entries) {
+		t.Fatalf("concurrent migration ledger has %d entries, want %d", count, len(entries))
 	}
 	a := accepted(t, first, "terminal", "request-key-terminal")
 	current, err := first.Advance(testContext, "terminal", a.Run.ID, 1, run.Change{State: "VALIDATING"})
