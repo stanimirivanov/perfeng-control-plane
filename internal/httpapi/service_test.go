@@ -107,8 +107,8 @@ func TestServiceRoutesNativeWorkerAudienceSeparately(t *testing.T) {
 	}
 	for path, expected := range map[string]int{
 		"/v1/runs/example":               http.StatusTeapot,
-		"/native-worker/v1/presence":     http.StatusNoContent,
-		"/native-worker/v1/unknown-path": http.StatusNoContent,
+		"/native-worker/v2/presence":     http.StatusNoContent,
+		"/native-worker/v2/unknown-path": http.StatusNoContent,
 	} {
 		response := httptest.NewRecorder()
 		service.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))

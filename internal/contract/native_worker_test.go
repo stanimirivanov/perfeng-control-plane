@@ -145,18 +145,13 @@ func TestNativeWorkerV2LeaseRejectsPartialOrChangedRecipe(t *testing.T) {
 			}
 		})
 	}
-	if ValidateNativeWorkerV2Lease(decodeContractValue(
-		t, "snapshot/api/native-worker/v1/examples/lease.json",
-	)) == nil {
-		t.Fatal("accepted a v1 lease as v2")
-	}
 }
 
-func TestNativeWorkerV2AcquisitionRejectsV1(t *testing.T) {
-	if ValidateNativeWorkerV2AcquireLease(decodeContractValue(
-		t, "snapshot/api/native-worker/v1/examples/acquire.json",
-	)) == nil {
-		t.Fatal("accepted a v1 acquisition request as v2")
+func TestNativeWorkerV2AcquisitionRejectsRetiredProtocol(t *testing.T) {
+	request := decodeContractValue(t, "snapshot/api/native-worker/v2/examples/acquire.json")
+	request["protocolVersion"] = json.Number("1")
+	if ValidateNativeWorkerV2AcquireLease(request) == nil {
+		t.Fatal("accepted a retired protocol acquisition request")
 	}
 }
 

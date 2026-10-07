@@ -101,21 +101,19 @@ availability, qualification and authorization remain separate values. Repeated
 entries may overlap tokens during rotation only when their worker identity and
 policy are identical.
 
-`POST /native-worker/v1/presence` records the most recent authenticated report
-using PostgreSQL time. The initial policy requests another heartbeat after 30
-seconds and qualifies matching evidence for two minutes. These values are
-server-owned; the worker cannot extend them.
-
 `POST /native-worker/v2/presence` uses the pinned v2 presence shape and the
 same worker-audience authentication and server-owned qualification decision.
-It records the latest report in a separate table, leaving v1 presence and v1
-lease selection unchanged. A qualified, AVAILABLE v2 report does not yet make
-the worker eligible for a v2 lease: `authorizedToAcquire` remains false and no
-v2 acquisition endpoint is enabled.
-The returned heartbeat and qualification timing remain server-owned.
-Apply migration 0013 before deploying a binary that serves the v2 route.
+It records the latest report using PostgreSQL time. The server requests another
+heartbeat after 30 seconds and qualifies matching evidence for two minutes.
+These timings are server-owned. Acquisition authorization also requires the
+reviewed credential policy and the explicit
+`PERFENG_NATIVE_WORKER_ACQUISITION_ENABLED=true` startup switch. The switch
+defaults to false; unset or `false` does not authorize new work. Apply
+migrations through 0016 before enabling acquisition. Keep the switch false
+until the v2 Playwright worker and a representative Windows run are verified.
+Existing lease-scoped operations remain available when the switch is turned off.
 
-`POST /native-worker/v1/leases` accepts the pinned protocol version and a
+`POST /native-worker/v2/leases` accepts the pinned protocol version and a
 bounded `maxWaitSeconds` hint. This initial implementation responds immediately:
 `200` returns one compatible durable lease and places its one-time plaintext
 capability only in `X-Perfeng-Lease`; `204` means no eligible work is currently
@@ -127,7 +125,7 @@ compatible capabilities and free worker capacity. The initial server-owned
 policy uses a two-minute presence window, two-minute lease, 40-second renewal
 interval and a bounded batch of 100 candidate Runs.
 
-`POST /native-worker/v1/leases/{leaseId}/renew` requires the authenticated
+`POST /native-worker/v2/leases/{leaseId}/renew` requires the authenticated
 worker, its explicit acquisition authorization and exactly one valid
 `X-Perfeng-Lease` capability. The body repeats the attempt and expected Run
 revision fences. Renewal uses the same two-minute lease policy as acquisition,
@@ -136,7 +134,7 @@ deadline no later than 30 seconds after cancellation is observed. Stale Run
 revision or phase reports return `409`; absent, expired or mismatched lease
 authority returns `410` without revealing which authority check failed.
 
-`POST /native-worker/v1/leases/{leaseId}/release` uses the same authenticated
+`POST /native-worker/v2/leases/{leaseId}/release` uses the same authenticated
 worker authorization, attempt and Run-revision fences, and exactly one valid
 `X-Perfeng-Lease` capability. A successful first release and an identical retry
 both return `204`. An expired, replaced or mismatched lease returns `410`; a
@@ -147,7 +145,7 @@ the capability nor message is returned in the response. A
 advances a cancelling Run to `ABORTED`; the other release reasons relinquish
 authority without inventing terminal evidence.
 
-`POST /native-worker/v1/leases/{leaseId}/upload-grants` requires the same
+`POST /native-worker/v2/leases/{leaseId}/upload-grants` requires the same
 authenticated worker, acquisition authorization and single `X-Perfeng-Lease`
 capability. The body declares the attempt, expected Run revision, assigned
 artifact slot, byte size, media type and full-object SHA-256. The server first
@@ -158,7 +156,7 @@ S3 SigV4 `PUT` authorization outside the database transaction. Success returns
 `ARTIFACT_MISMATCH`; stale revision and absent lease authority remain distinct
 `409` and `410` responses.
 
-`POST /native-worker/v1/leases/{leaseId}/artifacts` binds the authenticated
+`POST /native-worker/v2/leases/{leaseId}/artifacts` binds the authenticated
 worker and single lease capability to the request's attempt, expected Run
 revision, upload grant, slot, size and SHA-256. The service selects the durable
 server-owned object key and reviewed kind, format and media type, streams that
@@ -169,7 +167,7 @@ grant returns `ARTIFACT_MISMATCH`; stale revision and lost lease authority
 remain distinct `409` and `410` responses. Storage outages return `503` without
 exposing provider responses, object keys or credentials.
 
-`POST /native-worker/v1/leases/{leaseId}/terminal` accepts the contract's
+`POST /native-worker/v2/leases/{leaseId}/terminal` accepts the contract's
 `COMPLETED` or `FAILED` report under the same authenticated worker, attempt,
 revision and single-capability fence. Completion succeeds only when all required
 slots in the persisted reviewed plan are registered and the named manifest is
@@ -258,43 +256,38 @@ every entry uses `PERFENG_CONTRACTS_VERSION`. Registry paths and content are not
 included in returned configuration errors. Signing, attestation and refresh
 policy remain deployment responsibilities.
 
-A source-checkout or release-archive entry must include `nativeAssignment`:
+A v2 Playwright source-checkout entry includes a `nativeBaseline` template:
 
 ~~~json
 {
   "baseUrl": "https://sut.perfeng.invalid/search",
-  "browser": "edge",
-  "diagnosticMode": "trace",
-  "artifactPlan": [
-    {
-      "slot": "measurements",
-      "kind": "measurements",
-      "mediaType": "application/json",
-      "format": "playwright-measurements/v2",
-      "maximumBytes": 1048576,
-      "required": true
-    },
-    {
-      "slot": "manifest",
-      "kind": "manifest",
-      "mediaType": "application/json",
-      "format": "raw-result/v2",
-      "maximumBytes": 1048576,
-      "required": true
-    }
-  ]
+  "scenario": {
+    "cacheProfile": "cold",
+    "pageReuse": "per-iteration",
+    "warmupIterations": 1,
+    "measurementIterations": 5
+  },
+  "hostProfile": {
+    "profileId": "windows-mainstream",
+    "profileVersion": "1.0.0",
+    "fingerprint": "<reviewed SHA-256>",
+    "evidenceSha256": "<reviewed SHA-256>"
+  },
+  "browserSettings": {
+    "headless": false,
+    "viewport": {"width": 1366, "height": 768},
+    "deviceScaleFactor": 1
+  },
+  "measurementsMaximumBytes": 1048576,
+  "manifestMaximumBytes": 1048576
 }
 ~~~
 
 The registry derives test, workload, profile, environment and execution-artifact
-identity from the already reviewed entry. Native Worker API v1 accepts only the
-Playwright producer. The registry also rejects a native assignment on a
-Kubernetes entry, a missing assignment on native provenance, non-HTTPS targets,
-unsupported browsers or diagnostics, duplicate slots and unbounded artifacts.
-The `measurements` and `manifest` slots require the exact registered formats
-shown above. The obsolete hyphenated placeholders are rejected. Before rolling
-out this version, allow any lease created from an older candidate to expire or
-release it, then reacquire it from the updated registry configuration.
+identity from the already reviewed entry. The v2 template owns the HTTPS target
+and host measurement policy; it cannot be paired with a legacy `nativeAssignment`.
+The resulting plan has ordered `measurements` and `manifest` slots with the
+registered `playwright-measurements/v2` and `raw-result/v2` formats.
 This configuration is resolved before native lease acquisition; workers and Run
 callers cannot supply or override it.
 

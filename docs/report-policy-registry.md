@@ -74,19 +74,11 @@ not claim to attest the relationship between that revision and the published
 image. An unmatched context or image is forbidden; malformed input is a
 validation failure.
 
-`ResolveNativePlan` accepts only a CREATED native Run in the same exact
-principal and request context. It combines registry-owned target, browser,
-diagnostic and artifact-plan values with the immutable test, workload, profile,
-environment and raw execution-artifact identities. The resulting value matches
-the Native Worker API v1 lease `assignment` and `artifactPlan` shapes and is
-returned as an isolated copy. It does not acquire a lease, inspect worker claims
-or accept assignment values from the Run caller.
-
-A native entry may additionally declare `nativeBaseline` when it uses contracts
-bundle 0.18.0 and a Playwright source checkout. Construction validates the
+A native entry declares `nativeBaseline` when it uses contracts
+bundle 0.19.0 and a Playwright source checkout. Construction validates the
 cache/reuse and iteration policy, qualified host profile
 ID/version/fingerprint/evidence digest, browser viewport and scale, and the two
-artifact limits. The HTTPS target remains owned by the native assignment.
+artifact limits and its HTTPS target URL.
 `ResolveNativeBaselinePlan` then combines that template with the immutable Run,
 workload and producer identities to form the complete Native Worker v2 baseline
 recipe: Chromium, search journey, baseline mode, and ordered measurements/v2
@@ -102,24 +94,15 @@ reported qualification evidence must identify the reviewed host profile and
 evidence digest and the exact runner artifact revision and lockfile. A missing
 v2 registry entry is skipped; a registry failure is returned. Selection is
 advisory and does not establish freshness, worker authorization, Run ownership
-or lease capacity. The v2 storage transaction rechecks these under locks; the
-authorization gate and HTTP lease route remain disabled.
+or lease capacity. The v2 storage transaction rechecks these under locks. The
+v2 HTTP lease route is present, but acquisition is disabled by default through
+the explicit startup switch until the Windows worker is verified.
 
-An entry with `nativeBaseline` is ineligible for the v1 plan resolver and v1
-lease acquisition skips it. This prevents a v1 lease from silently discarding
-the reviewed v2 recipe. Plan resolution does not persist or issue a v2 lease,
-and this registry change does not expose a v2 worker endpoint.
-
-For v1, the native-worker domain decodes authenticated presence documents through
-the pinned contract and compares their capabilities with a resolved plan. A match
-requires the reported browser, diagnostic mode, execution-artifact transport
-and every planned artifact kind. Invalid capability values and invalid plans
-never match. Availability, freshness, qualification, authorization and capacity
-are scheduling concerns and remain outside this pure compatibility decision.
-The native lease acquirer reads those persisted eligibility inputs, resolves
-plans before opening a transaction and asks storage to recheck the exact
-presence and Run under locks. Report-policy resolution therefore remains free
-of persistence and lease ownership concerns.
+Plan resolution itself does not persist or issue a lease. The native lease
+acquirer reads persisted eligibility inputs, resolves plans before opening a
+transaction and asks storage to recheck the exact presence and Run under locks.
+Report-policy resolution therefore remains free of persistence and lease
+ownership concerns.
 
 `ResolveJob` implements `reconcile.JobResolver` for VALIDATING and PROVISIONING
 Runs. It resolves the same exact principal and request context, requires the
@@ -172,8 +155,9 @@ one relative manifest path. The manifest has `schemaVersion: 1` and a non-empty
   a reviewed typed or legacy-export layout; Playwright measurements/v2 and
   kube-burner pod-latency sources require an empty layout.
 
-Native entries may include the optional `nativeBaseline` object described above;
-entries without it retain the v1 native-worker behavior.
+Native entries may include the `nativeBaseline` object described above. Entries
+without it cannot admit new native Runs, but can still be parsed for existing
+report-provenance checks.
 
 The loader bounds the manifest to 4 MiB and each referenced policy or Job to
 1 MiB. JSON must use UTF-8, unique keys, known fields and no more than the shared

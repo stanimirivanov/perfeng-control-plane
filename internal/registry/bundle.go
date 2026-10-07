@@ -27,23 +27,22 @@ type reportPolicyBundle struct {
 }
 
 type reportPolicyBundleEntry struct {
-	Policy             string                           `json:"policy"`
-	TestID             string                           `json:"testId"`
-	ContractsVersion   string                           `json:"contractsVersion"`
-	Catalogue          run.Reference                    `json:"catalogue"`
-	Profile            string                           `json:"profile"`
-	RawProducer        rawresult.Producer               `json:"rawProducer"`
-	NormalizerProducer rawresult.Producer               `json:"normalizerProducer"`
-	Normalization      normalizationBundleConfig        `json:"normalization"`
-	ReportProducer     rawresult.Producer               `json:"reportProducer"`
-	ExecutionTemplate  string                           `json:"executionTemplate,omitempty"`
-	NativeAssignment   *nativeworker.AssignmentTemplate `json:"nativeAssignment,omitempty"`
-	NativeBaseline     *nativeworker.BaselineTemplate   `json:"nativeBaseline,omitempty"`
-	Workload           rawresult.Identity               `json:"workload"`
-	Environment        baseline.Environment             `json:"environment"`
-	Dataset            baseline.Dataset                 `json:"dataset"`
-	CandidateImages    []string                         `json:"candidateImages"`
-	Principals         []string                         `json:"principals"`
+	Policy             string                         `json:"policy"`
+	TestID             string                         `json:"testId"`
+	ContractsVersion   string                         `json:"contractsVersion"`
+	Catalogue          run.Reference                  `json:"catalogue"`
+	Profile            string                         `json:"profile"`
+	RawProducer        rawresult.Producer             `json:"rawProducer"`
+	NormalizerProducer rawresult.Producer             `json:"normalizerProducer"`
+	Normalization      normalizationBundleConfig      `json:"normalization"`
+	ReportProducer     rawresult.Producer             `json:"reportProducer"`
+	ExecutionTemplate  string                         `json:"executionTemplate,omitempty"`
+	NativeBaseline     *nativeworker.BaselineTemplate `json:"nativeBaseline,omitempty"`
+	Workload           rawresult.Identity             `json:"workload"`
+	Environment        baseline.Environment           `json:"environment"`
+	Dataset            baseline.Dataset               `json:"dataset"`
+	CandidateImages    []string                       `json:"candidateImages"`
+	Principals         []string                       `json:"principals"`
 }
 
 type normalizationBundleConfig struct {
@@ -101,9 +100,8 @@ func loadReportPolicyEntry(
 			Layout:       configured.Normalization.Layout,
 		},
 		ReportProducer: configured.ReportProducer, ExecutionTemplate: template,
-		NativeAssignment: configured.NativeAssignment,
-		NativeBaseline:   configured.NativeBaseline,
-		Workload:         configured.Workload, Environment: configured.Environment,
+		NativeBaseline: configured.NativeBaseline,
+		Workload:       configured.Workload, Environment: configured.Environment,
 		Dataset: configured.Dataset, CandidateImages: configured.CandidateImages,
 		Principals: configured.Principals,
 	}, nil

@@ -54,6 +54,7 @@ func NewApplicationRuntime(
 		resources.Registry,
 		resources.NativeUploadSigner,
 		resources.ArtifactStorage,
+		config.NativeWorkerAcquisitionEnabled,
 	)
 	if err != nil {
 		return nil, ErrInvalidConfiguration

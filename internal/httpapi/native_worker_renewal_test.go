@@ -289,7 +289,7 @@ func newNativeRenewRequest(
 
 func nativeRenewFixture(t *testing.T) []byte {
 	t.Helper()
-	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/renew.json")
+	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/renew.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -299,7 +299,7 @@ func nativeRenewFixture(t *testing.T) []byte {
 
 func nativeRenewalFixture(t *testing.T) nativeworker.Renewal {
 	t.Helper()
-	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/renewal.json")
+	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/renewal.json")
 	if err != nil {
 		t.Fatal(err)
 	}

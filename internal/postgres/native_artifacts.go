@@ -11,18 +11,6 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
-var _ nativeworker.ArtifactRegistrationStore = (*Repository)(nil)
-
-// PrepareNativeArtifact authenticates current lease and upload-grant authority
-// and returns the immutable candidate to verify after releasing all row locks.
-func (r *Repository) PrepareNativeArtifact(
-	ctx context.Context,
-	workerID string,
-	request nativeworker.ArtifactRegistrationRequest,
-) (nativeworker.ArtifactCandidate, error) {
-	return r.prepareNativeArtifact(ctx, workerID, request, nativeLeaseProtocolV1)
-}
-
 // PrepareNativeBaselineArtifact selects a v2 upload grant and its immutable
 // reviewed artifact semantics before object verification.
 func (r *Repository) PrepareNativeBaselineArtifact(
@@ -53,17 +41,6 @@ func (r *Repository) prepareNativeArtifact(
 
 	candidate, _, err := r.lockNativeArtifactCandidate(ctx, tx, workerID, request, protocolVersion)
 	return candidate, err
-}
-
-// RegisterNativeArtifact rechecks all authority after object verification and
-// atomically preserves the first server-issued reference for the upload grant.
-func (r *Repository) RegisterNativeArtifact(
-	ctx context.Context,
-	workerID string,
-	request nativeworker.ArtifactRegistrationRequest,
-	verified nativeworker.VerifiedArtifact,
-) (nativeworker.ArtifactReference, error) {
-	return r.registerNativeArtifact(ctx, workerID, request, verified, nativeLeaseProtocolV1)
 }
 
 // RegisterNativeBaselineArtifact rechecks v2 lease and grant authority after

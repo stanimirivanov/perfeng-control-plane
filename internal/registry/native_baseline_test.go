@@ -15,6 +15,7 @@ import (
 
 func nativeBaselineTemplate() *nativeworker.BaselineTemplate {
 	return &nativeworker.BaselineTemplate{
+		BaseURL: "https://sut.perfeng.invalid/search",
 		Scenario: nativeworker.BaselineScenario{
 			CacheProfile: "cold", PageReuse: "per-iteration",
 			WarmupIterations: 1, MeasurementIterations: 5,
@@ -72,11 +73,6 @@ func TestRegistryResolvesReviewedNativeBaselineWithoutV1Fallback(t *testing.T) {
 		again.ArtifactPlan[0].MaximumBytes != 1<<20 {
 		t.Fatal("resolved baseline plan aliases registry state", err)
 	}
-	if _, err := registry.ResolveNativePlan(
-		context.Background(), "alice", current,
-	); !errors.Is(err, run.ErrForbidden) {
-		t.Fatalf("v1 resolver accepted a v2 baseline Run: %v", err)
-	}
 }
 
 func TestRegistryRejectsInvalidNativeBaselineConfiguration(t *testing.T) {
@@ -88,7 +84,7 @@ func TestRegistryRejectsInvalidNativeBaselineConfiguration(t *testing.T) {
 		{"invalid recipe", func(entry *ReportPolicyEntry) {
 			entry.NativeBaseline.Scenario.PageReuse = "per-run"
 		}},
-		{"missing v1 context", func(entry *ReportPolicyEntry) { entry.NativeAssignment = nil }},
+		{"insecure target", func(entry *ReportPolicyEntry) { entry.NativeBaseline.BaseURL = "http://sut.invalid" }},
 		{"release archive", func(entry *ReportPolicyEntry) {
 			entry.RawProducer.Artifact.Kind = "release-archive"
 		}},
@@ -153,7 +149,7 @@ func TestBundleLoadsReviewedNativeBaseline(t *testing.T) {
 			Normalization: normalizationBundleConfig{
 				SourceFormat: reconcile.PlaywrightMeasurementsV2Format,
 			},
-			ReportProducer: entry.ReportProducer, NativeAssignment: entry.NativeAssignment,
+			ReportProducer: entry.ReportProducer,
 			NativeBaseline: entry.NativeBaseline,
 			Workload:       entry.Workload, Environment: entry.Environment, Dataset: entry.Dataset,
 			CandidateImages: entry.CandidateImages, Principals: entry.Principals,

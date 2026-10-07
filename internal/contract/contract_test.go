@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io/fs"
-	"net/url"
 	"strings"
 	"testing"
 )
@@ -17,24 +16,18 @@ func TestPinnedSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	var lock struct {
-		Commit                      string
-		BundleVersion               string
-		RunManagementAPIVersion     string
-		NativeWorkerAPIVersion      string
-		NativeWorkerV2Commit        string
-		NativeWorkerV2BundleVersion string
-		NativeWorkerV2ApiVersion    string
-		SHA256                      map[string]string
+		Commit                  string
+		BundleVersion           string
+		RunManagementAPIVersion string
+		NativeWorkerAPIVersion  string
+		SHA256                  map[string]string
 	}
 	if err := json.Unmarshal(b, &lock); err != nil {
 		t.Fatal(err)
 	}
-	if lock.Commit != "be847a4c7c0ad22c799389410a8c234d5492abc3" ||
-		lock.BundleVersion != "0.17.0" || lock.RunManagementAPIVersion != "0.4.0" ||
-		lock.NativeWorkerAPIVersion != "1.0.0" ||
-		lock.NativeWorkerV2Commit != "a019d8fa3f473b0dce1650208fadfe47e959ab6d" ||
-		lock.NativeWorkerV2BundleVersion != "0.18.0" ||
-		lock.NativeWorkerV2ApiVersion != "2.0.0" || len(lock.SHA256) != 70 {
+	if lock.Commit != "a697c4b8821f84becbeb8bb27e651dae71c365ab" ||
+		lock.BundleVersion != "0.19.0" || lock.RunManagementAPIVersion != "0.4.0" ||
+		lock.NativeWorkerAPIVersion != "2.0.0" || len(lock.SHA256) != 41 {
 		t.Fatal("unexpected contract provenance")
 	}
 	actualFiles := make(map[string]struct{}, len(lock.SHA256))
@@ -83,247 +76,6 @@ func TestNativeWorkerArtifactFormatRuntimeValidation(t *testing.T) {
 	}
 }
 
-func TestNativeWorkerSnapshotInventory(t *testing.T) {
-	verifyNativeWorkerOpenAPI(t)
-	verifyNativeWorkerFixtures(t)
-}
-
-func TestNativeWorkerPresenceRuntimeValidation(t *testing.T) {
-	presence := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/presence.json")
-	if err := ValidateWorkerPresence(presence); err != nil {
-		t.Fatal(err)
-	}
-
-	rejections, err := fs.Glob(Files, "snapshot/api/native-worker/v1/rejections/*.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	validated := 0
-	for _, path := range rejections {
-		fixture := decodeContractValue(t, path)
-		if fixture["schema"] != "WorkerPresence" {
-			continue
-		}
-		validated++
-		if ValidateWorkerPresence(fixture["value"]) == nil {
-			t.Fatalf("accepted rejected WorkerPresence fixture: %s", path)
-		}
-	}
-	if validated != 3 {
-		t.Fatalf("validated %d WorkerPresence rejections, want 3", validated)
-	}
-
-	capabilities := presence["capabilities"].(map[string]any)
-	capabilities["browsers"] = []any{"edge", "chrome", "chromium", "edge"}
-	if ValidateWorkerPresence(presence) == nil {
-		t.Fatal("accepted a duplicate browser capability")
-	}
-
-	presence = decodeContractValue(t, "snapshot/api/native-worker/v1/examples/presence.json")
-	capabilities = presence["capabilities"].(map[string]any)
-	capabilities["artifactKinds"] = []any{
-		"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q",
-	}
-	if ValidateWorkerPresence(presence) == nil {
-		t.Fatal("accepted an oversized artifact-kind capability list")
-	}
-}
-
-func TestNativeWorkerAcquireRuntimeValidation(t *testing.T) {
-	acquire := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/acquire.json")
-	if err := ValidateAcquireLease(acquire); err != nil {
-		t.Fatal(err)
-	}
-
-	for name, mutate := range map[string]func(map[string]any){
-		"protocol": func(value map[string]any) { value["protocolVersion"] = json.Number("2") },
-		"wait":     func(value map[string]any) { value["maxWaitSeconds"] = json.Number("31") },
-		"unknown":  func(value map[string]any) { value["workerId"] = "caller-selected" },
-		"missing":  func(value map[string]any) { delete(value, "maxWaitSeconds") },
-	} {
-		t.Run(name, func(t *testing.T) {
-			value := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/acquire.json")
-			mutate(value)
-			if ValidateAcquireLease(value) == nil {
-				t.Fatal("accepted invalid acquisition request")
-			}
-		})
-	}
-}
-
-func TestNativeWorkerRenewRuntimeValidation(t *testing.T) {
-	renewal := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/renew.json")
-	if err := ValidateRenewLease(renewal); err != nil {
-		t.Fatal(err)
-	}
-
-	for name, mutate := range map[string]func(map[string]any){
-		"revision": func(value map[string]any) { value["expectedRunRevision"] = json.Number("0") },
-		"phase":    func(value map[string]any) { value["phase"] = "COMPLETED" },
-		"unknown":  func(value map[string]any) { value["leaseCapability"] = "caller-selected" },
-		"missing":  func(value map[string]any) { delete(value, "attemptId") },
-	} {
-		t.Run(name, func(t *testing.T) {
-			value := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/renew.json")
-			mutate(value)
-			if ValidateRenewLease(value) == nil {
-				t.Fatal("accepted invalid renewal request")
-			}
-		})
-	}
-}
-
-func TestNativeWorkerReleaseRuntimeValidation(t *testing.T) {
-	release := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/release.json")
-	if err := ValidateReleaseLease(release); err != nil {
-		t.Fatal(err)
-	}
-
-	for name, mutate := range map[string]func(map[string]any){
-		"revision": func(value map[string]any) { value["expectedRunRevision"] = json.Number("0") },
-		"reason":   func(value map[string]any) { value["reason"] = "UNKNOWN" },
-		"message":  func(value map[string]any) { value["message"] = "" },
-		"unknown":  func(value map[string]any) { value["workerId"] = "caller-selected" },
-		"missing":  func(value map[string]any) { delete(value, "attemptId") },
-	} {
-		t.Run(name, func(t *testing.T) {
-			value := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/release.json")
-			mutate(value)
-			if ValidateReleaseLease(value) == nil {
-				t.Fatal("accepted invalid release request")
-			}
-		})
-	}
-}
-
-func TestNativeWorkerUploadGrantRequestRuntimeValidation(t *testing.T) {
-	request := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/upload-request.json")
-	if err := ValidateUploadGrantRequest(request); err != nil {
-		t.Fatal(err)
-	}
-
-	for name, mutate := range map[string]func(map[string]any){
-		"revision": func(value map[string]any) { value["expectedRunRevision"] = json.Number("0") },
-		"slot":     func(value map[string]any) { value["slot"] = "invalid_slot" },
-		"size":     func(value map[string]any) { value["size"] = json.Number("0") },
-		"checksum": func(value map[string]any) { value["sha256"] = strings.Repeat("A", 64) },
-		"media":    func(value map[string]any) { value["mediaType"] = "Application/JSON" },
-		"unknown":  func(value map[string]any) { value["objectKey"] = "caller-selected" },
-		"missing":  func(value map[string]any) { delete(value, "attemptId") },
-	} {
-		t.Run(name, func(t *testing.T) {
-			value := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/upload-request.json")
-			mutate(value)
-			if ValidateUploadGrantRequest(value) == nil {
-				t.Fatal("accepted invalid upload-grant request")
-			}
-		})
-	}
-}
-
-func TestNativeWorkerRegisterArtifactRuntimeValidation(t *testing.T) {
-	request := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/register-artifact.json")
-	if err := ValidateRegisterArtifact(request); err != nil {
-		t.Fatal(err)
-	}
-
-	for name, mutate := range map[string]func(map[string]any){
-		"revision": func(value map[string]any) { value["expectedRunRevision"] = json.Number("0") },
-		"grant":    func(value map[string]any) { value["grantId"] = json.Number("1") },
-		"slot":     func(value map[string]any) { value["slot"] = "invalid_slot" },
-		"size":     func(value map[string]any) { value["size"] = json.Number("0") },
-		"checksum": func(value map[string]any) { value["sha256"] = strings.Repeat("A", 64) },
-		"unknown":  func(value map[string]any) { value["uri"] = "s3://worker-selected" },
-		"missing":  func(value map[string]any) { delete(value, "attemptId") },
-	} {
-		t.Run(name, func(t *testing.T) {
-			value := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/register-artifact.json")
-			mutate(value)
-			if ValidateRegisterArtifact(value) == nil {
-				t.Fatal("accepted invalid artifact-registration request")
-			}
-		})
-	}
-}
-
-func TestNativeWorkerTerminalRuntimeValidation(t *testing.T) {
-	for _, fixture := range []string{"terminal-completed.json", "terminal-failed.json"} {
-		request := decodeContractValue(
-			t,
-			"snapshot/api/native-worker/v1/examples/"+fixture,
-		)
-		if err := ValidateTerminalReport(request); err != nil {
-			t.Fatalf("%s: %v", fixture, err)
-		}
-	}
-
-	for _, fixture := range []string{"terminal-ack.json", "terminal-ack-duplicate.json"} {
-		acknowledgement := decodeContractValue(
-			t,
-			"snapshot/api/native-worker/v1/examples/"+fixture,
-		)
-		if err := ValidateTerminalAcknowledgement(acknowledgement); err != nil {
-			t.Fatalf("%s: %v", fixture, err)
-		}
-	}
-
-	for name, mutate := range map[string]func(map[string]any){
-		"revision": func(value map[string]any) { value["expectedRunRevision"] = json.Number("0") },
-		"manifest": func(value map[string]any) { value["manifestArtifactId"] = json.Number("1") },
-		"failure":  func(value map[string]any) { value["failure"] = map[string]any{} },
-		"unknown":  func(value map[string]any) { value["workerId"] = "caller-selected" },
-		"missing":  func(value map[string]any) { delete(value, "attemptId") },
-	} {
-		t.Run(name, func(t *testing.T) {
-			fixture := "terminal-completed.json"
-			if name == "failure" {
-				fixture = "terminal-failed.json"
-			}
-			value := decodeContractValue(
-				t,
-				"snapshot/api/native-worker/v1/examples/"+fixture,
-			)
-			mutate(value)
-			if ValidateTerminalReport(value) == nil {
-				t.Fatal("accepted invalid terminal report")
-			}
-		})
-	}
-}
-
-func TestNativeWorkerUploadGrantSnapshotUsesPresignedPut(t *testing.T) {
-	grant := decodeContractValue(t, "snapshot/api/native-worker/v1/examples/upload-grant.json")
-	uploadURL, ok := grant["uploadUrl"].(string)
-	if !ok {
-		t.Fatal("upload grant lacks a URL")
-	}
-	parsed, err := url.Parse(uploadURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	query := parsed.Query()
-	if parsed.Scheme != "https" || query.Get("X-Amz-Algorithm") != "AWS4-HMAC-SHA256" ||
-		query.Get("X-Amz-SignedHeaders") != "content-type;host;x-amz-checksum-sha256" ||
-		!strings.HasPrefix(query.Get("X-Amz-Credential"), "EXAMPLE-NOT-A-REAL-") ||
-		query.Get("X-Amz-Signature") != strings.Repeat("0", 64) {
-		t.Fatal("upload grant does not contain the reviewed fake presigned PUT material")
-	}
-	headers, ok := grant["uploadHeaders"].(map[string]any)
-	if !ok || len(headers) != 2 || headers["content-type"] != "application/json" ||
-		headers["x-amz-checksum-sha256"] != "//////////////////////////////////////////8=" {
-		t.Fatal("upload grant does not contain the exact signed header set")
-	}
-
-	document, err := Files.ReadFile("snapshot/api/native-worker/v1/openapi.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if bytes.Contains(document, []byte("X-Perfeng-Upload-Grant")) ||
-		bytes.Contains(document, []byte("UploadCapability")) {
-		t.Fatal("snapshot retains the superseded custom upload capability")
-	}
-}
-
 func decodeContractValue(t *testing.T, path string) map[string]any {
 	t.Helper()
 	b, err := Files.ReadFile(path)
@@ -338,100 +90,6 @@ func decodeContractValue(t *testing.T, path string) map[string]any {
 	}
 
 	return value
-}
-
-func verifyNativeWorkerOpenAPI(t *testing.T) {
-	t.Helper()
-
-	b, err := Files.ReadFile("snapshot/api/native-worker/v1/openapi.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var document struct {
-		OpenAPI string
-		Info    struct{ Version string }
-		Paths   map[string]struct {
-			Post struct {
-				OperationID string `json:"operationId"`
-			}
-		}
-	}
-	if err := json.Unmarshal(b, &document); err != nil {
-		t.Fatal(err)
-	}
-	if document.OpenAPI != "3.1.1" || document.Info.Version != "1.0.0" ||
-		len(document.Paths) != 7 {
-		t.Fatal("unexpected Native Worker API identity or path inventory")
-	}
-	for _, path := range document.Paths {
-		if path.Post.OperationID == "" {
-			t.Fatal("Native Worker path lacks its POST operation")
-		}
-	}
-}
-
-func verifyNativeWorkerFixtures(t *testing.T) {
-	t.Helper()
-
-	examples, err := fs.Glob(Files, "snapshot/api/native-worker/v1/examples/*.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	rejections, err := fs.Glob(Files, "snapshot/api/native-worker/v1/rejections/*.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(examples) != 16 || len(rejections) != 11 {
-		t.Fatal("unexpected Native Worker conformance fixture inventory")
-	}
-
-	b, err := Files.ReadFile("snapshot/api/native-worker/v1/http-cases.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var cases []struct {
-		OperationID string `json:"operationId"`
-		Request     string
-		Response    string
-		Headers     map[string]any
-	}
-	if err := json.Unmarshal(b, &cases); err != nil {
-		t.Fatal(err)
-	}
-	if len(cases) != 10 {
-		t.Fatal("unexpected Native Worker HTTP fixture inventory")
-	}
-	for _, fixture := range cases {
-		if fixture.OperationID == "" || fixture.Request == "" {
-			t.Fatal("Native Worker HTTP fixture lacks operation or request")
-		}
-		if _, err := Files.ReadFile("snapshot/api/native-worker/v1/examples/" + fixture.Request + ".json"); err != nil {
-			t.Fatal(err)
-		}
-		if fixture.Response != "" {
-			if _, err := Files.ReadFile("snapshot/api/native-worker/v1/examples/" + fixture.Response + ".json"); err != nil {
-				t.Fatal(err)
-			}
-		}
-		verifyNativeUploadHTTPFixture(
-			t, fixture.OperationID, fixture.Response, fixture.Headers,
-		)
-	}
-}
-
-func verifyNativeUploadHTTPFixture(
-	t *testing.T,
-	operationID string,
-	response string,
-	headers map[string]any,
-) {
-	t.Helper()
-	if operationID != "createNativeUploadGrant" {
-		return
-	}
-	if response != "upload-grant" || len(headers) != 0 {
-		t.Fatal("upload grant HTTP fixture retains a custom response header")
-	}
 }
 
 func TestBaselineFixturesAndStrictSchemas(t *testing.T) {

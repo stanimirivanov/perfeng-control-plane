@@ -38,7 +38,7 @@ func TestV2BaselineEligibilityRequiresReviewedCapabilitiesAndEvidence(t *testing
 	plan, err := baselineTemplateFixture().Resolve(
 		"search-journey",
 		rawresult.Identity{ID: "browser-smoke", Version: "1.0.0", SHA256: strings.Repeat("f", 64)},
-		"smoke", "local-demo", "https://sut.perfeng.invalid/search", baselineArtifactFixture(),
+		"smoke", "local-demo", baselineArtifactFixture(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -86,7 +86,7 @@ func TestSelectBaselineCandidateUsesReviewedPolicyAndWorkerCompatibility(t *test
 	plan, err := baselineTemplateFixture().Resolve(
 		"search-journey",
 		rawresult.Identity{ID: "browser-smoke", Version: "1.0.0", SHA256: strings.Repeat("f", 64)},
-		"smoke", "local-demo", "https://sut.perfeng.invalid/search", baselineArtifactFixture(),
+		"smoke", "local-demo", baselineArtifactFixture(),
 	)
 	if err != nil {
 		t.Fatal(err)

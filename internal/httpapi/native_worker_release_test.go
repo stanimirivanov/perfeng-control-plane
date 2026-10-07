@@ -276,7 +276,7 @@ func newNativeReleaseRequest(
 
 func nativeReleaseFixture(t *testing.T) []byte {
 	t.Helper()
-	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/release.json")
+	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/release.json")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -50,7 +50,6 @@ type schema struct {
 }
 
 var schemas map[string]schema
-var nativeWorkerSchemas map[string]schema
 var nativeWorkerV2Schemas map[string]schema
 var transitions map[string][]string
 
@@ -78,20 +77,6 @@ func init() {
 		panic(err)
 	}
 	schemas = prepared
-	var nativeWorkerDocument struct {
-		Components struct {
-			Schemas map[string]schema `json:"schemas"`
-		} `json:"components"`
-	}
-	read("api/native-worker/v1/openapi.json", &nativeWorkerDocument)
-	nativeWorkerSchemas, err = prepareSchemas(
-		nativeWorkerDocument.Components.Schemas,
-		"WorkerPresence", "AcquireLease", "RenewLease", "ReleaseLease", "UploadGrantRequest",
-		"RegisterArtifact", "TerminalReport", "TerminalAck",
-	)
-	if err != nil {
-		panic(err)
-	}
 	var nativeWorkerV2Document struct {
 		Components struct {
 			Schemas map[string]schema `json:"schemas"`
@@ -296,18 +281,6 @@ func ValidateBaselineTransition(value any) error {
 	return validate(schemas["BaselineTransition"], value)
 }
 
-// ValidateWorkerPresence checks a decoded value against the pinned Native
-// Worker API v1 WorkerPresence schema.
-func ValidateWorkerPresence(value any) error {
-	return validateWithSchemas(nativeWorkerSchemas["WorkerPresence"], value, nativeWorkerSchemas)
-}
-
-// ValidateAcquireLease checks a decoded value against the pinned Native
-// Worker API v1 AcquireLease schema.
-func ValidateAcquireLease(value any) error {
-	return validateWithSchemas(nativeWorkerSchemas["AcquireLease"], value, nativeWorkerSchemas)
-}
-
 // ValidateNativeWorkerV2Presence checks the candidate v2 presence document.
 // It does not make the server's qualification or authorization decision.
 func ValidateNativeWorkerV2Presence(value any) error {
@@ -386,78 +359,26 @@ func ValidateNativeWorkerV2Error(value any) error {
 	return validateWithSchemas(nativeWorkerV2Schemas["Error"], value, nativeWorkerV2Schemas)
 }
 
-// ValidateRenewLease checks a decoded value against the pinned Native Worker
-// API v1 RenewLease schema.
-func ValidateRenewLease(value any) error {
-	return validateWithSchemas(nativeWorkerSchemas["RenewLease"], value, nativeWorkerSchemas)
-}
-
-// ValidateReleaseLease checks a decoded value against the pinned Native Worker
-// API v1 ReleaseLease schema.
-func ValidateReleaseLease(value any) error {
-	return validateWithSchemas(nativeWorkerSchemas["ReleaseLease"], value, nativeWorkerSchemas)
-}
-
-// ValidateUploadGrantRequest checks a decoded value against the pinned Native
-// Worker API v1 UploadGrantRequest schema.
-func ValidateUploadGrantRequest(value any) error {
-	return validateWithSchemas(
-		nativeWorkerSchemas["UploadGrantRequest"],
-		value,
-		nativeWorkerSchemas,
-	)
-}
-
-// ValidateRegisterArtifact checks a decoded value against the pinned Native
-// Worker API v1 RegisterArtifact schema.
-func ValidateRegisterArtifact(value any) error {
-	return validateWithSchemas(
-		nativeWorkerSchemas["RegisterArtifact"],
-		value,
-		nativeWorkerSchemas,
-	)
-}
-
-// ValidateTerminalReport checks a decoded value against the pinned Native
-// Worker API v1 TerminalReport schema.
-func ValidateTerminalReport(value any) error {
-	return validateWithSchemas(
-		nativeWorkerSchemas["TerminalReport"],
-		value,
-		nativeWorkerSchemas,
-	)
-}
-
-// ValidateTerminalAcknowledgement checks a decoded value against the pinned
-// Native Worker API v1 TerminalAck schema.
-func ValidateTerminalAcknowledgement(value any) error {
-	return validateWithSchemas(
-		nativeWorkerSchemas["TerminalAck"],
-		value,
-		nativeWorkerSchemas,
-	)
-}
-
 // ValidateWorkerQualificationEvidence checks server-configured evidence against
 // the same pinned schema used by WorkerPresence.
 func ValidateWorkerQualificationEvidence(value any) error {
 	return validateWithSchemas(
-		nativeWorkerSchemas["QualificationEvidence"],
+		nativeWorkerV2Schemas["QualificationEvidence"],
 		value,
-		nativeWorkerSchemas,
+		nativeWorkerV2Schemas,
 	)
 }
 
 // ValidNativeWorkerIdentifier reports whether value satisfies the shared
-// Native Worker API v1 Identifier schema.
+// Native Worker API Identifier schema.
 func ValidNativeWorkerIdentifier(value string) bool {
-	return validateWithSchemas(nativeWorkerSchemas["Identifier"], value, nativeWorkerSchemas) == nil
+	return validateWithSchemas(nativeWorkerV2Schemas["Identifier"], value, nativeWorkerV2Schemas) == nil
 }
 
 // ValidNativeArtifactFormat reports whether value satisfies the shared
-// artifact-format grammar embedded in Native Worker API v1.
+// artifact-format grammar embedded in Native Worker API v2.
 func ValidNativeArtifactFormat(value string) bool {
-	return validateWithSchemas(nativeWorkerSchemas["ArtifactFormat"], value, nativeWorkerSchemas) == nil
+	return validateWithSchemas(nativeWorkerV2Schemas["ArtifactFormat"], value, nativeWorkerV2Schemas) == nil
 }
 
 func validate(s schema, value any) error {

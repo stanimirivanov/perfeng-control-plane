@@ -62,6 +62,21 @@ func requiredBoolean(lookup lookupEnvironment, name string) (bool, error) {
 	}
 }
 
+func optionalBoolean(lookup lookupEnvironment, name string) (bool, error) {
+	value, exists := lookup(name)
+	if !exists {
+		return false, nil
+	}
+	switch value {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return false, configurationError(name)
+	}
+}
+
 func requiredDuration(lookup lookupEnvironment, name string) (time.Duration, error) {
 	value, err := requiredValue(lookup, name)
 	if err != nil {

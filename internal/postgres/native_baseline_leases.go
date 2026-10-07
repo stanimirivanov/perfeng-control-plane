@@ -15,7 +15,7 @@ import (
 var _ nativeworker.BaselineLeaseStore = (*Repository)(nil)
 
 // EligibleNativeWorkerV2 returns one fresh, qualified and authorized v2
-// observation. The current database gate makes all v2 workers ineligible.
+// observation. The HTTP composition keeps authorization off unless explicitly enabled.
 func (r *Repository) EligibleNativeWorkerV2(
 	ctx context.Context,
 	workerID string,
@@ -52,9 +52,9 @@ func (r *Repository) EligibleNativeWorkerV2(
 	}, nil
 }
 
-// AcquireNativeBaselineLease fences one v2 attempt against both native worker
-// generations by locking the v2 worker before the Run and reading database time
-// after both locks. It never trusts the advisory selection alone.
+// AcquireNativeBaselineLease fences one v2 attempt by locking the worker before
+// the Run and reading database time after both locks. It never trusts the
+// advisory selection alone.
 func (r *Repository) AcquireNativeBaselineLease(
 	ctx context.Context,
 	workerID string,
@@ -122,7 +122,7 @@ func (r *Repository) AcquireNativeBaselineLease(
 		return nativeworker.BaselineLease{}, false, run.ErrValidation
 	}
 	authority, written, err := persistNativeLease(
-		ctx, tx, workerID, current.ID, nativeLeaseProtocolV2, planBytes, now, ttl, renewAfter,
+		ctx, tx, workerID, current.ID, planBytes, now, ttl, renewAfter,
 	)
 	if err != nil || !written {
 		return nativeworker.BaselineLease{}, false, err

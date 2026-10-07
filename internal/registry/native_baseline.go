@@ -34,7 +34,6 @@ func (registry *ReportPolicyRegistry) ResolveNativeBaselinePlan(
 		entry.workload,
 		current.Request.Profile,
 		current.Request.Environment.ID,
-		entry.nativeAssignment.BaseURL,
 		*entry.rawProducer.Artifact,
 	)
 	if err != nil {

@@ -28,7 +28,7 @@ const (
 	PhaseFinalizing Phase = "FINALIZING"
 )
 
-// Valid reports whether phase belongs to Native Worker API v1 or v2.
+// Valid reports whether phase belongs to the Native Worker API.
 func (phase Phase) Valid() bool {
 	switch phase {
 	case PhasePreparing, PhaseRunning, PhaseUploading, PhaseFinalizing:

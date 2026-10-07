@@ -1,10 +1,7 @@
 package postgres
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -13,327 +10,140 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
-func nativeArtifactRegistrationRequest(
-	lease nativeworker.Lease,
+func v2UploadRequest(fixture nativeV2LeaseFixture, slot string) nativeworker.UploadRequest {
+	return nativeworker.UploadRequest{
+		LeaseID: fixture.authority.leaseID, AttemptID: fixture.authority.attemptID,
+		ExpectedRunRevision: fixture.accepted.Run.Revision,
+		Slot:                slot, Size: 4096, SHA256: strings.Repeat("f", 64),
+		MediaType: "application/json", Capability: fixture.authority.capability,
+	}
+}
+
+func v2ArtifactRequest(
+	request nativeworker.UploadRequest,
 	reservation nativeworker.UploadReservation,
 ) nativeworker.ArtifactRegistrationRequest {
 	return nativeworker.ArtifactRegistrationRequest{
-		LeaseID: lease.LeaseID, AttemptID: lease.AttemptID,
-		ExpectedRunRevision: lease.RunRevision, GrantID: reservation.GrantID,
-		Slot: reservation.Slot, Size: reservation.Size, SHA256: reservation.SHA256,
-		Capability: lease.Capability,
+		LeaseID: request.LeaseID, AttemptID: request.AttemptID,
+		ExpectedRunRevision: request.ExpectedRunRevision, GrantID: reservation.GrantID,
+		Slot: request.Slot, Size: request.Size, SHA256: request.SHA256,
+		Capability: request.Capability,
 	}
 }
 
-func reserveNativeArtifactForTest(
-	t *testing.T,
-	repository *Repository,
-	principal string,
-	idempotencyKey string,
-	workerID string,
-) (nativeworker.Lease, nativeworker.ArtifactRegistrationRequest) {
-	t.Helper()
-	_, lease := acquireNativeLeaseForTest(t, repository, principal, idempotencyKey, workerID)
-	reservation, err := repository.ReserveNativeUploadGrant(
-		testContext,
-		workerID,
-		nativeUploadRequest(lease),
-		2*time.Minute,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return lease, nativeArtifactRegistrationRequest(lease, reservation)
-}
-
-func insertOldStyleNativeUploadGrant(
-	t *testing.T,
-	repository *Repository,
-	lease nativeworker.Lease,
-) nativeworker.UploadReservation {
-	t.Helper()
-	request := nativeUploadRequest(lease)
-	slot, matched := lease.Plan.MatchArtifactSlot(request.Slot, request.MediaType, request.Size)
-	if !matched {
-		t.Fatal("old-style upload declaration does not match the lease plan")
-	}
-	grantID, err := newUUID()
-	if err != nil {
-		t.Fatal(err)
-	}
-	checksum, err := hex.DecodeString(request.SHA256)
-	if err != nil {
-		t.Fatal(err)
-	}
-	reservation := nativeworker.UploadReservation{
-		GrantID: grantID, LeaseID: lease.LeaseID, AttemptID: lease.AttemptID,
-		RunID: lease.RunID, Slot: request.Slot,
-		ObjectKey: "runs/" + lease.RunID + "/attempts/" + lease.AttemptID + "/" + request.Slot,
-		Size:      request.Size, MaximumBytes: slot.MaximumBytes, SHA256: request.SHA256,
-		MediaType: request.MediaType, IssuedAt: lease.IssuedAt, ExpiresAt: lease.ExpiresAt,
-	}
-	if !reservation.Valid() {
-		t.Fatal("invalid old-style native upload grant fixture")
-	}
-	if _, err := repository.db.Exec(`
-		INSERT INTO perfeng_control.native_upload_grants(
-			grant_id,run_id,lease_id,attempt_id,slot,object_key,
-			declared_size,maximum_bytes,sha256,media_type,issued_at,expires_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-	`, reservation.GrantID, reservation.RunID, reservation.LeaseID,
-		reservation.AttemptID, reservation.Slot, reservation.ObjectKey,
-		reservation.Size, reservation.MaximumBytes, checksum, reservation.MediaType,
-		reservation.IssuedAt, reservation.ExpiresAt); err != nil {
-		t.Fatal(err)
-	}
-
-	return reservation
-}
-
-func TestNativeArtifactRegistrationPersistsVerifiedExactRetry(t *testing.T) {
-	repository := openTest(t, testDatabase(t))
-	if err := repository.Migrate(testContext); err != nil {
-		t.Fatal(err)
-	}
-	lease, request := reserveNativeArtifactForTest(
-		t,
-		repository,
-		"alice",
-		"native-artifact-register-0001",
-		"windows-laptop-01",
-	)
-	candidate, err := repository.PrepareNativeArtifact(
-		testContext,
-		"windows-laptop-01",
-		request,
-	)
-	if err != nil || !candidate.Valid() || candidate.Kind != "measurements" ||
-		candidate.Format != "playwright-measurements/v2" {
-		t.Fatalf("candidate = %#v, error = %v", candidate, err)
-	}
-	verified := nativeworker.VerifiedArtifact{
-		Candidate: candidate,
-		URI:       "s3://perfeng-artifacts/" + candidate.Reservation.ObjectKey,
-	}
-	first, err := repository.RegisterNativeArtifact(
-		testContext,
-		"windows-laptop-01",
-		request,
-		verified,
-	)
-	if err != nil || !first.Valid() || first.RunID != lease.RunID ||
-		first.AttemptID != lease.AttemptID || first.URI != verified.URI {
-		t.Fatalf("reference = %#v, error = %v", first, err)
-	}
-	second, err := repository.RegisterNativeArtifact(
-		testContext,
-		"windows-laptop-01",
-		request,
-		verified,
-	)
-	if err != nil || second != first {
-		t.Fatalf("retry = %#v, error = %v", second, err)
-	}
-
-	var count int
-	if err = repository.db.QueryRow(`
-		SELECT count(*)
-		FROM perfeng_control.native_artifacts
-		WHERE grant_id=$1
-	`, request.GrantID).Scan(&count); err != nil || count != 1 {
-		t.Fatal("native artifact was not persisted exactly once", err)
-	}
-	rows, err := repository.db.Query(`
-		SELECT column_name
-		FROM information_schema.columns
-		WHERE table_schema='perfeng_control' AND table_name='native_artifacts'
-		ORDER BY ordinal_position
-	`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if closeErr := rows.Close(); closeErr != nil {
-			t.Error(closeErr)
-		}
-	}()
-	columns := make([]string, 0, 6)
-	for rows.Next() {
-		var column string
-		if err = rows.Scan(&column); err != nil {
-			t.Fatal(err)
-		}
-		columns = append(columns, column)
-	}
-	if err = rows.Err(); err != nil {
-		t.Fatal(err)
-	}
-	wantColumns := []string{
-		"artifact_id", "grant_id", "uri", "kind", "format", "registered_at",
-	}
-	if !reflect.DeepEqual(columns, wantColumns) {
-		t.Fatalf("native artifact columns = %v", columns)
-	}
-}
-
-func TestNativeArtifactRegistrationRechecksAuthorityAfterVerification(t *testing.T) {
-	repository := openTest(t, testDatabase(t))
-	if err := repository.Migrate(testContext); err != nil {
-		t.Fatal(err)
-	}
-	_, request := reserveNativeArtifactForTest(
-		t,
-		repository,
-		"alice",
-		"native-artifact-register-0002",
-		"windows-laptop-01",
-	)
-	candidate, err := repository.PrepareNativeArtifact(
-		testContext,
-		"windows-laptop-01",
-		request,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	verified := nativeworker.VerifiedArtifact{
-		Candidate: candidate,
-		URI:       "s3://perfeng-artifacts/" + candidate.Reservation.ObjectKey,
-	}
-	if _, err = repository.db.Exec(`
-		UPDATE perfeng_control.native_execution_leases
-		SET issued_at=clock_timestamp()-interval '3 minutes',
-			expires_at=clock_timestamp()-interval '1 minute'
-		WHERE lease_id=$1
-	`, request.LeaseID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = repository.RegisterNativeArtifact(
-		testContext,
-		"windows-laptop-01",
-		request,
-		verified,
-	); !errors.Is(err, nativeworker.ErrLeaseGone) {
-		t.Fatalf("expired lease error = %v", err)
-	}
-}
-
-func TestNativeArtifactRegistrationRejectsStaleAndChangedGrantFacts(t *testing.T) {
-	repository := openTest(t, testDatabase(t))
-	if err := repository.Migrate(testContext); err != nil {
-		t.Fatal(err)
-	}
-	_, valid := reserveNativeArtifactForTest(
-		t,
-		repository,
-		"alice",
-		"native-artifact-register-0003",
-		"windows-laptop-01",
-	)
-	stale := valid
-	stale.ExpectedRunRevision++
-	if _, err := repository.PrepareNativeArtifact(
-		testContext,
-		"windows-laptop-01",
-		stale,
-	); !errors.Is(err, run.ErrRevision) {
-		t.Fatalf("stale revision error = %v", err)
-	}
-	for name, mutate := range map[string]func(*nativeworker.ArtifactRegistrationRequest){
-		"grant": func(request *nativeworker.ArtifactRegistrationRequest) {
-			request.GrantID = "55555555-5555-4555-8555-555555555555"
-		},
-		"slot": func(request *nativeworker.ArtifactRegistrationRequest) {
-			request.Slot = "manifest"
-		},
-		"size": func(request *nativeworker.ArtifactRegistrationRequest) {
-			request.Size++
-		},
-		"checksum": func(request *nativeworker.ArtifactRegistrationRequest) {
-			request.SHA256 = strings.Repeat("d", 64)
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			request := valid
-			mutate(&request)
-			if _, err := repository.PrepareNativeArtifact(
-				testContext,
-				"windows-laptop-01",
-				request,
-			); !errors.Is(err, nativeworker.ErrUploadGrantMismatch) {
-				t.Fatalf("grant mismatch error = %v", err)
+func TestNativeV2ArtifactsUseReviewedPlanAndRetainExactReferences(t *testing.T) {
+	fixture := newNativeV2LeaseFixture(t)
+	repository := fixture.repository
+	for _, planned := range fixture.plan.ArtifactPlan {
+		t.Run(planned.Slot, func(t *testing.T) {
+			request := v2UploadRequest(fixture, planned.Slot)
+			reservation, err := repository.ReserveNativeBaselineUploadGrant(
+				testContext, fixture.workerID, request, 2*time.Minute,
+			)
+			if err != nil || !reservation.Valid() || reservation.MaximumBytes != planned.MaximumBytes ||
+				reservation.ExpiresAt.After(fixture.authority.expiresAt) {
+				t.Fatalf("v2 reservation = %#v, err=%v", reservation, err)
+			}
+			retry, err := repository.ReserveNativeBaselineUploadGrant(
+				testContext, fixture.workerID, request, 2*time.Minute,
+			)
+			if err != nil || retry.GrantID != reservation.GrantID {
+				t.Fatalf("v2 grant retry = %#v, err=%v", retry, err)
+			}
+			registration := v2ArtifactRequest(request, reservation)
+			candidate, err := repository.PrepareNativeBaselineArtifact(
+				testContext, fixture.workerID, registration,
+			)
+			if err != nil || !candidate.Valid() || candidate.Kind != planned.Kind ||
+				candidate.Format != planned.Format || candidate.Reservation != retry {
+				t.Fatalf("v2 candidate = %#v, err=%v", candidate, err)
+			}
+			verified := nativeworker.VerifiedArtifact{
+				Candidate: candidate, URI: "s3://perfeng-artifacts/" + reservation.ObjectKey,
+			}
+			first, err := repository.RegisterNativeBaselineArtifact(
+				testContext, fixture.workerID, registration, verified,
+			)
+			if err != nil || !first.Valid() || first.Format != planned.Format ||
+				first.URI != verified.URI {
+				t.Fatalf("v2 artifact = %#v, err=%v", first, err)
+			}
+			second, err := repository.RegisterNativeBaselineArtifact(
+				testContext, fixture.workerID, registration, verified,
+			)
+			if err != nil || second != first {
+				t.Fatalf("v2 artifact retry = %#v, err=%v", second, err)
 			}
 		})
 	}
 }
 
-func TestNativeArtifactMigrationUpgrade(t *testing.T) {
-	repository := openTest(t, testDatabase(t))
-	if _, err := repository.db.Exec(`
-		CREATE SCHEMA perfeng_control;
-		CREATE TABLE perfeng_control.schema_migrations (
-			version text PRIMARY KEY,
-			sha256 text NOT NULL,
-			applied_at timestamptz NOT NULL DEFAULT clock_timestamp()
-		)
-	`); err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range []string{
-		"0001_initial.sql",
-		"0002_reconciliation_leases.sql",
-		"0003_kubernetes_executions.sql",
-		"0004_baselines.sql",
-		"0005_native_worker_presence.sql",
-		"0006_run_execution_targets.sql",
-		"0007_native_execution_leases.sql",
-		"0008_native_lease_releases.sql",
-		"0009_native_upload_grants.sql",
-		"0010_native_artifacts.sql",
-		"0011_native_terminal_reports.sql",
+func TestNativeV2ArtifactMutationsRejectChangedAndLostAuthority(t *testing.T) {
+	fixture := newNativeV2LeaseFixture(t)
+	repository := fixture.repository
+	request := v2UploadRequest(fixture, "measurements")
+	for _, change := range []struct {
+		name   string
+		mutate func(*nativeworker.UploadRequest)
+		want   error
+	}{
+		{"unplanned slot", func(r *nativeworker.UploadRequest) { r.Slot = "trace" }, nativeworker.ErrArtifactPlan},
+		{"media type", func(r *nativeworker.UploadRequest) { r.MediaType = "application/octet-stream" }, nativeworker.ErrArtifactPlan},
+		{"oversized", func(r *nativeworker.UploadRequest) { r.Size = fixture.plan.ArtifactPlan[0].MaximumBytes + 1 }, nativeworker.ErrArtifactPlan},
+		{"stale revision", func(r *nativeworker.UploadRequest) { r.ExpectedRunRevision++ }, run.ErrRevision},
+		{"wrong capability", func(r *nativeworker.UploadRequest) { r.Capability = strings.Repeat("e", 64) }, nativeworker.ErrLeaseGone},
 	} {
-		document, err := migrations.ReadFile("migrations/" + name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err = repository.db.Exec(string(document)); err != nil {
-			t.Fatal(err)
-		}
-		digest := sha256.Sum256(document)
-		if _, err = repository.db.Exec(`
-			INSERT INTO perfeng_control.schema_migrations(version,sha256)
-			VALUES ($1,$2)
-		`, name, hex.EncodeToString(digest[:])); err != nil {
-			t.Fatal(err)
-		}
+		t.Run(change.name, func(t *testing.T) {
+			bad := request
+			change.mutate(&bad)
+			if _, err := repository.ReserveNativeBaselineUploadGrant(
+				testContext, fixture.workerID, bad, 2*time.Minute,
+			); !errors.Is(err, change.want) {
+				t.Fatalf("v2 grant rejection = %v, want %v", err, change.want)
+			}
+		})
 	}
-	accepted := acceptNativeRun(t, repository, "alice", "native-artifact-upgrade-0001")
-	recordEligibleNativeWorker(t, repository, "windows-laptop-01")
-	lease := insertOldStyleNativeLease(t, repository, accepted, "windows-laptop-01")
-	reservation := insertOldStyleNativeUploadGrant(t, repository, lease)
-	request := nativeArtifactRegistrationRequest(lease, reservation)
-	if err := repository.Migrate(testContext); err != nil {
+	reservation, err := repository.ReserveNativeBaselineUploadGrant(
+		testContext, fixture.workerID, request, 2*time.Minute,
+	)
+	if err != nil {
 		t.Fatal(err)
 	}
-	candidate, err := repository.PrepareNativeArtifact(
-		testContext,
-		"windows-laptop-01",
-		request,
+	changed := request
+	changed.SHA256 = strings.Repeat("d", 64)
+	if _, err := repository.ReserveNativeBaselineUploadGrant(
+		testContext, fixture.workerID, changed, 2*time.Minute,
+	); !errors.Is(err, run.ErrConflict) {
+		t.Fatalf("changed v2 declaration = %v", err)
+	}
+	registration := v2ArtifactRequest(request, reservation)
+	changedRegistration := registration
+	changedRegistration.Size++
+	if _, err := repository.PrepareNativeBaselineArtifact(
+		testContext, fixture.workerID, changedRegistration,
+	); !errors.Is(err, nativeworker.ErrUploadGrantMismatch) {
+		t.Fatalf("changed v2 registration = %v", err)
+	}
+	candidate, err := repository.PrepareNativeBaselineArtifact(
+		testContext, fixture.workerID, registration,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	verified := nativeworker.VerifiedArtifact{
-		Candidate: candidate,
-		URI:       "s3://perfeng-artifacts/" + candidate.Reservation.ObjectKey,
+		Candidate: candidate, URI: "s3://perfeng-artifacts/" + reservation.ObjectKey,
 	}
-	if _, err = repository.RegisterNativeArtifact(
-		testContext,
-		"windows-laptop-01",
-		request,
-		verified,
-	); err != nil {
-		t.Fatal("upgraded database could not register a native artifact", err)
+	if _, err := repository.db.Exec(`
+		UPDATE perfeng_control.native_execution_leases
+		SET issued_at=clock_timestamp()-interval '3 minutes',
+			expires_at=clock_timestamp()-interval '1 second'
+		WHERE run_id=$1
+	`, fixture.accepted.Run.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.RegisterNativeBaselineArtifact(
+		testContext, fixture.workerID, registration, verified,
+	); !errors.Is(err, nativeworker.ErrLeaseGone) {
+		t.Fatalf("expired v2 authority registered artifact: %v", err)
 	}
 }

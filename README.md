@@ -66,9 +66,8 @@ coordination, not load generation or statistical decisions.
 - Complete inert composition of the authenticated HTTP and reconciliation runtime.
 - Signal-aware process entry point with structured, value-free lifecycle reporting.
 - Unauthenticated liveness/readiness endpoints and fixed-cardinality Prometheus metrics.
-- Independently authenticated v1 and v2 Native Worker presence with strict
-  contract validation, server-owned qualification and generation-isolated
-  last-seen PostgreSQL state.
+- Authenticated Native Worker v2 presence with strict contract validation,
+  server-owned qualification and last-seen PostgreSQL state.
 - Authenticated native lease acquisition with reviewed capability matching,
   database-fenced ownership and header-only bearer capability delivery.
 - Database-fenced native lease renewal with monotonic phase progression and
@@ -369,42 +368,39 @@ signal, authentication or deployment policy.
 ## Contract provenance
 
 The [snapshot lock](internal/contract/snapshot/lock.json) pins perfeng-contracts
-commit `be847a4c7c0ad22c799389410a8c234d5492abc3`, candidate bundle 0.17.0,
-Run Management API 0.4.0 and Native Worker API 1.0.0. The Run Management
-OpenAPI document, transitions and selected request fixtures; the current
-generated performance-policy schema and browser example; and the complete
-Native Worker OpenAPI, examples, rejection cases and HTTP exchanges are copied
-byte-for-byte from that commit. The checksum ledger covers exactly every local
-snapshot file, and tests reject undeclared or absent files. There is no
-sibling-checkout or network dependency at build, test or runtime. Imported
-contract content is Apache-2.0, as in this repository.
+commit `a697c4b8821f84becbeb8bb27e651dae71c365ab`, bundle 0.19.0,
+Run Management API 0.4.0 and Native Worker API 2.0.0. The Run Management
+OpenAPI document, transitions and selected request fixtures; the generated
+performance-policy schema and browser example; and the Native Worker v2
+OpenAPI, examples, rejection cases and HTTP exchanges are copied byte-for-byte
+from that commit. The checksum ledger covers every local snapshot file, and
+tests reject undeclared or absent files. There is no sibling-checkout or network
+dependency at build, test or runtime. Imported contract content is Apache-2.0,
+as in this repository.
 
-The lock separately pins the complete candidate Native Worker API v2 snapshot
-from perfeng-contracts commit `a019d8fa3f473b0dce1650208fadfe47e959ab6d`
-(bundle 0.18.0, API 2.0.0). Its runtime contract boundary validates every
+The runtime contract boundary validates every
 v2 operation's request and response shape, including complete leases and
 recipes, upload grants, artifact registration and terminal outcomes. Conditional
 cache/reuse and cancellation rules and ordered artifact slots are enforced.
-The registry can now resolve a complete, reviewed v2
-baseline recipe from an optional `nativeBaseline` template and immutable Run
-context; the v1 lease path excludes those entries. The authenticated v2
-presence endpoint records qualification separately from v1. It does not issue
-v2 leases; acquisition and lease-scoped HTTP operations remain v1 while v2
-storage paths are completed and reviewed. V2 renewal, release, upload reservation,
-artifact registration and terminal reporting are available only behind the
-persistence boundary; the v2 issuance gate remains closed pending HTTP
-composition and explicit authorization review.
+The registry resolves a complete, reviewed v2 baseline recipe from an optional
+`nativeBaseline` template and immutable Run context. The authenticated v2
+presence, acquisition and lease-scoped HTTP operations use the v2 persistence
+path. The v1 HTTP routes return 404. Acquisition is disabled by default and
+requires explicit `PERFENG_NATIVE_WORKER_ACQUISITION_ENABLED=true` after the
+Playwright worker is updated and a representative Windows run is verified.
+Disabling acquisition does not prevent an already-issued lease from being
+released or completed by its authenticated worker.
 
 Review contract updates explicitly, refresh the snapshot and checksums, and
 rerun tests. The current runtime validator implements only the schema features
-reached by CreateRun, CreateBaseline, BaselineTransition and the pinned v1 and
-v2 Native Worker operation shapes, not arbitrary JSON Schema. The authenticated
-`/native-worker/v1/presence`, `/native-worker/v2/presence`,
-`/native-worker/v1/leases`, `/native-worker/v1/leases/{leaseId}/renew` and
-`/native-worker/v1/leases/{leaseId}/release`, and
-`/native-worker/v1/leases/{leaseId}/upload-grants` and
-`/native-worker/v1/leases/{leaseId}/artifacts` and
-`/native-worker/v1/leases/{leaseId}/terminal`
+reached by CreateRun, CreateBaseline, BaselineTransition and the pinned Native
+Worker operation shapes, not arbitrary JSON Schema. The authenticated
+`/native-worker/v2/presence`, `/native-worker/v2/leases`,
+`/native-worker/v2/leases/{leaseId}/renew`,
+`/native-worker/v2/leases/{leaseId}/release`,
+`/native-worker/v2/leases/{leaseId}/upload-grants`,
+`/native-worker/v2/leases/{leaseId}/artifacts` and
+`/native-worker/v2/leases/{leaseId}/terminal`
 operations, typed worker-capability matching, reviewed native assignment
 resolution and durable lease acquisition, renewal, release, non-secret upload
 reservation and verified artifact acceptance are implemented.

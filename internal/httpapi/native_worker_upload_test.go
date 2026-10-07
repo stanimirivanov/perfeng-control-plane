@@ -303,7 +303,7 @@ func newNativeUploadGrantRequest(
 
 func nativeUploadRequestFixture(t *testing.T) []byte {
 	t.Helper()
-	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/upload-request.json")
+	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/upload-request.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -313,7 +313,7 @@ func nativeUploadRequestFixture(t *testing.T) []byte {
 
 func nativeUploadGrantFixture(t *testing.T) nativeworker.UploadGrant {
 	t.Helper()
-	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/upload-grant.json")
+	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/upload-grant.json")
 	if err != nil {
 		t.Fatal(err)
 	}
