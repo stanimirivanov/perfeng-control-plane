@@ -29,7 +29,7 @@ const (
 	TerminalFailed TerminalKind = "FAILED"
 )
 
-// Valid reports whether kind belongs to Native Worker API v1 or v2.
+// Valid reports whether kind belongs to the Native Worker API.
 func (kind TerminalKind) Valid() bool {
 	return kind == TerminalCompleted || kind == TerminalFailed
 }
@@ -50,7 +50,7 @@ const (
 	TerminalFailureHostUnqualified TerminalFailureCode = "HOST_BECAME_UNQUALIFIED"
 )
 
-// Valid reports whether code belongs to Native Worker API v1 or v2.
+// Valid reports whether code belongs to the Native Worker API.
 func (code TerminalFailureCode) Valid() bool {
 	switch code {
 	case TerminalFailurePreparation, TerminalFailureTool, TerminalFailureCapture,

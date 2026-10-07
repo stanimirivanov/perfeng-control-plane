@@ -133,11 +133,11 @@ func TestNativeWorkerPresencePersistence(t *testing.T) {
 	if err := first.Migrate(testContext); err != nil {
 		t.Fatal(err)
 	}
-	presence, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/presence.json")
+	presence, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/presence.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	firstObservedAt, err := first.RecordNativeWorkerPresence(
+	firstObservedAt, err := first.RecordNativeWorkerV2Presence(
 		testContext,
 		httpapi.NativeWorkerPresenceRecord{
 			WorkerID: "windows-laptop-01", ObservedDocument: presence,
@@ -147,7 +147,7 @@ func TestNativeWorkerPresencePersistence(t *testing.T) {
 	if err != nil || firstObservedAt.IsZero() {
 		t.Fatal("native worker presence was not recorded", err)
 	}
-	secondObservedAt, err := second.RecordNativeWorkerPresence(
+	secondObservedAt, err := second.RecordNativeWorkerV2Presence(
 		testContext,
 		httpapi.NativeWorkerPresenceRecord{
 			WorkerID: "windows-laptop-01", ObservedDocument: presence,
@@ -161,7 +161,7 @@ func TestNativeWorkerPresencePersistence(t *testing.T) {
 	var qualified bool
 	err = second.db.QueryRow(`
 		SELECT count(*),bool_and(qualified)
-		FROM perfeng_control.native_worker_presence
+		FROM perfeng_control.native_worker_presence_v2
 		WHERE worker_id='windows-laptop-01'`).Scan(&count, &qualified)
 	if err != nil || count != 1 || qualified {
 		t.Fatal("unexpected native worker presence state", count, qualified, err)

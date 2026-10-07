@@ -80,7 +80,7 @@ func TestNativeWorkerTerminalBindsAuthenticatedAuthority(t *testing.T) {
 	decoder.UseNumber()
 	if json.Unmarshal(response.Body.Bytes(), &acknowledgement) != nil || acknowledgement != want ||
 		decoder.Decode(&value) != nil ||
-		contract.ValidateTerminalAcknowledgement(value) != nil {
+		contract.ValidateNativeWorkerV2TerminalAcknowledgement(value) != nil {
 		t.Fatalf("terminal acknowledgement = %s", response.Body.String())
 	}
 	if strings.Contains(response.Body.String(), nativeLeaseCapability) ||
@@ -321,11 +321,11 @@ func TestNativeWorkerTerminalMapsFailures(t *testing.T) {
 
 func TestNativeWorkerTerminalRouteIsExact(t *testing.T) {
 	for path, want := range map[string]bool{
-		"/native-worker/v1/leases/lease/terminal":       true,
-		"/native-worker/v1/leases//terminal":            false,
-		"/native-worker/v1/leases/lease/extra/terminal": false,
-		"/native-worker/v1/leases/lease/terminal/":      false,
-		"/native-worker/v1/leases/lease/artifacts":      false,
+		"/native-worker/v2/leases/lease/terminal":       true,
+		"/native-worker/v2/leases//terminal":            false,
+		"/native-worker/v2/leases/lease/extra/terminal": false,
+		"/native-worker/v2/leases/lease/terminal/":      false,
+		"/native-worker/v2/leases/lease/artifacts":      false,
 	} {
 		leaseID, actual := nativeWorkerTerminalLeaseID(path)
 		if actual != want || actual && leaseID != "lease" {
@@ -371,7 +371,7 @@ func newNativeTerminalRequest(
 func nativeTerminalFixture(t *testing.T, name string) []byte {
 	t.Helper()
 	document, err := contract.Files.ReadFile(
-		"snapshot/api/native-worker/v1/examples/" + name,
+		"snapshot/api/native-worker/v2/examples/" + name,
 	)
 	if err != nil {
 		t.Fatal(err)

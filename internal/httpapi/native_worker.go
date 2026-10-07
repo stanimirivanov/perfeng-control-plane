@@ -16,9 +16,8 @@ import (
 )
 
 const (
-	nativeWorkerPresencePath     = "/native-worker/v1/presence"
-	nativeWorkerV2PresencePath   = "/native-worker/v2/presence"
-	nativeWorkerLeasePath        = "/native-worker/v1/leases"
+	nativeWorkerPresencePath     = "/native-worker/v2/presence"
+	nativeWorkerLeasePath        = "/native-worker/v2/leases"
 	nativeWorkerHeartbeat        = 30
 	nativeWorkerLeaseRetryAfter  = 15
 	nativeWorkerQualificationTTL = 2 * time.Minute
@@ -29,6 +28,7 @@ const (
 type WorkerIdentity struct {
 	WorkerID              string
 	AuthorizedToAcquire   bool
+	AuthorizedToUseLease  bool
 	QualificationEvidence json.RawMessage
 }
 
@@ -37,7 +37,7 @@ type NativeWorkerAuthenticate func(context.Context, string) (WorkerIdentity, err
 
 // NativeWorkerAcquire returns one durable compatible lease for an authenticated
 // worker, or acquired=false when no eligible work is currently available.
-type NativeWorkerAcquire func(context.Context, string) (nativeworker.Lease, bool, error)
+type NativeWorkerAcquire func(context.Context, string) (nativeworker.BaselineLease, bool, error)
 
 // NativeWorkerRenew extends one current lease and returns authoritative
 // lifecycle, timing and cancellation state.
@@ -88,11 +88,8 @@ type NativeWorkerPresenceRecord struct {
 // NativeWorkerPresenceStore durably replaces a worker's last-seen presence in
 // the selected API generation and returns the authoritative database time.
 type NativeWorkerPresenceStore interface {
-	// RecordNativeWorkerPresence replaces only the v1 report for the
-	// authenticated worker and returns its database observation time.
-	RecordNativeWorkerPresence(context.Context, NativeWorkerPresenceRecord) (time.Time, error)
-	// RecordNativeWorkerV2Presence replaces only the v2 report. It must keep
-	// acquisition disabled until the v2 lease path is reviewed and deployed.
+	// RecordNativeWorkerV2Presence replaces the authenticated worker's report
+	// and returns its database observation time.
 	RecordNativeWorkerV2Presence(context.Context, NativeWorkerPresenceRecord) (time.Time, error)
 }
 
@@ -154,7 +151,6 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	artifactLeaseID, artifact := nativeWorkerArtifactLeaseID(r.URL.Path)
 	terminalLeaseID, terminal := nativeWorkerTerminalLeaseID(r.URL.Path)
 	if r.Method != http.MethodPost || (r.URL.Path != nativeWorkerPresencePath &&
-		r.URL.Path != nativeWorkerV2PresencePath &&
 		r.URL.Path != nativeWorkerLeasePath && !renewal && !release && !upload && !artifact &&
 		!terminal) {
 		fail(w, http.StatusNotFound, "NOT_FOUND")
@@ -164,8 +160,8 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
-	if r.URL.Path == nativeWorkerPresencePath || r.URL.Path == nativeWorkerV2PresencePath {
-		handler.reportPresence(w, r, identity, r.URL.Path == nativeWorkerV2PresencePath)
+	if r.URL.Path == nativeWorkerPresencePath {
+		handler.reportPresence(w, r, identity)
 		return
 	}
 	if r.URL.Path == nativeWorkerLeasePath {
@@ -218,33 +214,24 @@ func (handler *NativeWorkerHandler) reportPresence(
 	w http.ResponseWriter,
 	r *http.Request,
 	identity WorkerIdentity,
-	v2 bool,
 ) {
 	document, _, ok := readJSONBodyWithCode(w, r, "INVALID_REQUEST")
 	if !ok {
 		return
 	}
-	parse := nativeworker.ParsePresence
-	if v2 {
-		parse = nativeworker.ParseV2Presence
-	}
-	presence, err := parse(document, MaxBodyBytes)
+	presence, err := nativeworker.ParseV2Presence(document, MaxBodyBytes)
 	if err != nil {
 		fail(w, http.StatusBadRequest, "INVALID_REQUEST")
 		return
 	}
 	qualified := bytes.Equal(presence.QualificationEvidence, identity.QualificationEvidence)
-	authorizedToAcquire := identity.AuthorizedToAcquire && !v2
+	authorizedToAcquire := identity.AuthorizedToAcquire
 	record := NativeWorkerPresenceRecord{
 		WorkerID: identity.WorkerID, ObservedDocument: append(json.RawMessage(nil), document...),
 		Availability: presence.Availability, Qualified: qualified,
 		AuthorizedToAcquire: authorizedToAcquire,
 	}
-	recordPresence := handler.store.RecordNativeWorkerPresence
-	if v2 {
-		recordPresence = handler.store.RecordNativeWorkerV2Presence
-	}
-	observedAt, err := recordPresence(r.Context(), record)
+	observedAt, err := handler.store.RecordNativeWorkerV2Presence(r.Context(), record)
 	if err != nil {
 		failNativeWorkerRepository(w, err)
 		return
@@ -278,7 +265,7 @@ func (handler *NativeWorkerHandler) acquireLease(
 	if !ok {
 		return
 	}
-	if contract.ValidateAcquireLease(value) != nil {
+	if contract.ValidateNativeWorkerV2AcquireLease(value) != nil {
 		fail(w, http.StatusBadRequest, "INVALID_REQUEST")
 		return
 	}
@@ -320,7 +307,7 @@ func (handler *NativeWorkerHandler) renewLease(
 	identity WorkerIdentity,
 	leaseID string,
 ) {
-	if !identity.AuthorizedToAcquire {
+	if !identity.AuthorizedToAcquire && !identity.AuthorizedToUseLease {
 		fail(w, http.StatusForbidden, "NOT_AUTHORIZED")
 		return
 	}
@@ -333,7 +320,7 @@ func (handler *NativeWorkerHandler) renewLease(
 	if !ok {
 		return
 	}
-	if contract.ValidateRenewLease(value) != nil {
+	if contract.ValidateNativeWorkerV2RenewLease(value) != nil {
 		fail(w, http.StatusBadRequest, "INVALID_REQUEST")
 		return
 	}
@@ -407,7 +394,7 @@ func failNativeWorkerRepository(w http.ResponseWriter, err error) {
 	fail(w, http.StatusInternalServerError, "INTERNAL_ERROR")
 }
 
-func writeNativeLease(w http.ResponseWriter, lease nativeworker.Lease) {
+func writeNativeLease(w http.ResponseWriter, lease nativeworker.BaselineLease) {
 	document, err := json.Marshal(lease)
 	if err != nil {
 		fail(w, http.StatusInternalServerError, "INTERNAL_ERROR")

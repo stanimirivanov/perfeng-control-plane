@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
@@ -36,23 +35,32 @@ func recordV2WorkerForTest(t *testing.T, repository *Repository, workerID string
 
 func allowV2AcquisitionInDisposableTest(t *testing.T, repository *Repository) {
 	t.Helper()
-	// Production migration 0013 keeps this gate closed. Only this isolated test
-	// database drops it to exercise the acquisition transaction before rollout.
-	if _, err := repository.db.Exec(`
-		ALTER TABLE perfeng_control.native_worker_presence_v2
-		DROP CONSTRAINT native_worker_presence_v2_authorized_to_acquire_check
-	`); err != nil {
+	var remaining int
+	if err := repository.db.QueryRow(`
+		SELECT count(*) FROM pg_constraint
+		WHERE conrelid='perfeng_control.native_worker_presence_v2'::regclass
+		AND conname='native_worker_presence_v2_authorized_to_acquire_check'
+	`).Scan(&remaining); err != nil {
 		t.Fatal(err)
+	}
+	if remaining != 0 {
+		t.Fatal("provisional v2 acquisition constraint remains after migration")
 	}
 }
 
 func authorizeV2WorkerForTest(t *testing.T, repository *Repository, workerID string) time.Time {
 	t.Helper()
-	observedAt := recordV2WorkerForTest(t, repository, workerID)
-	if _, err := repository.db.Exec(`
-		UPDATE perfeng_control.native_worker_presence_v2
-		SET authorized_to_acquire=true WHERE worker_id=$1
-	`, workerID); err != nil {
+	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/presence.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	observedAt, err := repository.RecordNativeWorkerV2Presence(testContext,
+		httpapi.NativeWorkerPresenceRecord{
+			WorkerID: workerID, ObservedDocument: document,
+			Availability: "AVAILABLE", Qualified: true, AuthorizedToAcquire: true,
+		},
+	)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -213,71 +221,5 @@ func TestNativeBaselineAcquisitionRejectsStaleSelection(t *testing.T) {
 		2*time.Minute, 2*time.Minute, 40*time.Second,
 	); err != nil || acquired {
 		t.Fatalf("stale observation was leased: acquired=%t, err=%v", acquired, err)
-	}
-}
-
-func TestNativeWorkerCapacitySerializesAcrossGenerations(t *testing.T) {
-	repository := openTest(t, testDatabase(t))
-	if err := repository.Migrate(testContext); err != nil {
-		t.Fatal(err)
-	}
-	allowV2AcquisitionInDisposableTest(t, repository)
-	workerID := "windows-laptop-01"
-	authorizeV2WorkerForTest(t, repository, workerID)
-	recordEligibleNativeWorker(t, repository, workerID)
-	v1Observation, err := repository.EligibleNativeWorker(testContext, workerID, 2*time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	v2Observation, err := repository.EligibleNativeWorkerV2(testContext, workerID, 2*time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	v1 := acceptNativeRun(t, repository, "alice", "native-v1-race-0001")
-	v2 := acceptNativeRun(t, repository, "alice", "native-v2-race-0001")
-	v1Candidate := candidateByID(t, repository, v1.Run.ID)
-	v2Candidate := candidateByID(t, repository, v2.Run.ID)
-	v1Plan := postgresNativePlan(t)
-	v2Plan := nativeV2PlanForRun(t, v2.Run)
-	type outcome struct {
-		acquired bool
-		err      error
-	}
-	results := make(chan outcome, 2)
-	start := make(chan struct{})
-	var workers sync.WaitGroup
-	workers.Add(2)
-	go func() {
-		defer workers.Done()
-		<-start
-		_, acquired, err := repository.AcquireNativeLease(
-			testContext, workerID, v1Observation.ObservedAt, v1Candidate, v1Plan,
-			2*time.Minute, 2*time.Minute, 40*time.Second,
-		)
-		results <- outcome{acquired, err}
-	}()
-	go func() {
-		defer workers.Done()
-		<-start
-		_, acquired, err := repository.AcquireNativeBaselineLease(
-			testContext, workerID, v2Observation.ObservedAt, v2Candidate, v2Plan,
-			2*time.Minute, 2*time.Minute, 40*time.Second,
-		)
-		results <- outcome{acquired, err}
-	}()
-	close(start)
-	workers.Wait()
-	close(results)
-	count := 0
-	for result := range results {
-		if result.err != nil {
-			t.Fatal(result.err)
-		}
-		if result.acquired {
-			count++
-		}
-	}
-	if count != 1 {
-		t.Fatalf("one worker acquired %d simultaneous Runs", count)
 	}
 }

@@ -10,18 +10,6 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
-var _ nativeworker.ReleaseStore = (*Repository)(nil)
-
-// ReleaseNativeLease expires current authority and records the first release
-// reason under the worker-before-Run-before-lease lock order.
-func (r *Repository) ReleaseNativeLease(
-	ctx context.Context,
-	workerID string,
-	request nativeworker.ReleaseRequest,
-) error {
-	return r.releaseNativeLease(ctx, workerID, request, nativeLeaseProtocolV1)
-}
-
 // ReleaseNativeBaselineLease expires only v2 authority and preserves exact
 // retry and cancellation semantics for an already-issued attempt.
 func (r *Repository) ReleaseNativeBaselineLease(

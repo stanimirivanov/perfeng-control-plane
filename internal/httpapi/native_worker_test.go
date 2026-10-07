@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -53,8 +54,8 @@ func TestNewNativeWorkerHandlerRequiresAllBoundaries(t *testing.T) {
 	}
 }
 
-func noNativeLease(context.Context, string) (nativeworker.Lease, bool, error) {
-	return nativeworker.Lease{}, false, nil
+func noNativeLease(context.Context, string) (nativeworker.BaselineLease, bool, error) {
+	return nativeworker.BaselineLease{}, false, nil
 }
 
 func noNativeRenewal(
@@ -135,6 +136,15 @@ func TestNativeWorkerPresenceAuthenticatesQualifiesAndPersists(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
+	var presenceResponse any
+	decoder := json.NewDecoder(bytes.NewReader(response.Body.Bytes()))
+	decoder.UseNumber()
+	if err := decoder.Decode(&presenceResponse); err != nil {
+		t.Fatal(err)
+	}
+	if err := contract.ValidateNativeWorkerV2PresenceStatus(presenceResponse); err != nil {
+		t.Fatalf("presence response does not match v2 contract: %v", err)
+	}
 	var status workerPresenceStatus
 	if json.Unmarshal(response.Body.Bytes(), &status) != nil ||
 		status.WorkerID != "windows-laptop-01" || status.ServerTime != observedAt ||
@@ -152,7 +162,7 @@ func TestNativeWorkerPresenceAuthenticatesQualifiesAndPersists(t *testing.T) {
 	}
 }
 
-func TestNativeWorkerV2PresenceUsesSeparateStorageAndRejectsMixedVersions(t *testing.T) {
+func TestNativeWorkerPresenceRejectsRetiredVersion(t *testing.T) {
 	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/presence.json")
 	if err != nil {
 		t.Fatal(err)
@@ -185,15 +195,15 @@ func TestNativeWorkerV2PresenceUsesSeparateStorageAndRejectsMixedVersions(t *tes
 
 		return response
 	}
-	response := serve(nativeWorkerV2PresencePath, document)
+	response := serve(nativeWorkerPresencePath, document)
 	if response.Code != http.StatusOK || !store.v2 || !store.record.Qualified ||
-		store.record.AuthorizedToAcquire ||
+		!store.record.AuthorizedToAcquire ||
 		string(store.record.ObservedDocument) != string(document) {
 		t.Fatalf("v2 presence status = %d, record = %#v", response.Code, store.record)
 	}
 	var status workerPresenceStatus
 	if err := json.Unmarshal(response.Body.Bytes(), &status); err != nil ||
-		status.Qualification.Status != "QUALIFIED" || status.AuthorizedToAcquire {
+		status.Qualification.Status != "QUALIFIED" || !status.AuthorizedToAcquire {
 		t.Fatalf("v2 status = %#v, err = %v", status, err)
 	}
 	var unapproved map[string]any
@@ -215,7 +225,7 @@ func TestNativeWorkerV2PresenceUsesSeparateStorageAndRejectsMixedVersions(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := httptest.NewRequest(http.MethodPost, nativeWorkerV2PresencePath,
+	request := httptest.NewRequest(http.MethodPost, nativeWorkerPresencePath,
 		strings.NewReader(string(document)))
 	request.Header.Set("Authorization", "Bearer worker-token")
 	request.Header.Set("Content-Type", "application/json")
@@ -223,20 +233,20 @@ func TestNativeWorkerV2PresenceUsesSeparateStorageAndRejectsMixedVersions(t *tes
 	unqualified.ServeHTTP(unqualifiedResponse, request)
 	if err := json.Unmarshal(unqualifiedResponse.Body.Bytes(), &status); err != nil ||
 		unqualifiedResponse.Code != http.StatusOK || status.Qualification.Status != "UNQUALIFIED" ||
-		store.record.Qualified || store.record.AuthorizedToAcquire {
+		store.record.Qualified || !store.record.AuthorizedToAcquire {
 		t.Fatalf("unapproved v2 evidence was qualified: status=%#v, record=%#v, err=%v",
 			status, store.record, err)
 	}
 	store.v2 = false
 	store.record = NativeWorkerPresenceRecord{}
-	if response := serve(nativeWorkerPresencePath, document); response.Code != http.StatusBadRequest ||
+	if response := serve("/native-worker/v1/presence", document); response.Code != http.StatusNotFound ||
 		store.record.WorkerID != "" {
-		t.Fatal("v2 document entered v1 presence storage")
+		t.Fatal("retired v1 route accepted a presence report")
 	}
-	v1, _ := nativePresenceFixture(t)
-	if response := serve(nativeWorkerV2PresencePath, v1); response.Code != http.StatusBadRequest ||
+	retired := bytes.Replace(document, []byte(`"protocolVersion": 2`), []byte(`"protocolVersion": 1`), 1)
+	if response := serve(nativeWorkerPresencePath, retired); response.Code != http.StatusBadRequest ||
 		store.record.WorkerID != "" {
-		t.Fatal("v1 document entered v2 presence storage")
+		t.Fatal("retired document entered v2 presence storage")
 	}
 }
 
@@ -377,7 +387,7 @@ func TestNativeWorkerAcquireReturnsCapabilityOnlyInHeader(t *testing.T) {
 				QualificationEvidence: evidence,
 			}, nil
 		},
-		func(_ context.Context, workerID string) (nativeworker.Lease, bool, error) {
+		func(_ context.Context, workerID string) (nativeworker.BaselineLease, bool, error) {
 			calledWorker = workerID
 			return lease, true, nil
 		},
@@ -397,7 +407,16 @@ func TestNativeWorkerAcquireReturnsCapabilityOnlyInHeader(t *testing.T) {
 	if strings.Contains(response.Body.String(), capability) {
 		t.Fatal("lease response body exposed the capability")
 	}
-	var actual nativeworker.Lease
+	var leaseResponse any
+	decoder := json.NewDecoder(bytes.NewReader(response.Body.Bytes()))
+	decoder.UseNumber()
+	if err := decoder.Decode(&leaseResponse); err != nil {
+		t.Fatal(err)
+	}
+	if err := contract.ValidateNativeWorkerV2Lease(leaseResponse); err != nil {
+		t.Fatalf("acquired lease does not match v2 contract: %v", err)
+	}
+	var actual nativeworker.BaselineLease
 	if json.Unmarshal(response.Body.Bytes(), &actual) != nil || actual.LeaseID != lease.LeaseID ||
 		actual.AttemptID != lease.AttemptID || actual.RunID != lease.RunID || actual.Capability != "" {
 		t.Fatalf("lease response = %#v", actual)
@@ -441,9 +460,9 @@ func TestNativeWorkerAcquireEnforcesAuthorizationBeforeScheduling(t *testing.T) 
 				WorkerID: "windows-laptop-01", QualificationEvidence: evidence,
 			}, nil
 		},
-		func(context.Context, string) (nativeworker.Lease, bool, error) {
+		func(context.Context, string) (nativeworker.BaselineLease, bool, error) {
 			called = true
-			return nativeworker.Lease{}, false, nil
+			return nativeworker.BaselineLease{}, false, nil
 		},
 		noNativeRenewal,
 		noNativeRelease,
@@ -470,9 +489,9 @@ func TestNativeWorkerAcquireRejectsInvalidRequestsBeforeScheduling(t *testing.T)
 				QualificationEvidence: evidence,
 			}, nil
 		},
-		func(context.Context, string) (nativeworker.Lease, bool, error) {
+		func(context.Context, string) (nativeworker.BaselineLease, bool, error) {
 			called = true
-			return nativeworker.Lease{}, false, nil
+			return nativeworker.BaselineLease{}, false, nil
 		},
 		noNativeRenewal,
 		noNativeRelease,
@@ -484,11 +503,12 @@ func TestNativeWorkerAcquireRejectsInvalidRequestsBeforeScheduling(t *testing.T)
 
 	for name, document := range map[string]string{
 		"malformed": `{"protocolVersion":`,
-		"version":   `{"protocolVersion":2,"maxWaitSeconds":20}`,
-		"wait":      `{"protocolVersion":1,"maxWaitSeconds":31}`,
-		"unknown":   `{"protocolVersion":1,"maxWaitSeconds":20,"workerId":"chosen"}`,
+		"version":   `{"protocolVersion":1,"maxWaitSeconds":20}`,
+		"wait":      `{"protocolVersion":2,"maxWaitSeconds":31}`,
+		"unknown":   `{"protocolVersion":2,"maxWaitSeconds":20,"workerId":"chosen"}`,
 	} {
 		t.Run(name, func(t *testing.T) {
+			called = false
 			response := serveNativeAcquire(t, handler, []byte(document))
 			if response.Code != http.StatusBadRequest || called {
 				t.Fatalf("status = %d, acquisition called = %t", response.Code, called)
@@ -510,16 +530,16 @@ func TestNativeWorkerAcquireRejectsFailuresAndInvalidLeases(t *testing.T) {
 		}, nil
 	}
 	for name, acquire := range map[string]NativeWorkerAcquire{
-		"unavailable": func(context.Context, string) (nativeworker.Lease, bool, error) {
-			return nativeworker.Lease{}, false, run.ErrUnavailable
+		"unavailable": func(context.Context, string) (nativeworker.BaselineLease, bool, error) {
+			return nativeworker.BaselineLease{}, false, run.ErrUnavailable
 		},
-		"internal": func(context.Context, string) (nativeworker.Lease, bool, error) {
-			return nativeworker.Lease{}, false, run.ErrValidation
+		"internal": func(context.Context, string) (nativeworker.BaselineLease, bool, error) {
+			return nativeworker.BaselineLease{}, false, run.ErrValidation
 		},
-		"invalid lease": func(context.Context, string) (nativeworker.Lease, bool, error) {
-			return nativeworker.Lease{Capability: strings.Repeat("s", 64)}, true, nil
+		"invalid lease": func(context.Context, string) (nativeworker.BaselineLease, bool, error) {
+			return nativeworker.BaselineLease{Capability: strings.Repeat("s", 64)}, true, nil
 		},
-		"unencodable lease": func(context.Context, string) (nativeworker.Lease, bool, error) {
+		"unencodable lease": func(context.Context, string) (nativeworker.BaselineLease, bool, error) {
 			return unencodable, true, nil
 		},
 	} {
@@ -560,7 +580,7 @@ func serveNativeAcquire(
 
 func nativeAcquireFixture(t *testing.T) []byte {
 	t.Helper()
-	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/acquire.json")
+	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/acquire.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -568,13 +588,13 @@ func nativeAcquireFixture(t *testing.T) []byte {
 	return document
 }
 
-func nativeLeaseFixture(t *testing.T) nativeworker.Lease {
+func nativeLeaseFixture(t *testing.T) nativeworker.BaselineLease {
 	t.Helper()
-	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/lease.json")
+	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/lease.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var lease nativeworker.Lease
+	var lease nativeworker.BaselineLease
 	if json.Unmarshal(document, &lease) != nil {
 		t.Fatal("invalid pinned lease fixture")
 	}
@@ -584,7 +604,7 @@ func nativeLeaseFixture(t *testing.T) nativeworker.Lease {
 
 func nativePresenceFixture(t *testing.T) ([]byte, json.RawMessage) {
 	t.Helper()
-	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/presence.json")
+	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/presence.json")
 	if err != nil {
 		t.Fatal(err)
 	}

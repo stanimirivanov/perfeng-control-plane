@@ -9,16 +9,17 @@ import (
 // ApplicationConfig contains the complete environment-sourced startup policy.
 // It contains no opened clients, parsed credentials or loaded registry/template content.
 type ApplicationConfig struct {
-	Authentication              AuthenticationConfig
-	Database                    DatabaseConfig
-	HTTPServer                  HTTPServerConfig
-	Worker                      worker.Config
-	Kubernetes                  KubernetesConfig
-	ArtifactStorage             ArtifactStorageConfig
-	ArtifactVerification        ArtifactVerificationConfig
-	Registry                    RegistryConfig
-	KubernetesExecutorTemplates KubernetesExecutorTemplateConfig
-	Reconciliation              ReconciliationConfig
+	Authentication                 AuthenticationConfig
+	Database                       DatabaseConfig
+	HTTPServer                     HTTPServerConfig
+	Worker                         worker.Config
+	Kubernetes                     KubernetesConfig
+	ArtifactStorage                ArtifactStorageConfig
+	ArtifactVerification           ArtifactVerificationConfig
+	Registry                       RegistryConfig
+	KubernetesExecutorTemplates    KubernetesExecutorTemplateConfig
+	Reconciliation                 ReconciliationConfig
+	NativeWorkerAcquisitionEnabled bool
 }
 
 // Validate checks every startup policy and their worker/reconciliation relationship.
@@ -90,18 +91,25 @@ func loadApplicationConfig(lookup lookupEnvironment) (ApplicationConfig, error) 
 	if err != nil {
 		return ApplicationConfig{}, err
 	}
+	nativeWorkerAcquisitionEnabled, err := optionalBoolean(
+		lookup, "PERFENG_NATIVE_WORKER_ACQUISITION_ENABLED",
+	)
+	if err != nil {
+		return ApplicationConfig{}, err
+	}
 
 	config := ApplicationConfig{
-		Authentication:              authentication,
-		Database:                    database,
-		HTTPServer:                  httpServer,
-		Worker:                      workerConfig,
-		Kubernetes:                  kubernetes,
-		ArtifactStorage:             artifactStorage,
-		ArtifactVerification:        artifactVerification,
-		Registry:                    registry,
-		KubernetesExecutorTemplates: executorTemplates,
-		Reconciliation:              reconciliation,
+		Authentication:                 authentication,
+		Database:                       database,
+		HTTPServer:                     httpServer,
+		Worker:                         workerConfig,
+		Kubernetes:                     kubernetes,
+		ArtifactStorage:                artifactStorage,
+		ArtifactVerification:           artifactVerification,
+		Registry:                       registry,
+		KubernetesExecutorTemplates:    executorTemplates,
+		Reconciliation:                 reconciliation,
+		NativeWorkerAcquisitionEnabled: nativeWorkerAcquisitionEnabled,
 	}
 	if config.Validate() != nil {
 		return ApplicationConfig{}, configurationError("application policy")

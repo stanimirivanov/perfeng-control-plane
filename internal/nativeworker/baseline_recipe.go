@@ -9,7 +9,7 @@ import (
 
 // BaselineContractsVersion is the reviewed contract bundle required for the
 // candidate Native Worker v2 baseline recipe.
-const BaselineContractsVersion = "0.18.0"
+const BaselineContractsVersion = "0.19.0"
 
 var baselineSHA256Pattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 var baselineVersionPattern = regexp.MustCompile(
@@ -49,6 +49,7 @@ type BaselineBrowserSettings struct {
 // BaselineTemplate contains only reviewed v2 inputs that cannot be derived
 // from the immutable Run, workload or raw-producer identity.
 type BaselineTemplate struct {
+	BaseURL                  string                  `json:"baseUrl"`
 	Scenario                 BaselineScenario        `json:"scenario"`
 	HostProfile              QualifiedHostProfile    `json:"hostProfile"`
 	BrowserSettings          BaselineBrowserSettings `json:"browserSettings"`
@@ -88,7 +89,7 @@ type BaselinePlan struct {
 
 // Validate checks every reviewed input before the template enters a registry.
 func (template BaselineTemplate) Validate() error {
-	if !template.Scenario.valid() ||
+	if !validBaseURL(template.BaseURL) || !template.Scenario.valid() ||
 		!template.HostProfile.valid() || !template.BrowserSettings.valid() ||
 		!validBaselineArtifactSize(template.MeasurementsMaximumBytes) ||
 		!validBaselineArtifactSize(template.ManifestMaximumBytes) {
@@ -105,19 +106,18 @@ func (template BaselineTemplate) Resolve(
 	workload rawresult.Identity,
 	profile string,
 	targetEnvironmentID string,
-	baseURL string,
 	artifact rawresult.ExecutionArtifact,
 ) (BaselinePlan, error) {
 	if template.Validate() != nil || workload.Validate() != nil ||
 		!rawresult.ValidResourceID(testID) || !validBaselineProfile(profile) ||
-		!rawresult.ValidResourceID(targetEnvironmentID) || !validBaseURL(baseURL) ||
+		!rawresult.ValidResourceID(targetEnvironmentID) ||
 		artifact.Kind != "source-checkout" {
 		return BaselinePlan{}, run.ErrValidation
 	}
 	plan := BaselinePlan{
 		Assignment: BaselineAssignment{
 			CatalogueTestID: testID, WorkloadID: workload.ID, Profile: profile,
-			Target:  Target{EnvironmentID: targetEnvironmentID, BaseURL: baseURL},
+			Target:  Target{EnvironmentID: targetEnvironmentID, BaseURL: template.BaseURL},
 			Browser: "chromium", DiagnosticMode: "baseline",
 			ExecutionArtifact: executionArtifact(artifact),
 			Recipe: BaselineRecipe{

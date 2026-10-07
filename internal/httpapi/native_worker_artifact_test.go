@@ -307,11 +307,11 @@ func TestNativeWorkerArtifactRegistrationMapsFailures(t *testing.T) {
 
 func TestNativeWorkerArtifactRegistrationRouteIsExact(t *testing.T) {
 	for path, want := range map[string]bool{
-		"/native-worker/v1/leases/lease/artifacts":       true,
-		"/native-worker/v1/leases//artifacts":            false,
-		"/native-worker/v1/leases/lease/extra/artifacts": false,
-		"/native-worker/v1/leases/lease/artifacts/":      false,
-		"/native-worker/v1/leases/lease/upload-grants":   false,
+		"/native-worker/v2/leases/lease/artifacts":       true,
+		"/native-worker/v2/leases//artifacts":            false,
+		"/native-worker/v2/leases/lease/extra/artifacts": false,
+		"/native-worker/v2/leases/lease/artifacts/":      false,
+		"/native-worker/v2/leases/lease/upload-grants":   false,
 	} {
 		leaseID, actual := nativeWorkerArtifactLeaseID(path)
 		if actual != want || actual && leaseID != "lease" {
@@ -357,7 +357,7 @@ func newNativeArtifactRegistrationRequest(
 func nativeArtifactRegistrationFixture(t *testing.T) []byte {
 	t.Helper()
 	document, err := contract.Files.ReadFile(
-		"snapshot/api/native-worker/v1/examples/register-artifact.json",
+		"snapshot/api/native-worker/v2/examples/register-artifact.json",
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -368,7 +368,7 @@ func nativeArtifactRegistrationFixture(t *testing.T) []byte {
 
 func nativeArtifactReferenceFixture(t *testing.T) nativeworker.ArtifactReference {
 	t.Helper()
-	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/artifact.json")
+	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/artifact.json")
 	if err != nil {
 		t.Fatal(err)
 	}

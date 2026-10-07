@@ -14,20 +14,6 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
-var _ nativeworker.UploadGrantStore = (*Repository)(nil)
-
-// ReserveNativeUploadGrant authenticates current lease authority and persists
-// only the non-secret declaration under the worker-before-Run-before-lease lock
-// order. Object-store signing remains outside this transaction.
-func (r *Repository) ReserveNativeUploadGrant(
-	ctx context.Context,
-	workerID string,
-	request nativeworker.UploadRequest,
-	ttl time.Duration,
-) (nativeworker.UploadReservation, error) {
-	return r.reserveNativeUploadGrant(ctx, workerID, request, ttl, nativeLeaseProtocolV1)
-}
-
 // ReserveNativeBaselineUploadGrant reserves a declared v2 artifact under the
 // current v2 lease and its persisted baseline plan.
 func (r *Repository) ReserveNativeBaselineUploadGrant(
@@ -136,24 +122,14 @@ func nativePlannedArtifactSlot(
 	mediaType string,
 	size int64,
 ) (nativeworker.ArtifactSlot, error) {
-	var slot nativeworker.ArtifactSlot
-	var matched bool
-	switch protocolVersion {
-	case nativeLeaseProtocolV1:
-		var plan nativeworker.Plan
-		if err := json.Unmarshal(storedPlan, &plan); err != nil || plan.Validate() != nil {
-			return slot, errors.New("invalid stored native execution plan")
-		}
-		slot, matched = plan.MatchArtifactSlot(name, mediaType, size)
-	case nativeLeaseProtocolV2:
-		var plan nativeworker.BaselinePlan
-		if err := json.Unmarshal(storedPlan, &plan); err != nil || plan.Validate() != nil {
-			return slot, errors.New("invalid stored native baseline plan")
-		}
-		slot, matched = plan.MatchArtifactSlot(name, mediaType, size)
-	default:
-		return slot, run.ErrValidation
+	if protocolVersion != nativeLeaseProtocolV2 {
+		return nativeworker.ArtifactSlot{}, run.ErrValidation
 	}
+	var plan nativeworker.BaselinePlan
+	if err := json.Unmarshal(storedPlan, &plan); err != nil || plan.Validate() != nil {
+		return nativeworker.ArtifactSlot{}, errors.New("invalid stored native baseline plan")
+	}
+	slot, matched := plan.MatchArtifactSlot(name, mediaType, size)
 	if !matched {
 		return slot, nativeworker.ErrArtifactPlan
 	}

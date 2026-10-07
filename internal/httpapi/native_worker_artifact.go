@@ -27,7 +27,7 @@ func (handler *NativeWorkerHandler) registerArtifact(
 	identity WorkerIdentity,
 	leaseID string,
 ) {
-	if !identity.AuthorizedToAcquire {
+	if !identity.AuthorizedToAcquire && !identity.AuthorizedToUseLease {
 		fail(w, http.StatusForbidden, "NOT_AUTHORIZED")
 		return
 	}
@@ -40,7 +40,7 @@ func (handler *NativeWorkerHandler) registerArtifact(
 	if !ok {
 		return
 	}
-	if contract.ValidateRegisterArtifact(value) != nil {
+	if contract.ValidateNativeWorkerV2RegisterArtifact(value) != nil {
 		fail(w, http.StatusBadRequest, "INVALID_REQUEST")
 		return
 	}

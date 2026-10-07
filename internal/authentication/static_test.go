@@ -97,7 +97,7 @@ func TestStaticKeepsWorkerAndUserCredentialAudiencesSeparate(t *testing.T) {
 
 func workerEvidence(t *testing.T) json.RawMessage {
 	t.Helper()
-	b, err := contract.Files.ReadFile("snapshot/api/native-worker/v1/examples/presence.json")
+	b, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/presence.json")
 	if err != nil {
 		t.Fatal(err)
 	}

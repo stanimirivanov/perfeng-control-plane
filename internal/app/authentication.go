@@ -83,12 +83,30 @@ func NewAPIHandler(
 // independently authenticated worker boundary.
 type NativeWorkerStore interface {
 	httpapi.NativeWorkerPresenceStore
-	nativeworker.LeaseStore
-	nativeworker.RenewalStore
-	nativeworker.ReleaseStore
-	nativeworker.UploadGrantStore
-	nativeworker.ArtifactRegistrationStore
-	nativeworker.TerminalStore
+	nativeworker.BaselineLeaseStore
+	// RenewNativeBaselineLease fences timing and cancellation updates to a v2 attempt.
+	RenewNativeBaselineLease(
+		context.Context, string, nativeworker.RenewalRequest, time.Duration, time.Duration,
+	) (nativeworker.Renewal, error)
+	// ReleaseNativeBaselineLease relinquishes only the matching v2 attempt.
+	ReleaseNativeBaselineLease(context.Context, string, nativeworker.ReleaseRequest) error
+	// ReserveNativeBaselineUploadGrant creates an exact, lease-fenced v2 upload reservation.
+	ReserveNativeBaselineUploadGrant(
+		context.Context, string, nativeworker.UploadRequest, time.Duration,
+	) (nativeworker.UploadReservation, error)
+	// PrepareNativeBaselineArtifact selects immutable object facts before external verification.
+	PrepareNativeBaselineArtifact(
+		context.Context, string, nativeworker.ArtifactRegistrationRequest,
+	) (nativeworker.ArtifactCandidate, error)
+	// RegisterNativeBaselineArtifact accepts only the verified v2 object.
+	RegisterNativeBaselineArtifact(
+		context.Context, string, nativeworker.ArtifactRegistrationRequest,
+		nativeworker.VerifiedArtifact,
+	) (nativeworker.ArtifactReference, error)
+	// ReportNativeBaselineTerminal accepts one retry-stable, lease-fenced v2 outcome.
+	ReportNativeBaselineTerminal(
+		context.Context, string, nativeworker.TerminalRequest,
+	) (nativeworker.TerminalAcknowledgement, error)
 }
 
 // NewNativeWorkerAPIHandler composes worker authentication, durable presence,
@@ -97,15 +115,16 @@ type NativeWorkerStore interface {
 func NewNativeWorkerAPIHandler(
 	store NativeWorkerStore,
 	authenticator NativeWorkerAuthenticator,
-	resolver nativeworker.PlanResolver,
+	resolver nativeworker.BaselinePlanResolver,
 	uploadSigner nativeworker.UploadSigner,
 	artifactVerifier nativeworker.ArtifactVerifier,
+	acquisitionEnabled bool,
 ) (http.Handler, error) {
 	if store == nil || authenticator == nil || resolver == nil || uploadSigner == nil ||
 		artifactVerifier == nil {
 		return nil, ErrInvalidConfiguration
 	}
-	acquirer, err := nativeworker.NewAcquirer(
+	acquirer, err := nativeworker.NewBaselineAcquirer(
 		store,
 		resolver,
 		nativeWorkerPresenceMaximumAge,
@@ -116,37 +135,45 @@ func NewNativeWorkerAPIHandler(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	v2Store := nativeWorkerV2Store{store}
 	renewer, err := nativeworker.NewRenewer(
-		store,
+		v2Store,
 		nativeWorkerLeaseTTL,
 		nativeWorkerCancellationGrace,
 	)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
-	releaser, err := nativeworker.NewReleaser(store)
+	releaser, err := nativeworker.NewReleaser(v2Store)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
 	uploadIssuer, err := nativeworker.NewUploadGrantIssuer(
-		store,
+		v2Store,
 		uploadSigner,
 		nativeWorkerUploadGrantTTL,
 	)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
-	artifactRegistrar, err := nativeworker.NewArtifactRegistrar(store, artifactVerifier)
+	artifactRegistrar, err := nativeworker.NewArtifactRegistrar(v2Store, artifactVerifier)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
-	terminalReporter, err := nativeworker.NewTerminalReporter(store)
+	terminalReporter, err := nativeworker.NewTerminalReporter(v2Store)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
+	}
+	authenticateWorker := func(ctx context.Context, token string) (httpapi.WorkerIdentity, error) {
+		identity, err := authenticator.AuthenticateWorker(ctx, token)
+		identity.AuthorizedToUseLease = identity.AuthorizedToAcquire
+		identity.AuthorizedToAcquire = identity.AuthorizedToAcquire && acquisitionEnabled
+
+		return identity, err
 	}
 	handler, err := httpapi.NewNativeWorkerHandler(
 		store,
-		authenticator.AuthenticateWorker,
+		authenticateWorker,
 		acquirer.Acquire,
 		renewer.Renew,
 		releaser.Release,

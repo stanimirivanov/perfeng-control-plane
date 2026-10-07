@@ -26,7 +26,7 @@ func (handler *NativeWorkerHandler) reportTerminal(
 	identity WorkerIdentity,
 	leaseID string,
 ) {
-	if !identity.AuthorizedToAcquire {
+	if !identity.AuthorizedToAcquire && !identity.AuthorizedToUseLease {
 		fail(w, http.StatusForbidden, "NOT_AUTHORIZED")
 		return
 	}
@@ -39,7 +39,7 @@ func (handler *NativeWorkerHandler) reportTerminal(
 	if !ok {
 		return
 	}
-	if contract.ValidateTerminalReport(value) != nil {
+	if contract.ValidateNativeWorkerV2TerminalReport(value) != nil {
 		fail(w, http.StatusBadRequest, "INVALID_REQUEST")
 		return
 	}

@@ -105,39 +105,6 @@ func TestNativeV2LeaseMutationsRejectWrongAuthorityAndProtocol(t *testing.T) {
 	repository := fixture.repository
 	renew := v2RenewalRequest(fixture, fixture.accepted.Run.Revision, nativeworker.PhasePreparing)
 	release := v2ReleaseRequest(fixture, fixture.accepted.Run.Revision, nativeworker.ReleaseWorkerShutdown)
-	if _, err := repository.RenewNativeLease(
-		testContext, fixture.workerID, renew, 2*time.Minute, 30*time.Second,
-	); !errors.Is(err, nativeworker.ErrLeaseGone) {
-		t.Fatalf("v1 renewal accepted v2 lease: %v", err)
-	}
-	if err := repository.ReleaseNativeLease(testContext, fixture.workerID, release); !errors.Is(err, nativeworker.ErrLeaseGone) {
-		t.Fatalf("v1 release accepted v2 lease: %v", err)
-	}
-	v1Worker := "windows-laptop-02"
-	_, v1Lease := acquireNativeLeaseForTest(
-		t, repository, "alice", "native-v1-isolation-0001", v1Worker,
-	)
-	v1Renew := nativeworker.RenewalRequest{
-		LeaseID: v1Lease.LeaseID, AttemptID: v1Lease.AttemptID,
-		ExpectedRunRevision: v1Lease.RunRevision, Phase: nativeworker.PhasePreparing,
-		Capability: v1Lease.Capability,
-	}
-	v1Release := nativeworker.ReleaseRequest{
-		LeaseID: v1Lease.LeaseID, AttemptID: v1Lease.AttemptID,
-		ExpectedRunRevision: v1Lease.RunRevision,
-		Reason:              nativeworker.ReleaseWorkerShutdown,
-		Capability:          v1Lease.Capability,
-	}
-	if _, err := repository.RenewNativeBaselineLease(
-		testContext, v1Worker, v1Renew, 2*time.Minute, 30*time.Second,
-	); !errors.Is(err, nativeworker.ErrLeaseGone) {
-		t.Fatalf("v2 renewal accepted v1 lease: %v", err)
-	}
-	if err := repository.ReleaseNativeBaselineLease(
-		testContext, v1Worker, v1Release,
-	); !errors.Is(err, nativeworker.ErrLeaseGone) {
-		t.Fatalf("v2 release accepted v1 lease: %v", err)
-	}
 	for _, test := range []struct {
 		name     string
 		workerID string

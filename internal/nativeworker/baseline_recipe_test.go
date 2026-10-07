@@ -14,6 +14,7 @@ import (
 
 func baselineTemplateFixture() BaselineTemplate {
 	return BaselineTemplate{
+		BaseURL: "https://sut.perfeng.invalid/search",
 		Scenario: BaselineScenario{
 			CacheProfile: "cold", PageReuse: "per-iteration",
 			WarmupIterations: 1, MeasurementIterations: 5,
@@ -47,7 +48,7 @@ func TestBaselineTemplateResolvesContractValidPlan(t *testing.T) {
 	}
 	plan, err := template.Resolve(
 		"search-journey", workload, "smoke", "local-demo",
-		"https://sut.perfeng.invalid/search", baselineArtifactFixture(),
+		baselineArtifactFixture(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -121,13 +122,14 @@ func TestBaselineTemplateRejectsUnreviewedInputs(t *testing.T) {
 	artifact.Kind = "release-archive"
 	if _, err := baselineTemplateFixture().Resolve(
 		"search-journey", workload, "smoke", "local-demo",
-		"https://sut.perfeng.invalid/search", artifact,
+		artifact,
 	); !errors.Is(err, run.ErrValidation) {
 		t.Fatalf("unsupported execution artifact error = %v", err)
 	}
-	if _, err := baselineTemplateFixture().Resolve(
-		"search-journey", workload, "smoke", "local-demo",
-		"http://sut.invalid", baselineArtifactFixture(),
+	invalidTarget := baselineTemplateFixture()
+	invalidTarget.BaseURL = "http://sut.invalid"
+	if _, err := invalidTarget.Resolve(
+		"search-journey", workload, "smoke", "local-demo", baselineArtifactFixture(),
 	); !errors.Is(err, run.ErrValidation) {
 		t.Fatalf("unreviewed target error = %v", err)
 	}
@@ -151,7 +153,7 @@ func TestBaselinePlanRejectsChangedOutput(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			plan, err := baselineTemplateFixture().Resolve(
 				"search-journey", workload, "smoke", "local-demo",
-				"https://sut.perfeng.invalid/search", baselineArtifactFixture(),
+				baselineArtifactFixture(),
 			)
 			if err != nil {
 				t.Fatal(err)

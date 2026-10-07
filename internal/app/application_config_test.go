@@ -29,6 +29,23 @@ func TestLoadApplicationConfigReturnsCompleteStartupPolicy(t *testing.T) {
 	}
 }
 
+func TestNativeWorkerAcquisitionIsExplicitlyEnabled(t *testing.T) {
+	values := validApplicationEnvironment(t)
+	config, err := loadApplicationConfig(mapLookup(values))
+	if err != nil || config.NativeWorkerAcquisitionEnabled {
+		t.Fatalf("default acquisition enabled = %t, error = %v", config.NativeWorkerAcquisitionEnabled, err)
+	}
+	values["PERFENG_NATIVE_WORKER_ACQUISITION_ENABLED"] = "true"
+	config, err = loadApplicationConfig(mapLookup(values))
+	if err != nil || !config.NativeWorkerAcquisitionEnabled {
+		t.Fatalf("explicit acquisition enabled = %t, error = %v", config.NativeWorkerAcquisitionEnabled, err)
+	}
+	values["PERFENG_NATIVE_WORKER_ACQUISITION_ENABLED"] = "yes"
+	if _, err := loadApplicationConfig(mapLookup(values)); err == nil {
+		t.Fatal("malformed acquisition switch accepted")
+	}
+}
+
 func TestLoadApplicationConfigUsesEveryConfigurationBoundary(t *testing.T) {
 	for name, variable := range map[string]string{
 		"authentication":        authenticationFileVariable,

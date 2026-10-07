@@ -12,8 +12,6 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
-var _ nativeworker.TerminalStore = (*Repository)(nil)
-
 type storedNativeTerminal struct {
 	workerID          string
 	protocolVersion   int
@@ -29,16 +27,6 @@ type registeredNativeArtifact struct {
 	format       string
 	mediaType    string
 	registeredAt time.Time
-}
-
-// ReportNativeTerminal serializes current native authority, evidence and Run
-// lifecycle, then persists the first outcome with lease expiry atomically.
-func (r *Repository) ReportNativeTerminal(
-	ctx context.Context,
-	workerID string,
-	request nativeworker.TerminalRequest,
-) (nativeworker.TerminalAcknowledgement, error) {
-	return r.reportNativeTerminal(ctx, workerID, request, nativeLeaseProtocolV1)
 }
 
 // ReportNativeBaselineTerminal accepts a v2 terminal outcome under v2 lease
@@ -189,7 +177,7 @@ func lockedNativeTerminal(
 	}
 	stored.acceptedAt = stored.acceptedAt.UTC()
 	if !contract.ValidNativeWorkerIdentifier(stored.workerID) ||
-		(stored.protocolVersion != nativeLeaseProtocolV1 && stored.protocolVersion != nativeLeaseProtocolV2) ||
+		stored.protocolVersion != nativeLeaseProtocolV2 ||
 		!stored.requestWithoutCapabilityValid() ||
 		stored.resultingRevision < 1 || stored.acceptedAt.IsZero() {
 		return storedNativeTerminal{}, false, errors.New("invalid stored native terminal report")
@@ -258,22 +246,14 @@ func validateNativeTerminalEvidence(
 }
 
 func nativeTerminalArtifactPlan(storedPlan []byte, protocolVersion int) ([]nativeworker.ArtifactSlot, error) {
-	switch protocolVersion {
-	case nativeLeaseProtocolV1:
-		var plan nativeworker.Plan
-		if err := json.Unmarshal(storedPlan, &plan); err != nil || plan.Validate() != nil {
-			return nil, errors.New("invalid stored native execution plan")
-		}
-		return plan.ArtifactPlan, nil
-	case nativeLeaseProtocolV2:
-		var plan nativeworker.BaselinePlan
-		if err := json.Unmarshal(storedPlan, &plan); err != nil || plan.Validate() != nil {
-			return nil, errors.New("invalid stored native baseline plan")
-		}
-		return plan.ArtifactPlan[:], nil
-	default:
+	if protocolVersion != nativeLeaseProtocolV2 {
 		return nil, run.ErrValidation
 	}
+	var plan nativeworker.BaselinePlan
+	if err := json.Unmarshal(storedPlan, &plan); err != nil || plan.Validate() != nil {
+		return nil, errors.New("invalid stored native baseline plan")
+	}
+	return plan.ArtifactPlan[:], nil
 }
 
 func registeredNativeArtifacts(

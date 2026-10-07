@@ -25,7 +25,7 @@ func (handler *NativeWorkerHandler) releaseLease(
 	identity WorkerIdentity,
 	leaseID string,
 ) {
-	if !identity.AuthorizedToAcquire {
+	if !identity.AuthorizedToAcquire && !identity.AuthorizedToUseLease {
 		fail(w, http.StatusForbidden, "NOT_AUTHORIZED")
 		return
 	}
@@ -38,7 +38,7 @@ func (handler *NativeWorkerHandler) releaseLease(
 	if !ok {
 		return
 	}
-	if contract.ValidateReleaseLease(value) != nil {
+	if contract.ValidateNativeWorkerV2ReleaseLease(value) != nil {
 		fail(w, http.StatusBadRequest, "INVALID_REQUEST")
 		return
 	}

@@ -7,7 +7,6 @@ import (
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/rawresult"
-	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
 const (
@@ -34,7 +33,7 @@ type ArtifactSlot struct {
 	Required     bool   `json:"required"`
 }
 
-// ExecutionArtifact is the Native Worker API v1 transport identity. Source
+// ExecutionArtifact is the Native Worker transport identity. Source
 // checkout fields intentionally differ from the raw-result producer envelope.
 type ExecutionArtifact struct {
 	Kind             string `json:"kind"`
@@ -45,124 +44,6 @@ type ExecutionArtifact struct {
 	URL              string `json:"url,omitempty"`
 	ArchiveSHA256    string `json:"archiveSha256,omitempty"`
 	ExecutableSHA256 string `json:"executableSha256,omitempty"`
-}
-
-// AssignmentTemplate contains reviewed values that cannot be derived from the
-// accepted Run or immutable producer provenance.
-type AssignmentTemplate struct {
-	BaseURL        string         `json:"baseUrl"`
-	Browser        string         `json:"browser"`
-	DiagnosticMode string         `json:"diagnosticMode"`
-	ArtifactPlan   []ArtifactSlot `json:"artifactPlan"`
-}
-
-// Assignment is the immutable execution description nested in a native lease.
-type Assignment struct {
-	CatalogueTestID   string            `json:"catalogueTestId"`
-	WorkloadID        string            `json:"workloadId"`
-	Profile           string            `json:"profile"`
-	Target            Target            `json:"target"`
-	Browser           string            `json:"browser"`
-	DiagnosticMode    string            `json:"diagnosticMode"`
-	ExecutionArtifact ExecutionArtifact `json:"executionArtifact"`
-}
-
-// Plan contains the assignment and its sibling lease artifact plan.
-type Plan struct {
-	Assignment   Assignment     `json:"assignment"`
-	ArtifactPlan []ArtifactSlot `json:"artifactPlan"`
-}
-
-// Validate checks values that must be reviewed before a native Run is admitted.
-func (template AssignmentTemplate) Validate() error {
-	if !validBaseURL(template.BaseURL) || !validBrowser(template.Browser) ||
-		!validDiagnosticMode(template.DiagnosticMode) || !validArtifactPlan(template.ArtifactPlan) {
-		return run.ErrValidation
-	}
-
-	return nil
-}
-
-// Clone returns an independently owned assignment template.
-func (template AssignmentTemplate) Clone() AssignmentTemplate {
-	template.ArtifactPlan = append([]ArtifactSlot(nil), template.ArtifactPlan...)
-
-	return template
-}
-
-// Resolve combines reviewed template values with immutable Run and registry identities.
-func (template AssignmentTemplate) Resolve(
-	testID string,
-	workloadID string,
-	profile string,
-	environmentID string,
-	artifact rawresult.ExecutionArtifact,
-) (Plan, error) {
-	assignment := Assignment{
-		CatalogueTestID: testID, WorkloadID: workloadID, Profile: profile,
-		Target:  Target{EnvironmentID: environmentID, BaseURL: template.BaseURL},
-		Browser: template.Browser, DiagnosticMode: template.DiagnosticMode,
-		ExecutionArtifact: executionArtifact(artifact),
-	}
-	plan := Plan{
-		Assignment:   assignment,
-		ArtifactPlan: append([]ArtifactSlot(nil), template.ArtifactPlan...),
-	}
-	if plan.Validate() != nil {
-		return Plan{}, run.ErrValidation
-	}
-
-	return plan, nil
-}
-
-// Validate checks a resolved assignment against its Native Worker API v1 shape.
-func (assignment Assignment) Validate() error {
-	if !rawresult.ValidResourceID(assignment.CatalogueTestID) ||
-		!rawresult.ValidResourceID(assignment.WorkloadID) ||
-		!rawresult.ValidResourceID(assignment.Profile) ||
-		!rawresult.ValidResourceID(assignment.Target.EnvironmentID) ||
-		!validBaseURL(assignment.Target.BaseURL) || !validBrowser(assignment.Browser) ||
-		!validDiagnosticMode(assignment.DiagnosticMode) ||
-		!validExecutionArtifact(assignment.ExecutionArtifact) {
-		return run.ErrValidation
-	}
-
-	return nil
-}
-
-// Validate checks the complete reviewed native work plan.
-func (plan Plan) Validate() error {
-	if plan.Assignment.Validate() != nil || !validArtifactPlan(plan.ArtifactPlan) {
-		return run.ErrValidation
-	}
-
-	return nil
-}
-
-// Clone returns an independently owned native plan.
-func (plan Plan) Clone() Plan {
-	plan.ArtifactPlan = append([]ArtifactSlot(nil), plan.ArtifactPlan...)
-
-	return plan
-}
-
-// MatchArtifactSlot returns the assigned slot when the declared object media
-// type and size satisfy the complete reviewed plan.
-func (plan Plan) MatchArtifactSlot(
-	name string,
-	mediaType string,
-	size int64,
-) (ArtifactSlot, bool) {
-	if plan.Validate() != nil || size < 1 {
-		return ArtifactSlot{}, false
-	}
-	for _, slot := range plan.ArtifactPlan {
-		if slot.Slot == name && slot.MediaType == mediaType && size <= slot.MaximumBytes {
-			return slot, true
-		}
-	}
-
-	return ArtifactSlot{}, false
 }
 
 func validBaseURL(value string) bool {

@@ -14,8 +14,6 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
-var _ nativeworker.RenewalStore = (*Repository)(nil)
-
 type storedNativeLease struct {
 	leaseID          string
 	attemptID        string
@@ -35,20 +33,6 @@ type nativeRenewalScope struct {
 	current run.Run
 	stored  storedNativeLease
 	now     time.Time
-}
-
-// RenewNativeLease serializes worker authority, Run lifecycle and lease expiry
-// under the established worker-before-Run lock order.
-func (r *Repository) RenewNativeLease(
-	ctx context.Context,
-	workerID string,
-	request nativeworker.RenewalRequest,
-	ttl time.Duration,
-	cancellationGrace time.Duration,
-) (nativeworker.Renewal, error) {
-	return r.renewNativeLease(
-		ctx, workerID, request, ttl, cancellationGrace, nativeLeaseProtocolV1,
-	)
 }
 
 // RenewNativeBaselineLease renews only v2 authority. The acquisition gate does
@@ -221,24 +205,16 @@ func nativeLeaseLocation(
 
 // lockNativeWorker establishes the first lock in every native lease mutation.
 func lockNativeWorker(ctx context.Context, tx *sql.Tx, workerID string, protocolVersion int) error {
-	query := `
-		SELECT worker_id
-		FROM perfeng_control.native_worker_presence
-		WHERE worker_id=$1
-		FOR UPDATE
-	`
-	if protocolVersion == nativeLeaseProtocolV2 {
-		query = `
-			SELECT worker_id
-			FROM perfeng_control.native_worker_presence_v2
-			WHERE worker_id=$1
-			FOR UPDATE
-		`
-	} else if protocolVersion != nativeLeaseProtocolV1 {
+	if protocolVersion != nativeLeaseProtocolV2 {
 		return run.ErrValidation
 	}
 	var locked string
-	err := tx.QueryRowContext(ctx, query, workerID).Scan(&locked)
+	err := tx.QueryRowContext(ctx, `
+		SELECT worker_id
+		FROM perfeng_control.native_worker_presence_v2
+		WHERE worker_id=$1
+		FOR UPDATE
+	`, workerID).Scan(&locked)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nativeworker.ErrLeaseGone
 	}

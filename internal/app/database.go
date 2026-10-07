@@ -5,7 +5,6 @@ import (
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/httpapi"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/kubernetes"
-	"github.com/stanimirivanov/perfeng-control-plane/internal/nativeworker"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/postgres"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
@@ -14,13 +13,7 @@ import (
 // reconciliation worker. The owner must close it during process shutdown.
 type Database interface {
 	httpapi.Repository
-	httpapi.NativeWorkerPresenceStore
-	nativeworker.LeaseStore
-	nativeworker.RenewalStore
-	nativeworker.ReleaseStore
-	nativeworker.UploadGrantStore
-	nativeworker.ArtifactRegistrationStore
-	nativeworker.TerminalStore
+	NativeWorkerStore
 	run.ArtifactRepository
 	run.ReconciliationStore
 	kubernetes.ExecutionStore

@@ -32,7 +32,7 @@ func TestNewApplicationRuntimeComposesCompleteInertService(t *testing.T) {
 	}
 	workerRequest := httptest.NewRequest(
 		http.MethodPost,
-		"/native-worker/v1/presence",
+		"/native-worker/v2/presence",
 		nil,
 	)
 	workerRequest.Header.Set("Authorization", "Bearer user-api-token")
@@ -40,6 +40,12 @@ func TestNewApplicationRuntimeComposesCompleteInertService(t *testing.T) {
 	server.Handler.ServeHTTP(workerResponse, workerRequest)
 	if workerResponse.Code != http.StatusUnauthorized {
 		t.Fatalf("native worker status = %d, want %d", workerResponse.Code, http.StatusUnauthorized)
+	}
+	workerRequest.URL.Path = "/native-worker/v1/presence"
+	workerResponse = httptest.NewRecorder()
+	server.Handler.ServeHTTP(workerResponse, workerRequest)
+	if workerResponse.Code != http.StatusNotFound {
+		t.Fatalf("retired native worker status = %d, want %d", workerResponse.Code, http.StatusNotFound)
 	}
 	if output.Len() != 0 {
 		t.Fatal("runtime construction emitted a log record")

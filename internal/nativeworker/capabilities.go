@@ -33,14 +33,8 @@ type Presence struct {
 	QualificationEvidence json.RawMessage `json:"qualificationEvidence"`
 }
 
-// ParsePresence validates and decodes one bounded Native Worker API v1
-// presence document.
-func ParsePresence(document []byte, maximumBytes int) (Presence, error) {
-	return parsePresence(document, maximumBytes, contract.ValidateWorkerPresence)
-}
-
 // ParseV2Presence validates and decodes one bounded Native Worker API v2
-// presence document without interpreting it as a v1 scheduling report.
+// presence document.
 func ParseV2Presence(document []byte, maximumBytes int) (Presence, error) {
 	return parsePresence(document, maximumBytes, contract.ValidateNativeWorkerV2Presence)
 }
@@ -72,30 +66,6 @@ func parsePresence(
 	presence.QualificationEvidence = canonical
 
 	return presence, nil
-}
-
-// Supports reports whether the capabilities can execute every requirement in
-// a reviewed native plan.
-func (capabilities Capabilities) Supports(plan Plan) bool {
-	if !capabilities.valid() || plan.Validate() != nil {
-		return false
-	}
-	if !contains(capabilities.Browsers, plan.Assignment.Browser) ||
-		!contains(capabilities.DiagnosticModes, plan.Assignment.DiagnosticMode) ||
-		!contains(capabilities.ExecutionArtifacts, plan.Assignment.ExecutionArtifact.Kind) {
-		return false
-	}
-	for _, slot := range plan.ArtifactPlan {
-		if !contains(capabilities.ArtifactKinds, slot.Kind) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (capabilities Capabilities) valid() bool {
-	return capabilities.validForRunnerContract(1)
 }
 
 func (capabilities Capabilities) validForRunnerContract(version int) bool {
