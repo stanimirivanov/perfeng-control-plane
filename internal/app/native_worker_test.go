@@ -19,6 +19,7 @@ type nativeV2StoreStub struct {
 	NativeWorkerStore
 	record       httpapi.NativeWorkerPresenceRecord
 	releaseCalls int
+	inspectCalls int
 }
 
 func (store *nativeV2StoreStub) RecordNativeWorkerV2Presence(
@@ -39,6 +40,13 @@ func (store *nativeV2StoreStub) ReleaseNativeBaselineLease(
 ) error {
 	store.releaseCalls++
 	return nil
+}
+
+func (store *nativeV2StoreStub) InspectNativeBaselineAttempt(
+	context.Context, string, nativeworker.InspectionRequest,
+) (nativeworker.Inspection, error) {
+	store.inspectCalls++
+	return nativeworker.Inspection{}, nativeworker.ErrAttemptNotFound
 }
 
 type nativeV2AuthenticatorStub struct{ evidence json.RawMessage }
@@ -136,6 +144,54 @@ func TestNativeWorkerAcquisitionGate(t *testing.T) {
 		if releaseResponse.Code != http.StatusNoContent || store.releaseCalls != 1 {
 			t.Fatalf("gate=%t: release status=%d, calls=%d", enabled,
 				releaseResponse.Code, store.releaseCalls)
+		}
+	}
+}
+
+func TestNativeWorkerInspectionRemainsAvailableWhenAcquisitionIsPaused(t *testing.T) {
+	presenceDocument, err := contract.Files.ReadFile(
+		"snapshot/api/native-worker/v2/examples/presence.json",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var presence nativeworker.Presence
+	if err := json.Unmarshal(presenceDocument, &presence); err != nil {
+		t.Fatal(err)
+	}
+	var evidenceValue any
+	if err := json.Unmarshal(presence.QualificationEvidence, &evidenceValue); err != nil {
+		t.Fatal(err)
+	}
+	evidence, err := json.Marshal(evidenceValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inspectDocument, err := contract.Files.ReadFile(
+		"snapshot/api/native-worker/v2/examples/inspect-attempt.json",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, enabled := range []bool{false, true} {
+		store := &nativeV2StoreStub{}
+		handler, err := NewNativeWorkerAPIHandler(
+			store, nativeV2AuthenticatorStub{evidence},
+			nativeV2ResolverStub{}, startupUploadSignerStub{},
+			nativeV2ArtifactVerifierStub{}, enabled,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		inspect := httptest.NewRequest(http.MethodPost,
+			"/native-worker/v2/attempts/inspect", strings.NewReader(string(inspectDocument)))
+		inspect.Header.Set("Authorization", "Bearer worker-token")
+		inspect.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, inspect)
+		if response.Code != http.StatusNotFound || store.inspectCalls != 1 {
+			t.Fatalf("gate=%t: inspection status=%d, calls=%d", enabled,
+				response.Code, store.inspectCalls)
 		}
 	}
 }

@@ -87,7 +87,8 @@ func init() {
 		nativeWorkerV2Document.Components.Schemas,
 		"WorkerPresence", "PresenceStatus", "AcquireLease", "Lease", "ExecutionRecipe", "LeaseRenewal",
 		"RenewLease", "ReleaseLease", "UploadGrantRequest", "UploadGrant",
-		"RegisterArtifact", "ArtifactReference", "TerminalReport", "TerminalAck", "Error",
+		"RegisterArtifact", "ArtifactReference", "TerminalReport", "TerminalAck",
+		"InspectAttempt", "AttemptInspection", "Error",
 	)
 	if err != nil {
 		panic(err)
@@ -352,6 +353,16 @@ func ValidateNativeWorkerV2TerminalReport(value any) error {
 // ValidateNativeWorkerV2TerminalAcknowledgement checks a candidate v2 terminal acknowledgement.
 func ValidateNativeWorkerV2TerminalAcknowledgement(value any) error {
 	return validateWithSchemas(nativeWorkerV2Schemas["TerminalAck"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2InspectAttempt checks a worker-scoped v2 inspection request.
+func ValidateNativeWorkerV2InspectAttempt(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["InspectAttempt"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2AttemptInspection checks the closed read-only v2 snapshot.
+func ValidateNativeWorkerV2AttemptInspection(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["AttemptInspection"], value, nativeWorkerV2Schemas)
 }
 
 // ValidateNativeWorkerV2Error checks a candidate v2 protocol error response.

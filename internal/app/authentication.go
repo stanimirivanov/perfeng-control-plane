@@ -82,7 +82,7 @@ func NewAPIHandler(
 // NativeWorkerStore contains the privileged persistence operations used by the
 // independently authenticated worker boundary.
 type NativeWorkerStore interface {
-	httpapi.NativeWorkerPresenceStore
+	httpapi.NativeWorkerStateStore
 	nativeworker.BaselineLeaseStore
 	// RenewNativeBaselineLease fences timing and cancellation updates to a v2 attempt.
 	RenewNativeBaselineLease(

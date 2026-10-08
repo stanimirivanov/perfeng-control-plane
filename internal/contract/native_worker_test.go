@@ -9,11 +9,11 @@ import (
 func TestNativeWorkerV2SnapshotInventory(t *testing.T) {
 	openapi := decodeContractValue(t, "snapshot/api/native-worker/v2/openapi.json")
 	info, ok := openapi["info"].(map[string]any)
-	if !ok || info["version"] != "2.0.0" {
+	if !ok || info["version"] != "2.1.0" {
 		t.Fatal("unexpected Native Worker v2 API version")
 	}
 	paths, ok := openapi["paths"].(map[string]any)
-	if !ok || len(paths) != 7 {
+	if !ok || len(paths) != 8 {
 		t.Fatal("unexpected Native Worker v2 path inventory")
 	}
 	examples, err := fs.Glob(Files, "snapshot/api/native-worker/v2/examples/*.json")
@@ -24,7 +24,7 @@ func TestNativeWorkerV2SnapshotInventory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(examples) != 16 || len(rejections) != 15 {
+	if len(examples) != 21 || len(rejections) != 19 {
 		t.Fatal("unexpected Native Worker v2 fixture inventory")
 	}
 }
@@ -51,6 +51,11 @@ func TestNativeWorkerV2RuntimeValidation(t *testing.T) {
 		{"terminal failed", "terminal-failed.json", ValidateNativeWorkerV2TerminalReport},
 		{"terminal acknowledgement", "terminal-ack.json", ValidateNativeWorkerV2TerminalAcknowledgement},
 		{"duplicate terminal acknowledgement", "terminal-ack-duplicate.json", ValidateNativeWorkerV2TerminalAcknowledgement},
+		{"inspect attempt", "inspect-attempt.json", ValidateNativeWorkerV2InspectAttempt},
+		{"active attempt", "attempt-active.json", ValidateNativeWorkerV2AttemptInspection},
+		{"inactive attempt", "attempt-inactive.json", ValidateNativeWorkerV2AttemptInspection},
+		{"terminal attempt", "attempt-terminal.json", ValidateNativeWorkerV2AttemptInspection},
+		{"attempt not found", "attempt-not-found-error.json", ValidateNativeWorkerV2Error},
 		{"lease gone", "lease-gone-error.json", ValidateNativeWorkerV2Error},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -89,6 +94,10 @@ func TestNativeWorkerV2RuntimeValidation(t *testing.T) {
 			validate = ValidateNativeWorkerV2RegisterArtifact
 		case "TerminalReport":
 			validate = ValidateNativeWorkerV2TerminalReport
+		case "InspectAttempt":
+			validate = ValidateNativeWorkerV2InspectAttempt
+		case "AttemptInspection":
+			validate = ValidateNativeWorkerV2AttemptInspection
 		default:
 			t.Fatalf("unhandled Native Worker v2 rejection schema %q", fixture["schema"])
 		}

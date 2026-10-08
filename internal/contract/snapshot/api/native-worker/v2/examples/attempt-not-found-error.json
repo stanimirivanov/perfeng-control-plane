@@ -1,0 +1,5 @@
+{
+  "code": "ATTEMPT_NOT_FOUND",
+  "message": "The attempt is not available to this worker.",
+  "requestId": "55555555-5555-4555-8555-555555555555"
+}

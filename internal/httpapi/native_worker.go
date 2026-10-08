@@ -18,6 +18,7 @@ import (
 const (
 	nativeWorkerPresencePath     = "/native-worker/v2/presence"
 	nativeWorkerLeasePath        = "/native-worker/v2/leases"
+	nativeWorkerInspectPath      = "/native-worker/v2/attempts/inspect"
 	nativeWorkerHeartbeat        = 30
 	nativeWorkerLeaseRetryAfter  = 15
 	nativeWorkerQualificationTTL = 2 * time.Minute
@@ -93,9 +94,20 @@ type NativeWorkerPresenceStore interface {
 	RecordNativeWorkerV2Presence(context.Context, NativeWorkerPresenceRecord) (time.Time, error)
 }
 
+// NativeWorkerStateStore persists presence and observes known attempts without
+// restoring or changing their lease authority.
+type NativeWorkerStateStore interface {
+	NativeWorkerPresenceStore
+	// InspectNativeBaselineAttempt returns one worker-scoped v2 observation.
+	// Unknown and foreign-owned attempts both return ErrAttemptNotFound.
+	InspectNativeBaselineAttempt(
+		context.Context, string, nativeworker.InspectionRequest,
+	) (nativeworker.Inspection, error)
+}
+
 // NativeWorkerHandler serves the independently authenticated Native Worker API.
 type NativeWorkerHandler struct {
-	store        NativeWorkerPresenceStore
+	store        NativeWorkerStateStore
 	authenticate NativeWorkerAuthenticate
 	acquire      NativeWorkerAcquire
 	renew        NativeWorkerRenew
@@ -106,10 +118,10 @@ type NativeWorkerHandler struct {
 }
 
 // NewNativeWorkerHandler constructs the worker HTTP boundary from mandatory
-// authentication, presence, lease-lifecycle, artifact-publication and terminal
-// reporting dependencies.
+// authentication, presence, read-only inspection, lease-lifecycle,
+// artifact-publication and terminal-reporting dependencies.
 func NewNativeWorkerHandler(
-	store NativeWorkerPresenceStore,
+	store NativeWorkerStateStore,
 	authenticate NativeWorkerAuthenticate,
 	acquire NativeWorkerAcquire,
 	renew NativeWorkerRenew,
@@ -151,6 +163,7 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	artifactLeaseID, artifact := nativeWorkerArtifactLeaseID(r.URL.Path)
 	terminalLeaseID, terminal := nativeWorkerTerminalLeaseID(r.URL.Path)
 	if r.Method != http.MethodPost || (r.URL.Path != nativeWorkerPresencePath &&
+		r.URL.Path != nativeWorkerInspectPath &&
 		r.URL.Path != nativeWorkerLeasePath && !renewal && !release && !upload && !artifact &&
 		!terminal) {
 		fail(w, http.StatusNotFound, "NOT_FOUND")
@@ -162,6 +175,10 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	}
 	if r.URL.Path == nativeWorkerPresencePath {
 		handler.reportPresence(w, r, identity)
+		return
+	}
+	if r.URL.Path == nativeWorkerInspectPath {
+		handler.inspectAttempt(w, r, identity)
 		return
 	}
 	if r.URL.Path == nativeWorkerLeasePath {

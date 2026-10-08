@@ -1,0 +1,10 @@
+{
+  "schema": "AttemptInspection",
+  "value": {
+    "runId": "perf-20260918-120000-a1b2c3d4",
+    "attemptId": "22222222-2222-4222-8222-222222222222",
+    "state": "INACTIVE",
+    "serverTime": "2026-09-18T12:03:00Z",
+    "leaseCapability": "example-not-a-real-lease-capability-0001"
+  }
+}
