@@ -74,8 +74,8 @@ not claim to attest the relationship between that revision and the published
 image. An unmatched context or image is forbidden; malformed input is a
 validation failure.
 
-A native entry declares `nativeBaseline` when it uses contracts
-bundle 0.19.0 and a Playwright source checkout. Construction validates the
+A native entry using the Native Worker v2 baseline contract and a Playwright
+source checkout declares `nativeBaseline`. Construction validates the
 cache/reuse and iteration policy, qualified host profile
 ID/version/fingerprint/evidence digest, browser viewport and scale, and the two
 artifact limits and its HTTPS target URL.

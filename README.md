@@ -368,8 +368,8 @@ signal, authentication or deployment policy.
 ## Contract provenance
 
 The [snapshot lock](internal/contract/snapshot/lock.json) pins perfeng-contracts
-commit `a697c4b8821f84becbeb8bb27e651dae71c365ab`, bundle 0.19.0,
-Run Management API 0.4.0 and Native Worker API 2.0.0. The Run Management
+commit `48917099b522e769b8fe533a166089ae2cd8914d`, bundle 0.20.0,
+Run Management API 0.4.0 and Native Worker API 2.1.0. The Run Management
 OpenAPI document, transitions and selected request fixtures; the generated
 performance-policy schema and browser example; and the Native Worker v2
 OpenAPI, examples, rejection cases and HTTP exchanges are copied byte-for-byte
@@ -399,11 +399,15 @@ Worker operation shapes, not arbitrary JSON Schema. The authenticated
 `/native-worker/v2/leases/{leaseId}/renew`,
 `/native-worker/v2/leases/{leaseId}/release`,
 `/native-worker/v2/leases/{leaseId}/upload-grants`,
-`/native-worker/v2/leases/{leaseId}/artifacts` and
-`/native-worker/v2/leases/{leaseId}/terminal`
+`/native-worker/v2/leases/{leaseId}/artifacts`,
+`/native-worker/v2/leases/{leaseId}/terminal`, and
+`/native-worker/v2/attempts/inspect`
 operations, typed worker-capability matching, reviewed native assignment
 resolution and durable lease acquisition, renewal, release, non-secret upload
 reservation and verified artifact acceptance are implemented.
+Inspection returns a worker-scoped, read-only snapshot for one known Run and
+attempt. It does not restore lease authority, authorize evidence deletion or
+recover acquisition responses lost before the attempt ID became known.
 Matching requires the worker to support the plan's browser, diagnostic mode,
 execution-artifact transport and every artifact kind. Lease capabilities are
 stored only as SHA-256 digests and returned only in `X-Perfeng-Lease`. The

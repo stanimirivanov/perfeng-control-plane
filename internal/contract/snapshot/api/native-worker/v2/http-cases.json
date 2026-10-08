@@ -104,5 +104,29 @@
     },
     "request": "terminal-completed",
     "response": "terminal-ack-duplicate"
+  },
+  {
+    "operationId": "inspectNativeAttempt",
+    "status": 200,
+    "request": "inspect-attempt",
+    "response": "attempt-active"
+  },
+  {
+    "operationId": "inspectNativeAttempt",
+    "status": 200,
+    "request": "inspect-attempt",
+    "response": "attempt-inactive"
+  },
+  {
+    "operationId": "inspectNativeAttempt",
+    "status": 200,
+    "request": "inspect-attempt",
+    "response": "attempt-terminal"
+  },
+  {
+    "operationId": "inspectNativeAttempt",
+    "status": 404,
+    "request": "inspect-attempt",
+    "response": "attempt-not-found-error"
   }
 ]

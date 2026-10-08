@@ -2,7 +2,7 @@
   "openapi": "3.1.1",
   "info": {
     "title": "Performance Engineering Native Worker API",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "Authenticated outbound-pull protocol for qualified native workers. Worker identity is derived only from the bearer credential. Lease capabilities are transported only in headers. Presigned upload URLs and their signed headers are returned only in upload-grant response bodies. All authorization material must be redacted and must not be persisted as evidence."
   },
   "servers": [{"url": "https://control.perfeng.invalid"}],
@@ -147,6 +147,24 @@
           "503": {"$ref": "#/components/responses/Unavailable"}
         }
       }
+    },
+    "/native-worker/v2/attempts/inspect": {
+      "post": {
+        "operationId": "inspectNativeAttempt",
+        "summary": "Inspect one retained attempt without recovering lease authority",
+        "description": "The bearer principal selects the worker. A terminal report takes precedence over a matching lease row. ACTIVE is a point-in-time lease observation, INACTIVE means the matching retained lease row is released or expired, and 404 does not distinguish an unknown attempt from one owned by another worker. No response supplies a lease capability or authorizes cleanup, resumption, or another acquisition.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InspectAttempt"}}}},
+        "responses": {
+          "200": {"description": "Read-only server snapshot for an attempt owned by the authenticated worker", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AttemptInspection"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/AttemptNotFound"},
+          "429": {"$ref": "#/components/responses/RateLimited"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
     }
   },
   "components": {
@@ -163,6 +181,7 @@
       "Forbidden": {"description": "Authenticated worker is not authorized for the operation", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
       "Conflict": {"description": "Expected attempt or Run revision is stale, or the report conflicts with an accepted mutation", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
       "LeaseGone": {"description": "Lease expired, was released, or no longer belongs to the current attempt", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+      "AttemptNotFound": {"description": "Attempt is unknown or not owned by the authenticated worker; the server does not distinguish these cases", "content": {"application/json": {"schema": {"allOf": [{"$ref": "#/components/schemas/Error"}, {"properties": {"code": {"const": "ATTEMPT_NOT_FOUND"}}}]}}}},
       "RateLimited": {"description": "Polling or mutation rate exceeded", "headers": {"Retry-After": {"required": true, "schema": {"type": "integer", "minimum": 1, "maximum": 60}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
       "InternalError": {"description": "Unexpected control-plane failure", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
       "Unavailable": {"description": "Control-plane dependency unavailable", "headers": {"Retry-After": {"required": true, "schema": {"type": "integer", "minimum": 1, "maximum": 60}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
@@ -502,6 +521,55 @@
           }
         ]
       },
+      "InspectAttempt": {
+        "type": "object", "additionalProperties": false,
+        "required": ["protocolVersion", "runId", "attemptId"],
+        "properties": {
+          "protocolVersion": {"const": 2},
+          "runId": {"$ref": "#/components/schemas/RunId"},
+          "attemptId": {"$ref": "#/components/schemas/Uuid"}
+        }
+      },
+      "AttemptInspection": {
+        "oneOf": [
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["runId", "attemptId", "state", "serverTime", "leaseId", "expiresAt", "runRevision"],
+            "properties": {
+              "runId": {"$ref": "#/components/schemas/RunId"},
+              "attemptId": {"$ref": "#/components/schemas/Uuid"},
+              "state": {"const": "ACTIVE"},
+              "serverTime": {"$ref": "#/components/schemas/Timestamp"},
+              "leaseId": {"$ref": "#/components/schemas/Uuid"},
+              "expiresAt": {"$ref": "#/components/schemas/Timestamp"},
+              "runRevision": {"type": "integer", "minimum": 1}
+            }
+          },
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["runId", "attemptId", "state", "serverTime"],
+            "properties": {
+              "runId": {"$ref": "#/components/schemas/RunId"},
+              "attemptId": {"$ref": "#/components/schemas/Uuid"},
+              "state": {"const": "INACTIVE"},
+              "serverTime": {"$ref": "#/components/schemas/Timestamp"}
+            }
+          },
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["runId", "attemptId", "state", "serverTime", "terminalKind", "runRevision", "acceptedAt"],
+            "properties": {
+              "runId": {"$ref": "#/components/schemas/RunId"},
+              "attemptId": {"$ref": "#/components/schemas/Uuid"},
+              "state": {"const": "TERMINAL"},
+              "serverTime": {"$ref": "#/components/schemas/Timestamp"},
+              "terminalKind": {"enum": ["COMPLETED", "FAILED"]},
+              "runRevision": {"type": "integer", "minimum": 1},
+              "acceptedAt": {"$ref": "#/components/schemas/Timestamp"}
+            }
+          }
+        ]
+      },
       "TerminalAck": {
         "type": "object", "additionalProperties": false,
         "required": ["attemptId", "runRevision", "disposition"],
@@ -515,7 +583,7 @@
         "type": "object", "additionalProperties": false,
         "required": ["code", "message"],
         "properties": {
-          "code": {"enum": ["INVALID_REQUEST", "UNAUTHENTICATED", "NOT_AUTHORIZED", "NOT_QUALIFIED", "NOT_AVAILABLE", "CAPABILITY_MISMATCH", "STALE_ATTEMPT", "REVISION_CONFLICT", "LEASE_EXPIRED", "LEASE_RELEASED", "ARTIFACT_MISMATCH", "DUPLICATE_CONFLICT", "RATE_LIMITED", "INTERNAL_ERROR", "DEPENDENCY_UNAVAILABLE"]},
+          "code": {"enum": ["INVALID_REQUEST", "UNAUTHENTICATED", "NOT_AUTHORIZED", "NOT_QUALIFIED", "NOT_AVAILABLE", "CAPABILITY_MISMATCH", "STALE_ATTEMPT", "REVISION_CONFLICT", "LEASE_EXPIRED", "LEASE_RELEASED", "ARTIFACT_MISMATCH", "DUPLICATE_CONFLICT", "ATTEMPT_NOT_FOUND", "RATE_LIMITED", "INTERNAL_ERROR", "DEPENDENCY_UNAVAILABLE"]},
           "message": {"type": "string", "minLength": 1, "maxLength": 512},
           "requestId": {"$ref": "#/components/schemas/Uuid"}
         }

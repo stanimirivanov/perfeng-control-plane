@@ -439,6 +439,24 @@ table is created. Older binaries ignore the table; rolling application code
 back retains accepted outcomes for forward recovery, and the migration bytes
 must not be edited.
 
+## Native attempt inspection
+
+The worker-scoped inspection operation reads a known v2 Run/attempt with one
+PostgreSQL statement. Its server timestamp, current lease, accepted terminal
+report and Run snapshot share one statement snapshot; no row is locked or
+changed. A matching accepted terminal report wins over the lease row. An
+unreleased, unexpired matching lease reports ACTIVE with the observed Run
+revision, while a released or expired retained row reports INACTIVE. If no
+matching row is visible to the authenticated worker, the result is the same
+ATTEMPT_NOT_FOUND whether the attempt is unknown or belongs to another worker.
+An overwritten lease may no longer be observable. No migration or new runtime
+database privilege is required.
+
+This observation is not a lease renewal or a lock. It never returns a capability,
+and operators must not use it alone to resume execution, delete retained files
+or advertise worker availability. Rollback can stop using the new read operation
+without changing stored records.
+
 ## Isolated integration tests
 
 Start a disposable PostgreSQL 17 instance with a local-only connection and a
