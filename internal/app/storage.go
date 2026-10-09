@@ -24,7 +24,8 @@ type loadAWSConfig func(
 type newS3Client func(aws.Config, ...func(*s3.Options)) *s3.Client
 
 // ArtifactStorageResources contains artifact readers, the native upload
-// verifier and signer constructed from one configured S3 client.
+// verifier and signer. The signer may use a distinct worker-reachable HTTPS
+// endpoint while the access adapters retain their internal S3 endpoint.
 type ArtifactStorageResources struct {
 	Access       *objectstore.S3ArtifactAccess
 	UploadSigner nativeworker.UploadSigner
@@ -76,8 +77,18 @@ func newArtifactStorage(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	uploadClient := client
+	if config.Client.NativeUploadEndpoint != "" {
+		uploadClient = newClient(awsConfig, func(options *s3.Options) {
+			options.UsePathStyle = config.Client.UsePathStyle
+			options.BaseEndpoint = aws.String(config.Client.NativeUploadEndpoint)
+		})
+		if uploadClient == nil {
+			return nil, ErrDependencyInitialization
+		}
+	}
 	uploadSigner, err := objectstore.NewS3UploadPresigner(
-		s3.NewPresignClient(client),
+		s3.NewPresignClient(uploadClient),
 		config.Access.Bucket,
 	)
 	if err != nil {

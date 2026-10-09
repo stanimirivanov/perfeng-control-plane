@@ -18,11 +18,12 @@ func TestLoadArtifactStorageConfigReturnsExplicitPolicy(t *testing.T) {
 	}
 	want := ArtifactStorageConfig{
 		Client: S3ClientConfig{
-			Region:       "us-east-1",
-			Endpoint:     "http://seaweedfs-s3.perf-storage.svc.cluster.local:9000",
-			UsePathStyle: true,
-			AllowHTTP:    true,
-			MaxAttempts:  3,
+			Region:               "us-east-1",
+			Endpoint:             "http://seaweedfs-s3.perf-storage.svc.cluster.local:9000",
+			NativeUploadEndpoint: "https://objects.perfeng.invalid",
+			UsePathStyle:         true,
+			AllowHTTP:            true,
+			MaxAttempts:          3,
 		},
 		Access: objectstore.S3ArtifactAccessConfig{
 			Bucket:            "perfeng-artifacts",
@@ -38,6 +39,7 @@ func TestLoadArtifactStorageConfigReturnsExplicitPolicy(t *testing.T) {
 func TestLoadArtifactStorageConfigAcceptsDefaultAWSEndpoint(t *testing.T) {
 	values := validArtifactStorageEnvironment()
 	values[s3EndpointVariable] = ""
+	values[s3NativeUploadEndpointVariable] = ""
 	values[s3AllowHTTPVariable] = "false"
 	values[s3PathStyleVariable] = "false"
 
@@ -61,6 +63,15 @@ func TestLoadArtifactStorageConfigRejectsInvalidEnvironment(t *testing.T) {
 		},
 		"invalid endpoint": func(values map[string]string) {
 			values[s3EndpointVariable] = "https://example.com/path"
+		},
+		"native upload HTTP": func(values map[string]string) {
+			values[s3NativeUploadEndpointVariable] = "http://objects.perfeng.invalid"
+		},
+		"native upload path": func(values map[string]string) {
+			values[s3NativeUploadEndpointVariable] = "https://objects.perfeng.invalid/bucket"
+		},
+		"native upload credentials": func(values map[string]string) {
+			values[s3NativeUploadEndpointVariable] = "https://user:secret@objects.perfeng.invalid"
 		},
 		"HTTP without consent": func(values map[string]string) {
 			values[s3AllowHTTPVariable] = "false"
@@ -115,6 +126,18 @@ func TestLoadArtifactStorageConfigDoesNotExposeValues(t *testing.T) {
 	}
 }
 
+func TestLoadArtifactStorageConfigDoesNotExposeNativeUploadEndpoint(t *testing.T) {
+	secret := "https://user:secret@objects.perfeng.invalid"
+	values := validArtifactStorageEnvironment()
+	values[s3NativeUploadEndpointVariable] = secret
+
+	_, err := loadArtifactStorageConfig(mapLookup(values))
+	if !errors.Is(err, ErrInvalidConfiguration) || strings.Contains(err.Error(), secret) ||
+		strings.Contains(err.Error(), "user") || strings.Contains(err.Error(), "secret") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestArtifactStorageConfigValidatesProgrammaticValues(t *testing.T) {
 	valid := ArtifactStorageConfig{
 		Client: S3ClientConfig{Region: "us-east-1", MaxAttempts: 3},
@@ -141,6 +164,8 @@ func TestS3ClientConfigValidatesEndpointPolicy(t *testing.T) {
 		{Region: "us-east-1", MaxAttempts: 10, Endpoint: "https://s3.example.com"},
 		{Region: "us-east-1", MaxAttempts: 3, Endpoint: "https://s3.example.com/", AllowHTTP: true},
 		{Region: "us-east-1", MaxAttempts: 3, Endpoint: "http://seaweedfs:9000", AllowHTTP: true},
+		{Region: "us-east-1", MaxAttempts: 3, Endpoint: "http://seaweedfs:9000", AllowHTTP: true,
+			NativeUploadEndpoint: "https://objects.perfeng.invalid"},
 	}
 	for _, config := range accepted {
 		if err := config.Validate(); err != nil {
@@ -160,6 +185,8 @@ func TestS3ClientConfigValidatesEndpointPolicy(t *testing.T) {
 		{Region: "us-east-1", MaxAttempts: 3, Endpoint: "https://s3.example.com/path"},
 		{Region: "us-east-1", MaxAttempts: 3, Endpoint: "https://s3.example.com?mode=test"},
 		{Region: "us-east-1", MaxAttempts: 3, Endpoint: "https://s3.example.com#fragment"},
+		{Region: "us-east-1", MaxAttempts: 3, NativeUploadEndpoint: "http://objects.perfeng.invalid"},
+		{Region: "us-east-1", MaxAttempts: 3, NativeUploadEndpoint: "https://objects.perfeng.invalid/path"},
 	}
 	for _, config := range rejected {
 		if err := config.Validate(); !errors.Is(err, ErrInvalidConfiguration) {
@@ -176,14 +203,15 @@ func TestLoadArtifactStorageConfigRejectsNilEnvironment(t *testing.T) {
 
 func validArtifactStorageEnvironment() map[string]string {
 	return map[string]string{
-		s3RegionVariable:            "us-east-1",
-		s3EndpointVariable:          "http://seaweedfs-s3.perf-storage.svc.cluster.local:9000",
-		s3PathStyleVariable:         "true",
-		s3AllowHTTPVariable:         "true",
-		s3MaximumAttemptsVariable:   "3",
-		artifactBucketVariable:      "perfeng-artifacts",
-		artifactRawFormatVariable:   "raw-result/v2",
-		artifactMaximumReadVariable: "67108864",
+		s3RegionVariable:               "us-east-1",
+		s3EndpointVariable:             "http://seaweedfs-s3.perf-storage.svc.cluster.local:9000",
+		s3NativeUploadEndpointVariable: "https://objects.perfeng.invalid",
+		s3PathStyleVariable:            "true",
+		s3AllowHTTPVariable:            "true",
+		s3MaximumAttemptsVariable:      "3",
+		artifactBucketVariable:         "perfeng-artifacts",
+		artifactRawFormatVariable:      "raw-result/v2",
+		artifactMaximumReadVariable:    "67108864",
 	}
 }
 

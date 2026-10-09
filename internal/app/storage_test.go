@@ -3,14 +3,19 @@ package app
 import (
 	"context"
 	"errors"
+	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
+	"github.com/stanimirivanov/perfeng-control-plane/internal/nativeworker"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/objectstore"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
 func TestNewArtifactStorageAppliesReviewedClientPolicy(t *testing.T) {
@@ -96,6 +101,98 @@ func TestNewArtifactStorageLeavesDefaultEndpointUnset(t *testing.T) {
 	)
 	if err != nil || resources == nil || resources.Access == nil || resources.UploadSigner == nil {
 		t.Fatalf("NewArtifactStorage() = %v, %v", resources, err)
+	}
+}
+
+func TestNewArtifactStorageSignsForWorkerEndpointWithoutChangingInternalAccess(t *testing.T) {
+	config := validArtifactStorageConfig()
+	config.Client.NativeUploadEndpoint = "https://objects.perfeng.invalid"
+	var endpoints []string
+	newClient := newS3Client(func(
+		awsConfig aws.Config,
+		options ...func(*s3.Options),
+	) *s3.Client {
+		configured := s3.Options{}
+		for _, apply := range options {
+			apply(&configured)
+		}
+		if !configured.UsePathStyle {
+			t.Fatal("S3 path-style selection was lost")
+		}
+		endpoints = append(endpoints, aws.ToString(configured.BaseEndpoint))
+		return s3.NewFromConfig(awsConfig, options...)
+	})
+	load := loadAWSConfig(func(
+		_ context.Context,
+		_ ...func(*awsconfig.LoadOptions) error,
+	) (aws.Config, error) {
+		return aws.Config{
+			Region: config.Client.Region,
+			Credentials: credentials.NewStaticCredentialsProvider(
+				"EXAMPLE-NOT-A-REAL-ACCESS-KEY", "example-not-a-real-secret-key", "",
+			),
+		}, nil
+	})
+
+	resources, err := newArtifactStorage(context.Background(), config, load, newClient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(endpoints) != 2 || endpoints[0] != config.Client.Endpoint ||
+		endpoints[1] != config.Client.NativeUploadEndpoint || resources.Access == nil {
+		t.Fatalf("S3 client endpoints = %v", endpoints)
+	}
+	reservation := validNativeUploadReservation(time.Now().UTC())
+	authorization, err := resources.UploadSigner.PresignNativeUpload(context.Background(), reservation)
+	if err != nil {
+		t.Fatalf("worker upload presigning failed: %v", err)
+	}
+	parsed, err := url.Parse(authorization.URL)
+	if err != nil || parsed.Scheme != "https" || parsed.Host != "objects.perfeng.invalid" ||
+		parsed.Path != "/perfeng-artifacts/"+reservation.ObjectKey ||
+		!authorization.Valid(reservation) {
+		t.Fatal("worker upload authorization did not bind the reviewed HTTPS endpoint and key")
+	}
+}
+
+func TestNewArtifactStorageKeepsInternalHTTPPresigningFailClosed(t *testing.T) {
+	resources, err := newArtifactStorage(
+		context.Background(), validArtifactStorageConfig(),
+		func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config, error) {
+			return aws.Config{
+				Region: "us-east-1",
+				Credentials: credentials.NewStaticCredentialsProvider(
+					"EXAMPLE-NOT-A-REAL-ACCESS-KEY", "example-not-a-real-secret-key", "",
+				),
+			}, nil
+		},
+		acceptS3Client,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = resources.UploadSigner.PresignNativeUpload(
+		context.Background(), validNativeUploadReservation(time.Now().UTC()),
+	)
+	if !errors.Is(err, run.ErrUnavailable) {
+		t.Fatalf("HTTP-derived native upload authorization error = %v", err)
+	}
+}
+
+func TestNewArtifactStorageRejectsUnavailableWorkerEndpointClient(t *testing.T) {
+	config := validArtifactStorageConfig()
+	config.Client.NativeUploadEndpoint = "https://objects.perfeng.invalid"
+	calls := 0
+	newClient := newS3Client(func(awsConfig aws.Config, options ...func(*s3.Options)) *s3.Client {
+		calls++
+		if calls == 2 {
+			return nil
+		}
+		return s3.NewFromConfig(awsConfig, options...)
+	})
+	_, err := newArtifactStorage(context.Background(), config, acceptAWSConfig, newClient)
+	if !errors.Is(err, ErrDependencyInitialization) || calls != 2 {
+		t.Fatalf("error = %v, client calls = %d", err, calls)
 	}
 }
 
@@ -220,6 +317,20 @@ func validArtifactStorageConfig() ArtifactStorageConfig {
 			RawManifestFormat: "raw-result/v2",
 			MaximumReadBytes:  1024,
 		},
+	}
+}
+
+func validNativeUploadReservation(now time.Time) nativeworker.UploadReservation {
+	return nativeworker.UploadReservation{
+		GrantID:   "44444444-4444-4444-8444-444444444444",
+		LeaseID:   "11111111-1111-4111-8111-111111111111",
+		AttemptID: "22222222-2222-4222-8222-222222222222",
+		RunID:     "perf-20260926-120000-a1b2c3d4",
+		Slot:      "measurements",
+		ObjectKey: "runs/perf-20260926-120000-a1b2c3d4/attempts/22222222-2222-4222-8222-222222222222/measurements",
+		Size:      4096, MaximumBytes: 1 << 20, SHA256: strings.Repeat("f", 64),
+		MediaType: "application/json", IssuedAt: now.Add(-time.Second),
+		ExpiresAt: now.Add(2 * time.Minute),
 	}
 }
 
