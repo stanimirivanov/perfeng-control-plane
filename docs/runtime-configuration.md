@@ -10,6 +10,8 @@
   succeeds; construction remains inert until runtime start.
 - Configuration errors are value-free and fail closed before serving traffic or
   starting reconciliation.
+- Native upload signing can use a separate HTTPS origin without moving internal
+  artifact reads or registration verification.
 - Deployment supplies credentials and reviewed inputs; this repository defines
   their runtime contract.
 
@@ -201,6 +203,7 @@ All artifact-storage policy values are explicit:
 | --- | --- |
 | `PERFENG_S3_REGION` | AWS signing region; required even for an S3-compatible service |
 | `PERFENG_S3_ENDPOINT` | Optional absolute S3-compatible endpoint origin |
+| `PERFENG_S3_NATIVE_UPLOAD_ENDPOINT` | Optional worker-reachable HTTPS S3 origin used only to sign Native Worker uploads |
 | `PERFENG_S3_PATH_STYLE` | Exactly `true` or `false` |
 | `PERFENG_S3_ALLOW_HTTP` | Explicit consent for an `http` endpoint |
 | `PERFENG_S3_MAX_ATTEMPTS` | Total SDK attempts per S3 request, from 1 through 10 |
@@ -214,18 +217,26 @@ host and optional port. User information, paths, queries and fragments are
 rejected. HTTPS is the default; HTTP is accepted only when the explicit flag is
 true. This supports isolated local SeaweedFS without silently weakening a
 production deployment. Native upload grants are stricter: the URL delivered to
-a worker must resolve to HTTPS. When this endpoint is configured with HTTP for
-cluster-internal reads, the upload-grant operation fails closed with `503` until
-the environment supplies a worker-reachable HTTPS S3 endpoint.
+a worker must resolve to HTTPS. When the internal endpoint is HTTP, the optional
+native-upload endpoint selects a separate HTTPS S3 origin for presigning; it
+does not change server-side reads or artifact verification. Without that setting,
+the existing endpoint is used and HTTP-derived grants continue to fail closed
+with `503`. An explicit native-upload endpoint is always HTTPS, even when
+`PERFENG_S3_ALLOW_HTTP=true`; it cannot contain credentials, paths, queries or
+fragments. The deployment must route its signed host and port to the same
+bucket and objects and arrange TLS trust on the Windows worker. A reachable
+endpoint is not proven by startup validation or offline tests.
 
 Credentials are not part of this configuration value. `NewArtifactStorage`
 loads the AWS SDK's standard credential provider chain, populated by the runtime
 Secret or workload identity. It applies the configured region, standard retry
-mode, maximum attempts, endpoint and addressing style before composing
-`S3ArtifactAccess` and the native upload signer from one client. Loading
-configuration may inspect environment variables or shared files, but it
-performs no S3 request. Provider errors are redacted; caller cancellation and
-deadlines retain their standard identity.
+mode, maximum attempts, endpoint and addressing style. If a native-upload
+endpoint is selected, a second S3 client uses the same credentials, region and
+path style but signs for that HTTPS origin; the first client remains the only
+artifact reader and verifier. No signed URL is persisted. Loading configuration
+may inspect environment variables or shared files, but it performs no S3
+request. Provider errors are redacted; caller cancellation and deadlines retain
+their standard identity.
 
 The loader produces `S3ClientConfig` together with the validated
 `S3ArtifactAccessConfig`. Authentication and registry settings remain separate

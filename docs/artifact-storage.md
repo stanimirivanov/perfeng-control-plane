@@ -12,6 +12,8 @@
   remain distinct secret-safe failures.
 - Native upload authorization signs only one server-selected PUT key, content
   type and full-object checksum and returns no reusable storage credentials.
+- A separate HTTPS signing origin can serve Windows workers while reads and
+  registration verification remain on the internal S3 endpoint.
 - Storage authentication and endpoint policy come from trusted runtime
   configuration, not artifact documents.
 
@@ -187,8 +189,11 @@ leaving manifest-byte parsing and provenance approval to the collection stage.
 
 ## Remaining integration
 
-The executable composition root now constructs artifact readers and the
-presign client and native upload verifier from one configured AWS SDK client.
+The executable composition root constructs artifact readers and the native
+upload verifier from the internal S3 client. When the deployment selects a
+separate worker-reachable HTTPS origin, it constructs a second client with the
+same credentials, region and addressing style for presigning only. No request
+is sent to that origin while producing a signature.
 The authenticated Native Worker API exposes the upload-grant operation and
 returns its sensitive response with `Cache-Control: no-store`. It also exposes
 the durable artifact-registration operation, composing the same access bundle
@@ -199,9 +204,12 @@ lifecycle state. Parsing and lifecycle changes belong to the reconciliation
 collectors. Tests exercise the real SDK presign middleware with static fake
 credentials and an inert HTTPS endpoint, so they perform no network request.
 
-The deployment must still provide a worker-reachable HTTPS S3 endpoint. An
-HTTP-only cluster-internal endpoint remains valid for existing artifact reads,
-but its generated upload authorization is rejected before delivery.
+The deployment must still provide and verify a worker-reachable HTTPS S3
+endpoint that routes to the same bucket and objects as the internal endpoint.
+An HTTP-only cluster-internal endpoint remains valid for existing artifact
+reads. Without `PERFENG_S3_NATIVE_UPLOAD_ENDPOINT`, its generated upload
+authorization is rejected before delivery. The separate endpoint changes the
+signed URL, not the verified object identity or registration fence.
 Implementing the worker-side upload, registration and terminal-report flow
 remains a later M03 slice.
 

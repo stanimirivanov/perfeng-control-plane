@@ -12,6 +12,7 @@ import (
 const (
 	s3RegionVariable               = "PERFENG_S3_REGION"
 	s3EndpointVariable             = "PERFENG_S3_ENDPOINT"
+	s3NativeUploadEndpointVariable = "PERFENG_S3_NATIVE_UPLOAD_ENDPOINT"
 	s3PathStyleVariable            = "PERFENG_S3_PATH_STYLE"
 	s3AllowHTTPVariable            = "PERFENG_S3_ALLOW_HTTP"
 	s3MaximumAttemptsVariable      = "PERFENG_S3_MAX_ATTEMPTS"
@@ -25,11 +26,12 @@ const (
 // client. Credentials remain in the SDK provider chain and are never loaded
 // into this value.
 type S3ClientConfig struct {
-	Region       string
-	Endpoint     string
-	UsePathStyle bool
-	AllowHTTP    bool
-	MaxAttempts  int
+	Region               string
+	Endpoint             string
+	NativeUploadEndpoint string
+	UsePathStyle         bool
+	AllowHTTP            bool
+	MaxAttempts          int
 }
 
 // Validate rejects ambiguous regions, endpoint paths and accidental plaintext transport.
@@ -39,6 +41,9 @@ func (config S3ClientConfig) Validate() error {
 		config.MaxAttempts < 1 || config.MaxAttempts > 10 {
 		return ErrInvalidConfiguration
 	}
+	if config.NativeUploadEndpoint != "" && !validS3Endpoint(config.NativeUploadEndpoint, false) {
+		return ErrInvalidConfiguration
+	}
 	if config.Endpoint == "" {
 		if config.AllowHTTP {
 			return ErrInvalidConfiguration
@@ -46,23 +51,21 @@ func (config S3ClientConfig) Validate() error {
 
 		return nil
 	}
-	if strings.TrimSpace(config.Endpoint) != config.Endpoint {
+	if !validS3Endpoint(config.Endpoint, config.AllowHTTP) {
 		return ErrInvalidConfiguration
 	}
-	endpoint, err := url.Parse(config.Endpoint)
-	if err != nil || endpoint.Opaque != "" || endpoint.Hostname() == "" ||
-		endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" ||
-		(endpoint.Path != "" && endpoint.Path != "/") {
-		return ErrInvalidConfiguration
-	}
-	if endpoint.Scheme == "https" {
-		return nil
-	}
-	if endpoint.Scheme == "http" && config.AllowHTTP {
-		return nil
-	}
+	return nil
+}
 
-	return ErrInvalidConfiguration
+func validS3Endpoint(value string, allowHTTP bool) bool {
+	if strings.TrimSpace(value) != value {
+		return false
+	}
+	endpoint, err := url.Parse(value)
+	return err == nil && endpoint.Opaque == "" && endpoint.Hostname() != "" &&
+		endpoint.User == nil && endpoint.RawQuery == "" && endpoint.Fragment == "" &&
+		(endpoint.Path == "" || endpoint.Path == "/") &&
+		(endpoint.Scheme == "https" || (endpoint.Scheme == "http" && allowHTTP))
 }
 
 // ArtifactStorageConfig contains client settings and the shared artifact access policy.
@@ -97,6 +100,7 @@ func loadArtifactStorageConfig(lookup lookupEnvironment) (ArtifactStorageConfig,
 		return ArtifactStorageConfig{}, err
 	}
 	endpoint := optionalValue(lookup, s3EndpointVariable)
+	nativeUploadEndpoint := optionalValue(lookup, s3NativeUploadEndpointVariable)
 	pathStyle, err := requiredBoolean(lookup, s3PathStyleVariable)
 	if err != nil {
 		return ArtifactStorageConfig{}, err
@@ -124,17 +128,21 @@ func loadArtifactStorageConfig(lookup lookupEnvironment) (ArtifactStorageConfig,
 
 	config := ArtifactStorageConfig{
 		Client: S3ClientConfig{
-			Region:       region,
-			Endpoint:     endpoint,
-			UsePathStyle: pathStyle,
-			AllowHTTP:    allowHTTP,
-			MaxAttempts:  maximumAttempts,
+			Region:               region,
+			Endpoint:             endpoint,
+			NativeUploadEndpoint: nativeUploadEndpoint,
+			UsePathStyle:         pathStyle,
+			AllowHTTP:            allowHTTP,
+			MaxAttempts:          maximumAttempts,
 		},
 		Access: objectstore.S3ArtifactAccessConfig{
 			Bucket:            bucket,
 			RawManifestFormat: rawFormat,
 			MaximumReadBytes:  maximumReadBytes,
 		},
+	}
+	if nativeUploadEndpoint != "" && !validS3Endpoint(nativeUploadEndpoint, false) {
+		return ArtifactStorageConfig{}, configurationError(s3NativeUploadEndpointVariable)
 	}
 	if config.Client.Validate() != nil {
 		return ArtifactStorageConfig{}, configurationError(s3EndpointVariable)
