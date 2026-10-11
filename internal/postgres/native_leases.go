@@ -90,6 +90,9 @@ func (r *Repository) NativeCandidates(
 // lockNativeWorkerCapacity serializes acquisitions for one worker ID before
 // the transaction locks a Run.
 func lockNativeWorkerCapacity(ctx context.Context, tx *sql.Tx, workerID string) error {
+	if err := lockNativeWorkerIdentity(ctx, tx, workerID); err != nil {
+		return err
+	}
 	var lockedID string
 	err := tx.QueryRowContext(ctx, `
 		SELECT worker_id FROM perfeng_control.native_worker_presence_v2

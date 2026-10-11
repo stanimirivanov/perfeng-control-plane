@@ -19,6 +19,7 @@ const (
 	nativeWorkerPresencePath     = "/native-worker/v2/presence"
 	nativeWorkerLeasePath        = "/native-worker/v2/leases"
 	nativeWorkerInspectPath      = "/native-worker/v2/attempts/inspect"
+	nativeWorkerDiscoverPath     = "/native-worker/v2/attempts/discover"
 	nativeWorkerHeartbeat        = 30
 	nativeWorkerLeaseRetryAfter  = 15
 	nativeWorkerQualificationTTL = 2 * time.Minute
@@ -90,12 +91,15 @@ type NativeWorkerPresenceRecord struct {
 // the selected API generation and returns the authoritative database time.
 type NativeWorkerPresenceStore interface {
 	// RecordNativeWorkerV2Presence replaces the authenticated worker's report
-	// and returns its database observation time.
+	// and returns its post-lock database observation time after commit. It
+	// serializes with acquisition and discovery; withdrawal fences earlier
+	// availability observations but does not revoke existing leases. Invalid
+	// records and dependency failures return ErrValidation and ErrUnavailable.
 	RecordNativeWorkerV2Presence(context.Context, NativeWorkerPresenceRecord) (time.Time, error)
 }
 
-// NativeWorkerStateStore persists presence and observes known attempts without
-// restoring or changing their lease authority.
+// NativeWorkerStateStore persists presence and observes known attempts or current
+// slots without restoring or changing their lease authority.
 type NativeWorkerStateStore interface {
 	NativeWorkerPresenceStore
 	// InspectNativeBaselineAttempt returns one worker-scoped v2 observation.
@@ -103,6 +107,14 @@ type NativeWorkerStateStore interface {
 	InspectNativeBaselineAttempt(
 		context.Context, string, nativeworker.InspectionRequest,
 	) (nativeworker.Inspection, error)
+	// DiscoverNativeBaselineAttempt observes only the authenticated worker's
+	// current v2 slot and stored availability, including UNREPORTED absence.
+	// It serializes with acquisition and presence replacement, reads one clock
+	// after waiting, and never changes records or returns bearer authority.
+	// Multiple current slots or inconsistent state fail closed; validation and
+	// dependency failures use ErrValidation and ErrUnavailable respectively.
+	// Context cancellation and deadlines retain their standard error identity.
+	DiscoverNativeBaselineAttempt(context.Context, string) (nativeworker.Discovery, error)
 }
 
 // NativeWorkerHandler serves the independently authenticated Native Worker API.
@@ -118,7 +130,7 @@ type NativeWorkerHandler struct {
 }
 
 // NewNativeWorkerHandler constructs the worker HTTP boundary from mandatory
-// authentication, presence, read-only inspection, lease-lifecycle,
+// authentication, presence, read-only inspection/discovery, lease-lifecycle,
 // artifact-publication and terminal-reporting dependencies.
 func NewNativeWorkerHandler(
 	store NativeWorkerStateStore,
@@ -164,6 +176,7 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	terminalLeaseID, terminal := nativeWorkerTerminalLeaseID(r.URL.Path)
 	if r.Method != http.MethodPost || (r.URL.Path != nativeWorkerPresencePath &&
 		r.URL.Path != nativeWorkerInspectPath &&
+		r.URL.Path != nativeWorkerDiscoverPath &&
 		r.URL.Path != nativeWorkerLeasePath && !renewal && !release && !upload && !artifact &&
 		!terminal) {
 		fail(w, http.StatusNotFound, "NOT_FOUND")
@@ -179,6 +192,10 @@ func (handler *NativeWorkerHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	}
 	if r.URL.Path == nativeWorkerInspectPath {
 		handler.inspectAttempt(w, r, identity)
+		return
+	}
+	if r.URL.Path == nativeWorkerDiscoverPath {
+		handler.discoverAttempt(w, r, identity)
 		return
 	}
 	if r.URL.Path == nativeWorkerLeasePath {

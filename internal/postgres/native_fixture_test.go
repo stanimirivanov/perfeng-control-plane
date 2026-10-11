@@ -70,6 +70,7 @@ func candidateByID(t *testing.T, repository *Repository, runID string) nativewor
 
 type nativeV2LeaseFixture struct {
 	repository *Repository
+	connection string
 	workerID   string
 	accepted   run.Accepted
 	authority  nativeLeaseAuthority
@@ -96,7 +97,8 @@ func TestPinnedNativeV2LeasePlanIsValid(t *testing.T) {
 
 func newNativeV2LeaseFixture(t *testing.T) nativeV2LeaseFixture {
 	t.Helper()
-	repository := openTest(t, testDatabase(t))
+	connection := testDatabase(t)
+	repository := openTest(t, connection)
 	if err := repository.Migrate(testContext); err != nil {
 		t.Fatal(err)
 	}
@@ -149,5 +151,8 @@ func newNativeV2LeaseFixture(t *testing.T) nativeV2LeaseFixture {
 		t.Fatal(err)
 	}
 
-	return nativeV2LeaseFixture{repository, workerID, accepted, authority, plan}
+	return nativeV2LeaseFixture{
+		repository: repository, connection: connection, workerID: workerID,
+		accepted: accepted, authority: authority, plan: plan,
+	}
 }

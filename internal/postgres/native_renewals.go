@@ -208,6 +208,9 @@ func lockNativeWorker(ctx context.Context, tx *sql.Tx, workerID string, protocol
 	if protocolVersion != nativeLeaseProtocolV2 {
 		return run.ErrValidation
 	}
+	if err := lockNativeWorkerIdentity(ctx, tx, workerID); err != nil {
+		return err
+	}
 	var locked string
 	err := tx.QueryRowContext(ctx, `
 		SELECT worker_id

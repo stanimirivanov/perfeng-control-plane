@@ -1,0 +1,15 @@
+{
+  "state": "FOUND",
+  "serverTime": "2026-09-18T12:01:50Z",
+  "availability": "DRAINING",
+  "slotExpiresAt": "2026-09-18T12:02:00Z",
+  "attempt": {
+    "runId": "perf-20260918-120000-a1b2c3d4",
+    "attemptId": "22222222-2222-4222-8222-222222222222",
+    "state": "TERMINAL",
+    "serverTime": "2026-09-18T12:01:50Z",
+    "terminalKind": "COMPLETED",
+    "runRevision": 7,
+    "acceptedAt": "2026-09-18T12:01:40Z"
+  }
+}

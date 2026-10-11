@@ -118,6 +118,12 @@ func (*nativePresenceStoreStub) InspectNativeBaselineAttempt(
 	return nativeworker.Inspection{}, nativeworker.ErrAttemptNotFound
 }
 
+func (*nativePresenceStoreStub) DiscoverNativeBaselineAttempt(
+	context.Context, string,
+) (nativeworker.Discovery, error) {
+	return nativeworker.Discovery{}, run.ErrUnavailable
+}
+
 func TestNativeWorkerPresenceAuthenticatesQualifiesAndPersists(t *testing.T) {
 	document, evidence := nativePresenceFixture(t)
 	observedAt := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)

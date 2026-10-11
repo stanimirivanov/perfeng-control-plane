@@ -368,8 +368,8 @@ signal, authentication or deployment policy.
 ## Contract provenance
 
 The [snapshot lock](internal/contract/snapshot/lock.json) pins perfeng-contracts
-commit `48917099b522e769b8fe533a166089ae2cd8914d`, bundle 0.20.0,
-Run Management API 0.4.0 and Native Worker API 2.1.0. The Run Management
+commit `143daa58774d8807f1745f8410ccab8b610170a0`, bundle 0.21.0,
+Run Management API 0.4.0 and Native Worker API 2.2.0. The Run Management
 OpenAPI document, transitions and selected request fixtures; the generated
 performance-policy schema and browser example; and the Native Worker v2
 OpenAPI, examples, rejection cases and HTTP exchanges are copied byte-for-byte
@@ -401,13 +401,20 @@ Worker operation shapes, not arbitrary JSON Schema. The authenticated
 `/native-worker/v2/leases/{leaseId}/upload-grants`,
 `/native-worker/v2/leases/{leaseId}/artifacts`,
 `/native-worker/v2/leases/{leaseId}/terminal`, and
-`/native-worker/v2/attempts/inspect`
+`/native-worker/v2/attempts/inspect`, and
+`/native-worker/v2/attempts/discover`
 operations, typed worker-capability matching, reviewed native assignment
 resolution and durable lease acquisition, renewal, release, non-secret upload
 reservation and verified artifact acceptance are implemented.
 Inspection returns a worker-scoped, read-only snapshot for one known Run and
 attempt. It does not restore lease authority, authorize evidence deletion or
 recover acquisition responses lost before the attempt ID became known.
+Discovery accepts only `{"protocolVersion":2}` and derives scope from the
+worker bearer principal. It returns stored availability and NONE or the single
+current v2 slot, with one post-lock server clock. It neither enumerates history
+nor restores a capability. Discovery remains available when new acquisitions
+are paused. Ambiguous capacity fails closed rather than returning an arbitrary
+attempt. See [discovery and manual recovery prerequisites](docs/native-worker-discovery.md).
 Matching requires the worker to support the plan's browser, diagnostic mode,
 execution-artifact transport and every artifact kind. Lease capabilities are
 stored only as SHA-256 digests and returned only in `X-Perfeng-Lease`. The
