@@ -17,9 +17,10 @@ import (
 
 type nativeV2StoreStub struct {
 	NativeWorkerStore
-	record       httpapi.NativeWorkerPresenceRecord
-	releaseCalls int
-	inspectCalls int
+	record        httpapi.NativeWorkerPresenceRecord
+	releaseCalls  int
+	inspectCalls  int
+	discoverCalls int
 }
 
 func (store *nativeV2StoreStub) RecordNativeWorkerV2Presence(
@@ -47,6 +48,16 @@ func (store *nativeV2StoreStub) InspectNativeBaselineAttempt(
 ) (nativeworker.Inspection, error) {
 	store.inspectCalls++
 	return nativeworker.Inspection{}, nativeworker.ErrAttemptNotFound
+}
+
+func (store *nativeV2StoreStub) DiscoverNativeBaselineAttempt(
+	context.Context, string,
+) (nativeworker.Discovery, error) {
+	store.discoverCalls++
+	return nativeworker.Discovery{
+		State: nativeworker.DiscoveryNone, Availability: "UNREPORTED",
+		ServerTime: time.Date(2026, 10, 11, 10, 0, 0, 0, time.UTC),
+	}, nil
 }
 
 type nativeV2AuthenticatorStub struct{ evidence json.RawMessage }
@@ -148,7 +159,7 @@ func TestNativeWorkerAcquisitionGate(t *testing.T) {
 	}
 }
 
-func TestNativeWorkerInspectionRemainsAvailableWhenAcquisitionIsPaused(t *testing.T) {
+func TestNativeWorkerObservationRemainsAvailableWhenAcquisitionIsPaused(t *testing.T) {
 	presenceDocument, err := contract.Files.ReadFile(
 		"snapshot/api/native-worker/v2/examples/presence.json",
 	)
@@ -192,6 +203,16 @@ func TestNativeWorkerInspectionRemainsAvailableWhenAcquisitionIsPaused(t *testin
 		if response.Code != http.StatusNotFound || store.inspectCalls != 1 {
 			t.Fatalf("gate=%t: inspection status=%d, calls=%d", enabled,
 				response.Code, store.inspectCalls)
+		}
+		discover := httptest.NewRequest(http.MethodPost,
+			"/native-worker/v2/attempts/discover", strings.NewReader(`{"protocolVersion":2}`))
+		discover.Header.Set("Authorization", "Bearer worker-token")
+		discover.Header.Set("Content-Type", "application/json")
+		discoveryResponse := httptest.NewRecorder()
+		handler.ServeHTTP(discoveryResponse, discover)
+		if discoveryResponse.Code != http.StatusOK || store.discoverCalls != 1 {
+			t.Fatalf("gate=%t: discovery status=%d, calls=%d", enabled,
+				discoveryResponse.Code, store.discoverCalls)
 		}
 	}
 }

@@ -12,9 +12,10 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
-var _ httpapi.NativeWorkerPresenceStore = (*Repository)(nil)
+var _ httpapi.NativeWorkerStateStore = (*Repository)(nil)
 
-// RecordNativeWorkerV2Presence stores authenticated v2 reports separately.
+// RecordNativeWorkerV2Presence replaces authenticated v2 intent under the worker
+// identity lock. Its post-lock clock and commit fence earlier acquisition reads.
 func (r *Repository) RecordNativeWorkerV2Presence(
 	ctx context.Context,
 	record httpapi.NativeWorkerPresenceRecord,
@@ -25,8 +26,18 @@ func (r *Repository) RecordNativeWorkerV2Presence(
 	ctx, cancel := context.WithTimeout(ctx, operationTimeout)
 	defer cancel()
 
+	tx, err := r.begin(ctx)
+	if err != nil {
+		return time.Time{}, err
+	}
+	defer tx.Rollback()
+
+	if err := lockNativeWorkerIdentity(ctx, tx, record.WorkerID); err != nil {
+		return time.Time{}, err
+	}
+
 	var observedAt time.Time
-	err := r.db.QueryRowContext(ctx, `
+	err = tx.QueryRowContext(ctx, `
 		INSERT INTO perfeng_control.native_worker_presence_v2(
 			worker_id,observed_at,availability,qualified,authorized_to_acquire,presence
 		) VALUES ($1,clock_timestamp(),$2,$3,$4,$5)
@@ -41,6 +52,9 @@ func (r *Repository) RecordNativeWorkerV2Presence(
 		record.AuthorizedToAcquire, []byte(record.ObservedDocument),
 	).Scan(&observedAt)
 	if err != nil {
+		return time.Time{}, storageError(err)
+	}
+	if err := tx.Commit(); err != nil {
 		return time.Time{}, storageError(err)
 	}
 

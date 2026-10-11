@@ -88,7 +88,7 @@ func init() {
 		"WorkerPresence", "PresenceStatus", "AcquireLease", "Lease", "ExecutionRecipe", "LeaseRenewal",
 		"RenewLease", "ReleaseLease", "UploadGrantRequest", "UploadGrant",
 		"RegisterArtifact", "ArtifactReference", "TerminalReport", "TerminalAck",
-		"InspectAttempt", "AttemptInspection", "Error",
+		"InspectAttempt", "AttemptInspection", "DiscoverAttempt", "AttemptDiscovery", "Error",
 	)
 	if err != nil {
 		panic(err)
@@ -358,6 +358,16 @@ func ValidateNativeWorkerV2TerminalAcknowledgement(value any) error {
 // ValidateNativeWorkerV2InspectAttempt checks a worker-scoped v2 inspection request.
 func ValidateNativeWorkerV2InspectAttempt(value any) error {
 	return validateWithSchemas(nativeWorkerV2Schemas["InspectAttempt"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2DiscoverAttempt checks the selector-free discovery request.
+func ValidateNativeWorkerV2DiscoverAttempt(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["DiscoverAttempt"], value, nativeWorkerV2Schemas)
+}
+
+// ValidateNativeWorkerV2AttemptDiscovery checks the bounded current-slot union.
+func ValidateNativeWorkerV2AttemptDiscovery(value any) error {
+	return validateWithSchemas(nativeWorkerV2Schemas["AttemptDiscovery"], value, nativeWorkerV2Schemas)
 }
 
 // ValidateNativeWorkerV2AttemptInspection checks the closed read-only v2 snapshot.

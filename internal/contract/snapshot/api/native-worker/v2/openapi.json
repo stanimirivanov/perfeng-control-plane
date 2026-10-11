@@ -2,7 +2,7 @@
   "openapi": "3.1.1",
   "info": {
     "title": "Performance Engineering Native Worker API",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "description": "Authenticated outbound-pull protocol for qualified native workers. Worker identity is derived only from the bearer credential. Lease capabilities are transported only in headers. Presigned upload URLs and their signed headers are returned only in upload-grant response bodies. All authorization material must be redacted and must not be persisted as evidence."
   },
   "servers": [{"url": "https://control.perfeng.invalid"}],
@@ -142,6 +142,27 @@
           "403": {"$ref": "#/components/responses/Forbidden"},
           "409": {"$ref": "#/components/responses/Conflict"},
           "410": {"$ref": "#/components/responses/LeaseGone"},
+          "429": {"$ref": "#/components/responses/RateLimited"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/native-worker/v2/attempts/discover": {
+      "post": {
+        "operationId": "discoverNativeAttempt",
+        "summary": "Discover this worker's current measurement slot after an uncertain acquisition",
+        "description": "Read-only, worker-scoped observation serialized with acquisition and presence replacement. Report stored availability and at most one unexpired, unreleased v2 lease at serverTime, including a terminal report if that lease still occupies capacity. NONE means no current slot, not that an acquisition never succeeded. No historical enumeration, lease capability, execution recipe or upload authority is returned. Stop the old process and withdraw availability before manual recovery; this snapshot never authorizes execution, deletion or acquisition. Fail closed rather than choosing one if multiple current slots exist.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DiscoverAttempt"}}}},
+        "responses": {
+          "200": {
+            "description": "One consistent server observation, never recovered authority",
+            "headers": {"Cache-Control": {"required": true, "schema": {"const": "no-store"}}},
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AttemptDiscovery"}}}
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
           "429": {"$ref": "#/components/responses/RateLimited"},
           "500": {"$ref": "#/components/responses/InternalError"},
           "503": {"$ref": "#/components/responses/Unavailable"}
@@ -517,6 +538,41 @@
                   "retryable": {"type": "boolean"}
                 }
               }
+            }
+          }
+        ]
+      },
+      "DiscoverAttempt": {
+        "type": "object", "additionalProperties": false,
+        "required": ["protocolVersion"],
+        "properties": {"protocolVersion": {"const": 2}}
+      },
+      "DiscoveryAvailability": {
+        "type": "string",
+        "enum": ["UNREPORTED", "AVAILABLE", "DRAINING", "UNAVAILABLE"],
+        "description": "Stored worker availability at serverTime, irrespective of freshness, qualification or authorization. UNREPORTED means no presence record exists. This field is not permission to acquire."
+      },
+      "AttemptDiscovery": {
+        "description": "At most one current measurement slot owned by the bearer principal. Read serverTime after serialization with acquisition and presence; use it consistently for availability, slot expiry and attempt inspection. Expiry is exclusive. NONE includes expired, released or absent leases and is not a historical or idempotency result.",
+        "oneOf": [
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["state", "serverTime", "availability"],
+            "properties": {
+              "state": {"const": "NONE"},
+              "serverTime": {"$ref": "#/components/schemas/Timestamp"},
+              "availability": {"$ref": "#/components/schemas/DiscoveryAvailability"}
+            }
+          },
+          {
+            "type": "object", "additionalProperties": false,
+            "required": ["state", "serverTime", "availability", "slotExpiresAt", "attempt"],
+            "properties": {
+              "state": {"const": "FOUND"},
+              "serverTime": {"$ref": "#/components/schemas/Timestamp"},
+              "availability": {"allOf": [{"$ref": "#/components/schemas/DiscoveryAvailability"}, {"not": {"const": "UNREPORTED"}}]},
+              "slotExpiresAt": {"$ref": "#/components/schemas/Timestamp", "description": "Expiry of the unreleased occupying lease, strictly later than serverTime. For ACTIVE, it equals attempt.expiresAt. Retained terminal acceptance does not itself release capacity."},
+              "attempt": {"allOf": [{"$ref": "#/components/schemas/AttemptInspection"}, {"not": {"properties": {"state": {"const": "INACTIVE"}}}}], "description": "ACTIVE or TERMINAL at the envelope's serverTime. Terminal acceptance takes precedence over the retained lease. This is identity and state, never authority."}
             }
           }
         ]

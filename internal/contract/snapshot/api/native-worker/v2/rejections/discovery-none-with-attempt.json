@@ -1,0 +1,9 @@
+{
+  "schema": "AttemptDiscovery",
+  "value": {
+    "state": "NONE",
+    "serverTime": "2026-09-18T12:01:00Z",
+    "availability": "UNAVAILABLE",
+    "attempt": {"runId": "perf-20260918-120000-a1b2c3d4"}
+  }
+}

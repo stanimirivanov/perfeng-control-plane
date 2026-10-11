@@ -1,0 +1,4 @@
+{
+  "schema": "DiscoverAttempt",
+  "value": {"protocolVersion": 2, "workerId": "caller-selected"}
+}

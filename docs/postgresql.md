@@ -457,6 +457,19 @@ and operators must not use it alone to resume execution, delete retained files
 or advertise worker availability. Rollback can stop using the new read operation
 without changing stored records.
 
+## Native current-slot discovery
+
+Discovery observes only the authenticated worker's single current v2 slot and
+stored availability, with no historical enumeration or authority restoration.
+Native presence, acquisition and lease mutations now take a transaction-scoped
+worker identity advisory lock before existing row locks, including when no
+presence exists. Discovery reads a fresh single-statement snapshot and server
+clock after acquiring that boundary. Multiple current slots fail closed, and
+expired/released slots are excluded. No domain record is changed and no new
+migration or privilege is required. See the [discovery guide](native-worker-discovery.md)
+and [ADR-0005](decisions/0005-serialize-native-worker-discovery.md) for withdrawal,
+mixed-version rollout and manual recovery prerequisites.
+
 ## Isolated integration tests
 
 Start a disposable PostgreSQL 17 instance with a local-only connection and a

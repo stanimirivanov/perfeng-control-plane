@@ -86,3 +86,4 @@ How will assumptions and consequences be verified?
 | [0002](0002-isolate-native-worker-presence-by-api-generation.md) | Isolate Native Worker presence by API generation | Proposed |
 | [0003](0003-version-native-lease-authority.md) | Version the shared Native Worker lease authority | Proposed |
 | [0004](0004-separate-native-upload-signing-endpoint.md) | Separate the native upload signing endpoint from artifact reads | Proposed |
+| [0005](0005-serialize-native-worker-discovery.md) | Serialize native discovery before presence exists | Proposed |

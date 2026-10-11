@@ -106,6 +106,41 @@
     "response": "terminal-ack-duplicate"
   },
   {
+    "operationId": "discoverNativeAttempt",
+    "status": 200,
+    "request": "discover-attempt",
+    "response": "discovery-none",
+    "headers": {"Cache-Control": "no-store"}
+  },
+  {
+    "operationId": "discoverNativeAttempt",
+    "status": 200,
+    "request": "discover-attempt",
+    "response": "discovery-available",
+    "headers": {"Cache-Control": "no-store"}
+  },
+  {
+    "operationId": "discoverNativeAttempt",
+    "status": 200,
+    "request": "discover-attempt",
+    "response": "discovery-unreported",
+    "headers": {"Cache-Control": "no-store"}
+  },
+  {
+    "operationId": "discoverNativeAttempt",
+    "status": 200,
+    "request": "discover-attempt",
+    "response": "discovery-active",
+    "headers": {"Cache-Control": "no-store"}
+  },
+  {
+    "operationId": "discoverNativeAttempt",
+    "status": 200,
+    "request": "discover-attempt",
+    "response": "discovery-terminal",
+    "headers": {"Cache-Control": "no-store"}
+  },
+  {
     "operationId": "inspectNativeAttempt",
     "status": 200,
     "request": "inspect-attempt",

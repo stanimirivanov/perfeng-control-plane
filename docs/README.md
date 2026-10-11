@@ -25,6 +25,7 @@
 | Registry or performance-policy behavior | [Registry guide](report-policy-registry.md), [policy validation](performance-policy-validation.md) | Registry and policy tests |
 | Baseline behavior or administration | [Baseline lifecycle](baseline-lifecycle.md), [baseline administration](baseline-administration.md) | Domain, HTTP, and PostgreSQL tests as applicable |
 | Durable technical decision | [ADR index](decisions/README.md) | ADR template and supersession rules |
+| Native Worker discovery or manual recovery | [Discovery guide](native-worker-discovery.md), [ADR-0005](decisions/0005-serialize-native-worker-discovery.md) | HTTP/application tests and `make db-validate` |
 | Image build or publication | [README development section](../README.md#development), publish workflow | `make image` |
 | Vulnerability reporting | [SECURITY.md](../SECURITY.md) | Repository owner |
 

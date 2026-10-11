@@ -9,11 +9,11 @@ import (
 func TestNativeWorkerV2SnapshotInventory(t *testing.T) {
 	openapi := decodeContractValue(t, "snapshot/api/native-worker/v2/openapi.json")
 	info, ok := openapi["info"].(map[string]any)
-	if !ok || info["version"] != "2.1.0" {
+	if !ok || info["version"] != "2.2.0" {
 		t.Fatal("unexpected Native Worker v2 API version")
 	}
 	paths, ok := openapi["paths"].(map[string]any)
-	if !ok || len(paths) != 8 {
+	if !ok || len(paths) != 9 {
 		t.Fatal("unexpected Native Worker v2 path inventory")
 	}
 	examples, err := fs.Glob(Files, "snapshot/api/native-worker/v2/examples/*.json")
@@ -24,7 +24,7 @@ func TestNativeWorkerV2SnapshotInventory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(examples) != 21 || len(rejections) != 19 {
+	if len(examples) != 27 || len(rejections) != 27 {
 		t.Fatal("unexpected Native Worker v2 fixture inventory")
 	}
 }
@@ -52,6 +52,12 @@ func TestNativeWorkerV2RuntimeValidation(t *testing.T) {
 		{"terminal acknowledgement", "terminal-ack.json", ValidateNativeWorkerV2TerminalAcknowledgement},
 		{"duplicate terminal acknowledgement", "terminal-ack-duplicate.json", ValidateNativeWorkerV2TerminalAcknowledgement},
 		{"inspect attempt", "inspect-attempt.json", ValidateNativeWorkerV2InspectAttempt},
+		{"discover attempt", "discover-attempt.json", ValidateNativeWorkerV2DiscoverAttempt},
+		{"discovery active", "discovery-active.json", ValidateNativeWorkerV2AttemptDiscovery},
+		{"discovery terminal", "discovery-terminal.json", ValidateNativeWorkerV2AttemptDiscovery},
+		{"discovery none", "discovery-none.json", ValidateNativeWorkerV2AttemptDiscovery},
+		{"discovery available", "discovery-available.json", ValidateNativeWorkerV2AttemptDiscovery},
+		{"discovery unreported", "discovery-unreported.json", ValidateNativeWorkerV2AttemptDiscovery},
 		{"active attempt", "attempt-active.json", ValidateNativeWorkerV2AttemptInspection},
 		{"inactive attempt", "attempt-inactive.json", ValidateNativeWorkerV2AttemptInspection},
 		{"terminal attempt", "attempt-terminal.json", ValidateNativeWorkerV2AttemptInspection},
@@ -96,6 +102,10 @@ func TestNativeWorkerV2RuntimeValidation(t *testing.T) {
 			validate = ValidateNativeWorkerV2TerminalReport
 		case "InspectAttempt":
 			validate = ValidateNativeWorkerV2InspectAttempt
+		case "DiscoverAttempt":
+			validate = ValidateNativeWorkerV2DiscoverAttempt
+		case "AttemptDiscovery":
+			validate = ValidateNativeWorkerV2AttemptDiscovery
 		case "AttemptInspection":
 			validate = ValidateNativeWorkerV2AttemptInspection
 		default:
