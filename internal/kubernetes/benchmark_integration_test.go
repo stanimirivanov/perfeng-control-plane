@@ -110,9 +110,20 @@ func TestBenchmarkAgainstAPIServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	stored, err := client.BatchV1().Jobs(namespace.Name).Get(ctx, created.JobName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pod := stored.Spec.Template.Spec
+	if pod.ServiceAccountName != name || pod.DeprecatedServiceAccount != pod.ServiceAccountName {
+		t.Fatal("API server did not return the expected service-account alias")
+	}
 	adopted, err := dispatcher.EnsureJob(ctx, testRunID, job)
-	if err != nil || adopted.Created || adopted.UID != created.UID {
+	if err != nil || adopted.Created || adopted.Execution() != created.Execution() {
 		t.Fatalf("contained Job not adopted: %v", err)
+	}
+	if _, err := dispatcher.ObserveJob(ctx, adopted.Execution()); err != nil {
+		t.Fatalf("API-returned contained Job could not be observed: %v", err)
 	}
 	inputs, err := client.CoreV1().ConfigMaps(namespace.Name).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {

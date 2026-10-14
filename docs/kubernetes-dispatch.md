@@ -46,6 +46,11 @@ Job and Pod defaults produced by the tested Kubernetes version, then requires
 semantic equality. It does not ignore arbitrary additional or changed fields.
 Kubernetes-assigned Job UID is returned with the expected specification
 fingerprint as the durable cluster-side identity for subsequent observation.
+Kubernetes also returns the deprecated `serviceAccount` alias for a named
+`serviceAccountName`. Normalization removes that alias only when both values
+match; a changed account or conflicting alias remains an execution conflict.
+This preserves the fingerprint across creation, adoption, observation and stop
+requests without discarding service-account identity.
 `Dispatch.Execution()` removes the transient create/adopt result and produces
 the immutable value stored by the lease-fenced PostgreSQL execution store.
 

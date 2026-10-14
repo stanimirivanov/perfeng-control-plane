@@ -321,6 +321,9 @@ func clearAPIServerDefaults(spec *batchv1.JobSpec) {
 	}
 
 	pod := &spec.Template.Spec
+	if pod.DeprecatedServiceAccount == pod.ServiceAccountName {
+		pod.DeprecatedServiceAccount = ""
+	}
 	if pod.TerminationGracePeriodSeconds != nil && *pod.TerminationGracePeriodSeconds == 30 {
 		pod.TerminationGracePeriodSeconds = nil
 	}
