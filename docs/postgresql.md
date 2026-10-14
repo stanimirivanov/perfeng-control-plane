@@ -25,6 +25,7 @@ runners do not write these tables directly.
 | artifacts | Immutable identities for raw/normalized object references |
 | reconciliation_leases | Worker ownership tokens, lease expiry and retry availability |
 | kubernetes_executions | Immutable Job UID and specification identity per Run |
+| benchmark_target_reservations | Exclusive active benchmark targets, sealed plans and retained cleanup/release audit |
 | baselines | Principal-owned baseline versions and lifecycle snapshots |
 | native_worker_presence | Last authenticated capability and qualification report per native worker |
 | native_worker_presence_v2 | Latest authenticated v2 capability and qualification report, isolated from v1 scheduling |
@@ -107,7 +108,8 @@ GRANT SELECT, INSERT ON perfeng_control.native_terminal_reports TO perfeng_runti
 ~~~
 
 Only the trusted reconciliation worker role additionally needs SELECT, INSERT
-and UPDATE on `perfeng_control.reconciliation_leases`, plus SELECT and INSERT on
+and UPDATE on `perfeng_control.reconciliation_leases` and
+`perfeng_control.benchmark_target_reservations`, plus SELECT and INSERT on
 `perfeng_control.kubernetes_executions`. It also needs the Run table privileges
 above. Do not grant the worker interfaces to tenant/API callers. Migration 0002
 adds leases, migration 0003 adds immutable execution identity, migration 0004
@@ -147,6 +149,26 @@ migration before the new binary. Application rollback remains safe while v2
 issuance is disabled; after issuance, quiesce v2 attempts before returning to
 a pre-0015 binary. Repair forward without editing the applied migration.
 See [worker-claim semantics](reconciliation.md).
+
+Migration 0017 adds durable benchmark reservations. Migration 0018 adds nullable
+cleanup marker, confirmed-fence time, drain deadline, intended outcome, receipt
+and release fields. Existing holds remain unreleased and existing Run snapshots
+are unchanged; no backfill runs. NULL cleanup start means dispatch is not sealed,
+NULL fence means the barrier is unconfirmed, and NULL release/receipt means the
+target remains held. The partial unique target index covers unreleased rows;
+released records remain as audit evidence and cannot be reopened.
+
+Apply 0018 before starting this worker even without configured benchmarks: claim
+discovery consults retained holds. Stop old reconciliation workers first; mixed
+old dispatch/new cleanup workers are unsupported. ALTER TABLE takes an ACCESS
+EXCLUSIVE lock; validating the consistency constraint and building the replacement
+index scan the reservation table. Inspect its size, lock contention, disk/WAL
+headroom and a maintenance window. No table rewrite/backfill is required by the
+nullable column additions, but that does not make lock acquisition instantaneous.
+Keep the schema/audit rows and repair forward. Do not downgrade to pre-cleanup
+workers with active holds or enabled benchmark dispatch. See the
+[benchmark lifecycle guide](kubernetes-benchmarks.md#owned-cleanup-and-restart-recovery)
+and [ADR-0007](decisions/0007-fence-and-verify-benchmark-cleanup.md).
 
 Provision that role/login through infrastructure; the migration does not create
 credentials or grant permissions to PUBLIC. Do not use the schema owner as the

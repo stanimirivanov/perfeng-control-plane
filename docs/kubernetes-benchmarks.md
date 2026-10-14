@@ -1,17 +1,19 @@
-# Contained Kubernetes benchmark dispatch
+# Contained Kubernetes benchmark lifecycle
 
 ## TL;DR
 
 - OCI kube-burner dispatch requires an explicitly reviewed startup entry and
   fresh admission of the selected `local-kind-integration/1.0.0` environment.
 - PostgreSQL reserves the logical target before namespace creation. The hold is
-  not a worker lease and never expires or transfers to a different Run.
+  not a worker lease and never expires; verified cleanup permits later reuse.
 - Namespace UID, exact request bytes and deterministic Job identity survive
   partial failures and restarts; foreign or changed resources are not repaired.
 - This is M04 dispatch infrastructure, not a promoted deployable bundle or
   production-calibrated performance comparison.
-- Cancellation stops only the exact executor Job and retains `CANCELLING` and
-  the hold. Target cleanup, safe release and recovery are the separate PR 6.
+- Cancellation seals dispatch, stops the exact executor and cleans only owned
+  workloads/authority. Unknown termination retains `CANCELLING` and the hold.
+- Cleanup retains an empty namespace/zero-Pod quota, drains bounded requests
+  and persists its outcome for recovery; raw collection precedes normal cleanup.
 
 ## Source and responsibility boundaries
 
@@ -121,10 +123,67 @@ deletes, exec, preload or garbage-collection privileges. Existing mismatching
 resources fail closed rather than being patched or deleted.
 
 The reservation remains after worker expiry, cancellation, failed dispatch and
-terminal lifecycle updates. There is deliberately no release API, expiry sweep,
-force-delete recipe or automatic cleanup in this slice. Retain the namespace,
-sealed inputs and reservation for diagnosis. Do not manually delete a hold to
-unblock another Run: PR 6 must first prove scoped executor/target cleanup.
+terminal lifecycle updates until verified cleanup commits. There is no public
+release API, expiry sweep or force-delete recipe. Do not manually delete a hold
+to unblock another Run. See [ADR-0007](decisions/0007-fence-and-verify-benchmark-cleanup.md)
+for the safety trade-off and its supported local-cluster assumptions.
+
+## Owned cleanup and restart recovery
+
+1. Persist an irreversible cleanup marker under the current lease and Run
+   revision. New materialization/dispatch is forbidden, including after restart.
+   Cancellation saves `ABORTED`; execution failure saves its existing failure
+   outcome. Normal completion preserves `COLLECTING` until raw evidence is
+   durably verified, then gates analysis execution on cleanup.
+2. Restore the original sealed plan. Inspect an ambiguously created namespace
+   and bind only its exact owned UID. Recover an unbound Job with read-only
+   matching lookup and immutable execution binding; never recreate it.
+3. Close the exact owned ResourceQuota to zero Pods. Require both its spec and
+   `status.hard.pods` to be zero. Retain that quota and namespace after release.
+   If dispatch never created a namespace or request, confirmed absence is safe;
+   a missing/replaced previously bound namespace remains a conflict.
+4. Verify the supported singleton kubeadm API-server mutation timeout is at
+   most one minute, stop the exact executor Job and record the first confirmed
+   fence time in PostgreSQL. The two-minute drain begins here, even after a long
+   worker outage. Reconciliation retries without blocking a worker for two minutes.
+5. After that deadline, require the executor Job and all its dependent Pods
+   absent and the original three nodes Ready with their selected fingerprints.
+   Metrics, absence of pressure and a warm image cache are admission conditions,
+   not cleanup conditions. Partitioned/unknown nodes never imply termination.
+6. Delete only the ten recognized workload Pod names with their Run/benchmark
+   labels, candidate image and SUT placement, and exact per-Run inputs, service
+   account, Role/ClusterRole and bindings. Each delete uses UID/resource-version
+   preconditions and normal graceful semantics. Foreign/modified objects and
+   stuck finalizers retain the hold; a delete response is not absence.
+7. Recheck ownership/absence and commit the bounded identity-bound receipt,
+   release timestamp and lifecycle outcome atomically. Cancellation wins a race
+   with the saved outcome. The reservation/audit row remains; another Run can
+   reserve the logical target only after this commit.
+
+Expired-worker and already-terminal retained holds are discoverable with fresh
+leases. Terminal cleanup must not reopen or revise the public Run snapshot.
+Registry edits cannot rewrite an old cleanup plan. The empty namespace and zero
+quota are deliberate tombstones, not an incomplete successful cleanup. Do not
+prune them with GitOps or remove them manually to make the cluster look tidy.
+
+For diagnosis, inspect the original Run, selected cluster UID, persisted cleanup
+phase/deadline, exact namespace/quota, executor Job/Pods and Ready node inventory.
+For a held target, restore connectivity/readiness and retry reconciliation.
+Ownership drift, missing bound namespaces or a replaced cluster require a
+separate reviewed recovery decision, not reservation deletion or force release.
+Receipts are internal coordination evidence, not a new public artifact format.
+
+The containment claim assumes functioning quota admission/controllers, bounded
+server requests, stable clocks and no privileged out-of-band changes. A lease
+does not atomically fence a client paused before sending a request, and API
+absence cannot prove physical termination under every partition. This is not
+an exactly-once or general distributed-fencing protocol. Permanent zero quota
+limits late workload creation; uncertain observations deliberately cost availability.
+
+Runtime promotion must explicitly grant the controller quota get/create/update,
+owned target-Pod get/list/delete, and per-Run authority/input get/delete in
+addition to dispatch/read permissions. Review that privilege increase in the
+dedicated integration cluster; no deployed role changes in this PR.
 
 ## Migration, rollback and verification
 
@@ -146,7 +205,7 @@ logical-target index. It does not rewrite or backfill existing Run data. The DDL
 also locks the referenced Run table during foreign-key installation; allow a
 bounded migration window rather than applying it during heavy lifecycle writes.
 The normal migration ledger and transactional/advisory-lock protections apply.
-Apply 0017 before starting the new worker, even with no benchmark entry enabled:
+Apply 0017 and 0018 before starting the new worker, even with no benchmark entry enabled:
 recovery checks for retained holds before routing ordinary execution.
 
 Storage operations preserve Run-before-lease lock order, read database time
@@ -155,14 +214,24 @@ request fields are write-once; target uniqueness does not include cluster UID,
 so recreating a cluster does not evade an old hold. SQL additionally checks
 bounded payloads, plan-content SHA-256 and request/namespace materialization order.
 
-Roll back application code while retaining the additive table. Do not deploy
-an older generic-dispatch binary with benchmark entries enabled; retain the
-reservation-aware binary until all held Runs are resolved. Never rewrite an
-applied migration or delete retained evidence as a rollback strategy.
+Migration `0018_benchmark_cleanup.sql` adds nullable cleanup phase, fence,
+deadline, intended change, receipt and release fields. NULL means cleanup has
+not begun; a missing fence means the quota barrier is not yet confirmed; receipt
+and release remain NULL until verification commits. Existing holds remain held;
+there is no backfill or Run snapshot rewrite. A partial unique index protects
+only unreleased logical targets while retaining historical records.
+
+Stop old reconciliation workers before rollout. Allow an ACCESS EXCLUSIVE
+reservation-table lock, constraint validation and nonconcurrent index build;
+inspect table size, contention, disk/WAL headroom and a migration window. Mixed
+old dispatch/new cleanup workers are unsupported. Retain schema and audit rows
+on application rollback; do not downgrade to pre-cleanup code with active holds
+or benchmark dispatch enabled. Repair forward, never rewrite an applied migration.
 
 Run `make verify`, `make validate`, `make db-validate` with disposable loopback
 PostgreSQL, and `make kubernetes-validate` with the dedicated disposable test
 cluster. Unit/fake tests prove rejection, ownership, least privilege and ordering;
 real PostgreSQL tests prove uniqueness contention, expiry/takeover, persistence,
-terminal retention, upgrade and constraints. Live Kubernetes tests prove API
-defaulting and immutable-object adoption without running the benchmark image.
+terminal cleanup recovery, atomic release/cancellation, upgrade and constraints.
+Live Kubernetes tests prove API defaulting, immutable-object adoption, confirmed
+quota rejection and UID/resource-version deletion without running the benchmark image.

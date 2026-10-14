@@ -9,8 +9,9 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 )
 
-// ErrLeaseLost means a reconciliation lease is absent, expired, terminal, or
-// owned by a different principal, worker, or token.
+// ErrLeaseLost means a reconciliation lease is absent, expired, no longer
+// eligible, or owned by a different principal, worker, or token. Terminal Runs
+// remain eligible only while they retain an unreleased benchmark target.
 var ErrLeaseLost = errors.New("reconciliation lease is expired or no longer owned")
 
 var workerPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$`)
@@ -76,8 +77,9 @@ func ValidRetryDelay(delay time.Duration) bool {
 // exists. Persistence failures can return ErrUnavailable; a commit failure can
 // have an uncertain outcome. Leases fence store writes, not external side effects.
 type ReconciliationStore interface {
-	// ClaimRuns returns at most limit eligible, nonterminal runs and leases them
-	// atomically. Missing leases and expired leases whose delay elapsed are
+	// ClaimRuns returns at most limit eligible Kubernetes Runs and leases them
+	// atomically. Terminal Runs are included only for retained benchmark cleanup;
+	// their public snapshot must not be reopened. Missing leases and expired leases whose delay elapsed are
 	// eligible; CANCELLING bypasses delay but not a live lease. Every acquisition
 	// gets a new token and an expiry based on a separate authoritative clock read.
 	//
@@ -94,7 +96,7 @@ type ReconciliationStore interface {
 	// RenewClaim validates persisted ownership after locking the Run, replaces
 	// expiry with the authoritative current time plus ttl, and returns the latest
 	// Run snapshot. It preserves the token and Run revision. ErrValidation reports
-	// invalid inputs; ErrLeaseLost reports absent, expired, or terminal ownership.
+	// invalid inputs; ErrLeaseLost reports ownership that is no longer eligible.
 	RenewClaim(ctx context.Context, lease Lease, ttl time.Duration) (Claim, error)
 
 	// ReleaseClaim validates persisted ownership, expires it at the authoritative

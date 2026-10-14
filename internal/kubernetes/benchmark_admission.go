@@ -141,6 +141,10 @@ func (controller *BenchmarkController) CheckCluster(ctx context.Context, uid str
 }
 
 func benchmarkInventory(nodes []corev1.Node) ([]map[string]any, error) {
+	return benchmarkNodeInventory(nodes, true)
+}
+
+func benchmarkNodeInventory(nodes []corev1.Node, admission bool) ([]map[string]any, error) {
 	roles := map[string]string{"perfeng-local-control-plane": "control-plane", "perfeng-local-worker": "performance-generator", "perfeng-local-worker2": "sut"}
 	if len(nodes) != len(roles) {
 		return nil, benchmark.ErrNotQualified
@@ -166,11 +170,11 @@ func benchmarkInventory(nodes []corev1.Node) ([]map[string]any, error) {
 			}
 			conditions[condition.Type] = condition.Status
 		}
-		if conditions[corev1.NodeReady] != corev1.ConditionTrue || conditions[corev1.NodeMemoryPressure] != corev1.ConditionFalse ||
-			conditions[corev1.NodeDiskPressure] != corev1.ConditionFalse || conditions[corev1.NodePIDPressure] != corev1.ConditionFalse {
+		if conditions[corev1.NodeReady] != corev1.ConditionTrue || (admission && (conditions[corev1.NodeMemoryPressure] != corev1.ConditionFalse ||
+			conditions[corev1.NodeDiskPressure] != corev1.ConditionFalse || conditions[corev1.NodePIDPressure] != corev1.ConditionFalse)) {
 			return nil, benchmark.ErrNotQualified
 		}
-		if role == "sut" {
+		if admission && role == "sut" {
 			warm := false
 			for _, image := range node.Status.Images {
 				for _, name := range image.Names {

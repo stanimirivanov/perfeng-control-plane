@@ -2,9 +2,9 @@ package reconcile
 
 import (
 	"context"
-	"time"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/benchmark"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/kubernetes"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/worker"
@@ -17,8 +17,8 @@ type BenchmarkStore interface {
 	run.BenchmarkReservationStore
 }
 
-// BenchmarkTarget admits actual observations and creates only reservation-bound
-// resources. No method releases a target or performs broad cleanup.
+// BenchmarkTarget admits actual observations and manages only reservation-bound
+// resources. Scoped cleanup attests absence; storage alone releases the target.
 type BenchmarkTarget interface {
 	// Qualify returns accepted fresh evidence or a safe error without target writes.
 	// Failed/missing observations return benchmark.ErrNotQualified; context errors
@@ -30,10 +30,17 @@ type BenchmarkTarget interface {
 	CheckNamespace(context.Context, run.BenchmarkReservation) error
 	// EnsureResources rechecks the supplied storage fence and target UID before each write.
 	EnsureResources(context.Context, benchmark.Spec, run.BenchmarkReservation, kubernetes.BenchmarkFence) error
+	// InspectCleanupNamespace reads exact ownership and UID, reporting absence without creation.
+	InspectCleanupNamespace(context.Context, run.BenchmarkReservation) (string, bool, error)
+	// CloseBenchmarkTarget irreversibly closes Pod quota under the persisted cleanup fence.
+	CloseBenchmarkTarget(context.Context, run.BenchmarkReservation, kubernetes.BenchmarkFence) error
+	// CleanupBenchmark removes only owned resources and verifies executor/workload absence.
+	// A false result retains the hold; foreign resources, replacement UIDs and unknown nodes fail closed.
+	CleanupBenchmark(context.Context, benchmark.Spec, run.BenchmarkReservation, *kubernetes.Execution, kubernetes.BenchmarkFence) (bool, []byte, error)
 }
 
-// BenchmarkReconciler intercepts contained dispatch and cancellation while
-// delegating unrelated Runs and later stages to the ordinary lifecycle router.
+// BenchmarkReconciler coordinates contained dispatch, owned cleanup and restart
+// recovery while delegating collection and released Runs to the ordinary router.
 type BenchmarkReconciler struct {
 	store      BenchmarkStore
 	resolver   BenchmarkResolver
@@ -62,17 +69,12 @@ func NewBenchmarkReconciler(
 
 // Reconcile reserves before namespace creation and seals before authority or Job
 // creation. Ambiguous creates are adopted by exact identity, never replaced.
-// Cancellation only stops a known executor; target cleanup/release is a separate
-// capability, so cancellation deliberately remains nonterminal with its hold.
+// Cancellation and failure seal dispatch before cleanup; normal completion
+// retains raw collection before cleanup gates analysis. Unverified termination
+// keeps the durable hold, including for already-terminal recovery.
 func (reconciler *BenchmarkReconciler) Reconcile(ctx context.Context, claim run.Claim) (worker.Result, error) {
 	if !validOwnedClaim(claim) {
 		return worker.Result{}, run.ErrValidation
-	}
-
-	switch claim.Run.State {
-	case run.StateProvisioning, run.StateWarmingUp, run.StateRunning, run.StateCancelling:
-	default:
-		return reconciler.fallback.Reconcile(ctx, claim)
 	}
 
 	attempt, cancel := context.WithTimeout(ctx, reconciler.config.AttemptTimeout)
@@ -81,6 +83,12 @@ func (reconciler *BenchmarkReconciler) Reconcile(ctx context.Context, claim run.
 	reservation, held, err := reconciler.store.GetBenchmarkReservation(attempt, claim.Lease)
 	if err != nil {
 		return worker.Result{}, err
+	}
+	if held && reservation.Cleanup != nil && !reservation.Cleanup.ReleasedAt.IsZero() {
+		return reconciler.fallback.Reconcile(ctx, claim)
+	}
+	if !held && claim.Run.State != run.StateProvisioning && claim.Run.State != run.StateCancelling {
+		return reconciler.fallback.Reconcile(ctx, claim)
 	}
 
 	var plan BenchmarkPlan
@@ -111,10 +119,35 @@ func (reconciler *BenchmarkReconciler) Reconcile(ctx context.Context, claim run.
 		return worker.Result{}, run.ErrBenchmarkConflict
 	}
 
-	if claim.Run.State == run.StateCancelling {
-		return reconciler.cancelBenchmark(attempt, claim, plan, reservation, held, execution, bound)
+	if reservation.Cleanup != nil {
+		return reconciler.cleanup(attempt, claim, plan, reservation, execution, bound)
+	}
+	if held && claim.Run.State == run.StateCollecting {
+		return reconciler.fallback.Reconcile(attempt, claim)
+	}
+	if claim.Run.State == run.StateCancelling || contract.Terminal(string(claim.Run.State)) ||
+		(held && claim.Run.State != run.StateProvisioning && claim.Run.State != run.StateWarmingUp && claim.Run.State != run.StateRunning) {
+		if !held {
+			return advanceOwnedClaim(attempt, reconciler.store, claim, run.Change{State: run.StateAborted})
+		}
+		next := run.Change{State: claim.Run.State}
+		if claim.Run.State == run.StateCancelling {
+			next.State = run.StateAborted
+		}
+		return reconciler.beginCleanup(attempt, claim, plan, reservation, next, execution, bound)
 	}
 	if bound {
+		observation, err := reconciler.controller.ObserveJob(attempt, execution)
+		if err != nil {
+			return worker.Result{}, err
+		}
+		decision, err := DecideBoundExecution(claim.Run.State, observation)
+		if err != nil {
+			return worker.Result{}, err
+		}
+		if decision.Action == ActionAdvance && contract.Terminal(string(decision.Change.State)) {
+			return reconciler.beginCleanup(attempt, claim, plan, reservation, decision.Change, execution, true)
+		}
 		return reconciler.bound.Reconcile(attempt, claim)
 	}
 	if claim.Run.State != run.StateProvisioning {
@@ -207,7 +240,7 @@ func (reconciler *BenchmarkReconciler) fence(ctx context.Context, claim run.Clai
 	if err != nil {
 		return err
 	}
-	if !found || stored.RunID != claim.Run.ID || !stored.Intent.Same(expected.Intent) ||
+	if !found || stored.Cleanup != nil || stored.RunID != claim.Run.ID || !stored.Intent.Same(expected.Intent) ||
 		stored.NamespaceUID != expected.NamespaceUID || string(stored.Request) != string(expected.Request) {
 		return run.ErrBenchmarkConflict
 	}
@@ -231,37 +264,4 @@ func (reconciler *BenchmarkReconciler) recoverJob(ctx context.Context, claim run
 		return false, run.ErrValidation
 	}
 	return true, reconciler.store.BindExecution(ctx, claim.Lease, execution)
-}
-
-func (reconciler *BenchmarkReconciler) cancelBenchmark(
-	ctx context.Context, claim run.Claim, plan BenchmarkPlan,
-	reservation run.BenchmarkReservation, held bool,
-	execution kubernetes.Execution, bound bool,
-) (worker.Result, error) {
-	if !bound && held && len(reservation.Request) != 0 {
-		found, err := reconciler.recoverJob(ctx, claim, plan, reservation)
-		if err != nil {
-			return worker.Result{}, err
-		}
-		if found {
-			var err error
-			execution, bound, err = reconciler.store.GetExecution(ctx, claim.Lease)
-			if err != nil {
-				return worker.Result{}, err
-			}
-		}
-	}
-	if bound {
-		current, err := reconciler.store.RenewClaim(ctx, claim.Lease, reconciler.config.LeaseTTL)
-		if err != nil {
-			return worker.Result{}, err
-		}
-		if current.Run.State != run.StateCancelling || current.Run.Revision != claim.Run.Revision {
-			return worker.Result{}, nil
-		}
-		if err := reconciler.controller.RequestJobStop(ctx, execution); err != nil {
-			return worker.Result{}, err
-		}
-	}
-	return worker.Result{RetryAfter: 5 * time.Second}, nil
 }

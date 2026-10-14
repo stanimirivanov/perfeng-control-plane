@@ -79,7 +79,54 @@ func (store *benchmarkStore) provisioningFence(revision int64) error {
 	if store.claim.Run.State != run.StateProvisioning {
 		return run.ErrTransition
 	}
+	if store.reservation.Cleanup != nil {
+		return run.ErrBenchmarkConflict
+	}
 	return nil
+}
+
+func (store *benchmarkStore) BeginBenchmarkCleanup(_ context.Context, _ run.Lease, revision int64, hash string, next run.Change) (run.BenchmarkReservation, error) {
+	store.events = append(store.events, "begin-cleanup")
+	if store.renewErr != nil {
+		return run.BenchmarkReservation{}, store.renewErr
+	}
+	if store.claim.Run.Revision != revision {
+		return run.BenchmarkReservation{}, run.ErrRevision
+	}
+	if !store.held || store.reservation.Intent.PlanSHA256 != hash {
+		return run.BenchmarkReservation{}, run.ErrBenchmarkConflict
+	}
+	if store.reservation.Cleanup == nil {
+		store.reservation.Cleanup = &run.BenchmarkCleanup{Next: next}
+	}
+	return store.reservation.Clone(), nil
+}
+func (store *benchmarkStore) BindBenchmarkCleanupNamespace(_ context.Context, _ run.Lease, _ int64, _, uid string) (run.BenchmarkReservation, error) {
+	if store.reservation.NamespaceUID != "" && store.reservation.NamespaceUID != uid {
+		return run.BenchmarkReservation{}, run.ErrBenchmarkConflict
+	}
+	store.reservation.NamespaceUID = uid
+	return store.reservation.Clone(), nil
+}
+func (store *benchmarkStore) RecordBenchmarkCleanupFence(context.Context, run.Lease, int64, string) (run.BenchmarkReservation, error) {
+	store.events = append(store.events, "record-fence")
+	return store.reservation.Clone(), nil
+}
+func (store *benchmarkStore) FinishBenchmarkCleanup(_ context.Context, _ run.Lease, revision int64, _ string, receipt []byte) (run.Run, error) {
+	store.events = append(store.events, "finish-cleanup")
+	if store.claim.Run.Revision != revision {
+		return run.Run{}, run.ErrRevision
+	}
+	if store.reservation.Cleanup == nil || !store.reservation.Cleanup.Ready {
+		return run.Run{}, run.ErrBenchmarkConflict
+	}
+	if store.claim.Run.State == run.StateCancelling {
+		store.reservation.Cleanup.Next = run.Change{State: run.StateAborted}
+	}
+	store.advanced = store.reservation.Cleanup.Next
+	store.reservation.Cleanup.ReleasedAt = time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC)
+	store.reservation.Cleanup.Receipt = slices.Clone(receipt)
+	return store.claim.Run, nil
 }
 
 type benchmarkResolver struct {
@@ -99,6 +146,27 @@ type benchmarkTarget struct {
 	afterNamespace func()
 	namespaceErr   error
 	resourcesErr   error
+	cleanupErr     error
+	clean          bool
+}
+
+func (target *benchmarkTarget) InspectCleanupNamespace(context.Context, run.BenchmarkReservation) (string, bool, error) {
+	target.store.events = append(target.store.events, "inspect-cleanup")
+	return "00000000-0000-4000-8000-000000000002", true, target.namespaceErr
+}
+func (target *benchmarkTarget) CloseBenchmarkTarget(ctx context.Context, _ run.BenchmarkReservation, fence kubernetes.BenchmarkFence) error {
+	if err := fence(ctx); err != nil {
+		return err
+	}
+	target.store.events = append(target.store.events, "close-quota")
+	return target.cleanupErr
+}
+func (target *benchmarkTarget) CleanupBenchmark(ctx context.Context, _ benchmark.Spec, _ run.BenchmarkReservation, _ *kubernetes.Execution, fence kubernetes.BenchmarkFence) (bool, []byte, error) {
+	if err := fence(ctx); err != nil {
+		return false, nil, err
+	}
+	target.store.events = append(target.store.events, "cleanup")
+	return target.clean, []byte(`{"verified":true}`), target.cleanupErr
 }
 
 func (target *benchmarkTarget) Qualify(context.Context, benchmark.Spec) ([]byte, error) {
@@ -130,7 +198,7 @@ func (target *benchmarkTarget) EnsureResources(ctx context.Context, _ benchmark.
 type benchmarkExecutionController struct{ store *benchmarkStore }
 
 func (*benchmarkExecutionController) ObserveJob(context.Context, kubernetes.Execution) (kubernetes.Observation, error) {
-	return kubernetes.Observation{}, nil
+	return kubernetes.Observation{Phase: kubernetes.JobRunning}, nil
 }
 func (controller *benchmarkExecutionController) RequestJobStop(context.Context, kubernetes.Execution) error {
 	controller.store.events = append(controller.store.events, "stop")

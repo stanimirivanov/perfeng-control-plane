@@ -79,7 +79,7 @@ func lockClaimCandidates(
 		LEFT JOIN perfeng_control.reconciliation_leases AS l
 			ON l.run_id = r.run_id
 		WHERE r.execution_target = 'KUBERNETES'
-		AND r.snapshot ->> 'state' IN (
+		AND (r.snapshot ->> 'state' IN (
 			'CREATED',
 			'VALIDATING',
 			'PROVISIONING',
@@ -89,7 +89,10 @@ func lockClaimCandidates(
 			'ANALYZING',
 			'REPORTING',
 			'CANCELLING'
-		)
+		) OR EXISTS (
+			SELECT 1 FROM perfeng_control.benchmark_target_reservations AS b
+			WHERE b.run_id = r.run_id AND b.released_at IS NULL
+		))
 		AND (
 			l.run_id IS NULL
 			OR (
@@ -268,9 +271,19 @@ func lockOwnedClaim(
 	}
 	if owner != lease.WorkerID ||
 		token != lease.Token ||
-		!now.Before(expiresAt) ||
-		contract.Terminal(string(current.State)) {
+		!now.Before(expiresAt) {
 		return run.Run{}, time.Time{}, run.ErrLeaseLost
+	}
+	if contract.Terminal(string(current.State)) {
+		var held bool
+		if err := tx.QueryRowContext(ctx, `SELECT EXISTS (
+			SELECT 1 FROM perfeng_control.benchmark_target_reservations WHERE run_id=$1 AND released_at IS NULL
+		)`, lease.RunID).Scan(&held); err != nil {
+			return run.Run{}, time.Time{}, storageError(err)
+		}
+		if !held {
+			return run.Run{}, time.Time{}, run.ErrLeaseLost
+		}
 	}
 
 	return current, now, nil

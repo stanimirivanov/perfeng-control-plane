@@ -89,6 +89,10 @@ func TestBenchmarkReservationPersistsSealedInputsAndFencesCancellation(t *testin
 	if err := restarted.db.QueryRow(`SELECT count(*) FROM perfeng_control.benchmark_target_reservations WHERE run_id=$1`, claim.Run.ID).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("terminal Run released hold: %d, %v", count, err)
 	}
+	recovery := oneClaim(t, restarted, "retained-terminal-recovery")
+	if recovery.Run.ID != claim.Run.ID {
+		t.Fatal("terminal hold was not eligible for cleanup")
+	}
 	other := benchmarkClaim(t, restarted, "bob", "benchmark-other-run")
 	if _, err := restarted.ReserveBenchmark(testContext, other.Lease, other.Run.Revision, benchmarkIntent(), []byte("admission")); !errors.Is(err, run.ErrTargetReserved) {
 		t.Fatalf("terminal target stolen: %v", err)
@@ -193,10 +197,18 @@ func TestBenchmarkReservationMigrationUpgrade(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	claim := benchmarkClaim(t, repository, "alice", "benchmark-upgrade")
+	seed := accepted(t, repository, "alice", "benchmark-upgrade")
+	for _, state := range []run.State{run.StateValidating, run.StateProvisioning} {
+		var err error
+		seed.Run, err = repository.Advance(testContext, "alice", seed.Run.ID, seed.Run.Revision, run.Change{State: state})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := repository.Migrate(testContext); err != nil {
 		t.Fatal(err)
 	}
+	claim := oneClaim(t, repository, "benchmark-upgrade-worker")
 	if _, err := repository.ReserveBenchmark(testContext, claim.Lease, claim.Run.Revision, benchmarkIntent(), []byte("admission")); err != nil {
 		t.Fatal(err)
 	}

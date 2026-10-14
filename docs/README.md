@@ -21,7 +21,7 @@
 | Dependencies, licenses, or vulnerability response | [Dependency policy](development/dependency-policy.md) | `make supply-chain` |
 | PostgreSQL schema, migrations, or durable state | [SQL migration policy](development/sql-migrations.md), [PostgreSQL guide](postgresql.md) | `make db-validate` |
 | Reconciliation or Kubernetes execution | [Reconciliation guide](reconciliation.md), [Kubernetes dispatch](kubernetes-dispatch.md) | `make kubernetes-validate` when the live API boundary changes |
-| Contained Kubernetes benchmarks | [Benchmark admission and reservations](kubernetes-benchmarks.md), [ADR-0006](decisions/0006-reserve-benchmark-targets-before-dispatch.md) | `make db-validate`, `make kubernetes-validate` |
+| Contained Kubernetes benchmarks | [Benchmark admission, reservations and cleanup](kubernetes-benchmarks.md), [ADR-0006](decisions/0006-reserve-benchmark-targets-before-dispatch.md), [ADR-0007](decisions/0007-fence-and-verify-benchmark-cleanup.md) | `make db-validate`, `make kubernetes-validate` |
 | Artifact storage or result validation | [Artifact storage](artifact-storage.md), the relevant raw/normalized/analysis validation guide | Focused adapter tests and `make verify` |
 | Registry or performance-policy behavior | [Registry guide](report-policy-registry.md), [policy validation](performance-policy-validation.md) | Registry and policy tests |
 | Baseline behavior or administration | [Baseline lifecycle](baseline-lifecycle.md), [baseline administration](baseline-administration.md) | Domain, HTTP, and PostgreSQL tests as applicable |

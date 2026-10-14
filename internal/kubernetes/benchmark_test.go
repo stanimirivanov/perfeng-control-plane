@@ -30,6 +30,7 @@ var benchmarkTestTime = time.Date(2026, 10, 14, 10, 0, 0, 123456000, time.UTC)
 func benchmarkFixture(t *testing.T) (*BenchmarkController, *fake.Clientset, benchmark.Spec, []byte) {
 	t.Helper()
 	objects := []runtime.Object{&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "kube-system", UID: "00000000-0000-4000-8000-000000000001"}}}
+	objects = append(objects, &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "kube-apiserver-perfeng-local-control-plane", Namespace: "kube-system", Labels: map[string]string{"component": "kube-apiserver"}}, Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "kube-apiserver", Command: []string{"kube-apiserver"}}}}})
 	nodes := make([]corev1.Node, 0, 3)
 	metrics := make([]map[string]any, 0, 3)
 	for index, name := range []string{"perfeng-local-control-plane", "perfeng-local-worker", "perfeng-local-worker2"} {
@@ -77,6 +78,7 @@ func benchmarkFixture(t *testing.T) (*BenchmarkController, *fake.Clientset, benc
 	client.PrependReactor("create", "*", func(action clienttesting.Action) (bool, runtime.Object, error) {
 		object := action.(clienttesting.CreateAction).GetObject().(metav1.Object)
 		object.SetUID("00000000-0000-4000-8000-000000000099")
+		object.SetResourceVersion("1")
 		return false, nil, nil
 	})
 	controller, err := NewBenchmarkController(client, func(context.Context) ([]byte, error) { return metricBytes, nil }, "perf-generators", func() time.Time { return benchmarkTestTime })

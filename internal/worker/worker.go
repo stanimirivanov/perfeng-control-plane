@@ -34,7 +34,8 @@ type Event struct {
 	Err       error
 }
 
-// Result controls when a nonterminal Run becomes eligible after one attempt.
+// Result controls when a Run becomes eligible after one attempt, including
+// cleanup-only recovery for terminal Runs with retained benchmark targets.
 type Result struct {
 	RetryAfter time.Duration
 }
