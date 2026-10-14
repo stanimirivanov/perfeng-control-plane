@@ -38,6 +38,7 @@ type reportPolicyBundleEntry struct {
 	ReportProducer     rawresult.Producer             `json:"reportProducer"`
 	ExecutionTemplate  string                         `json:"executionTemplate,omitempty"`
 	NativeBaseline     *nativeworker.BaselineTemplate `json:"nativeBaseline,omitempty"`
+	Benchmark          *benchmarkBundleConfig         `json:"benchmark,omitempty"`
 	Workload           rawresult.Identity             `json:"workload"`
 	Environment        baseline.Environment           `json:"environment"`
 	Dataset            baseline.Dataset               `json:"dataset"`
@@ -89,6 +90,10 @@ func loadReportPolicyEntry(
 	if err != nil {
 		return ReportPolicyEntry{}, err
 	}
+	benchmarkPlan, err := loadBenchmarkPlan(source, configured, template)
+	if err != nil {
+		return ReportPolicyEntry{}, err
+	}
 
 	return ReportPolicyEntry{
 		PolicyBytes: policyBytes, TestID: configured.TestID,
@@ -101,6 +106,7 @@ func loadReportPolicyEntry(
 		},
 		ReportProducer: configured.ReportProducer, ExecutionTemplate: template,
 		NativeBaseline: configured.NativeBaseline,
+		Benchmark:      benchmarkPlan,
 		Workload:       configured.Workload, Environment: configured.Environment,
 		Dataset: configured.Dataset, CandidateImages: configured.CandidateImages,
 		Principals: configured.Principals,

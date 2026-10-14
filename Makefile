@@ -130,7 +130,7 @@ db-validate:
 
 kubernetes-validate:
 	$(if $(PERFENG_TEST_KUBECONFIG),,$(error PERFENG_TEST_KUBECONFIG must name the loopback kind-perfeng-test cluster kubeconfig))
-	go test -vet=off -race -count=1 -timeout=3m -run TestDispatcherAgainstAPIServer -v ./internal/kubernetes
+	go test -vet=off -race -count=1 -timeout=3m -run "Test(Dispatcher|Benchmark)AgainstAPIServer" -v ./internal/kubernetes
 
 image:
 	docker build --platform linux/amd64 --build-arg VCS_REF=$(VCS_REF) -t $(IMAGE) .

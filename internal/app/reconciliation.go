@@ -107,7 +107,25 @@ func NewReconciliationWorker(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
-	runtime, err := worker.New(dependencies.Store, router, report, workerConfig)
+	var lifecycle worker.Reconciler = router
+	if resolver, available := dependencies.Jobs.(reconcile.BenchmarkResolver); available {
+		store, capable := dependencies.Store.(reconcile.BenchmarkStore)
+		if resolver.HasBenchmarks() && (!capable || dependencies.Controllers.Benchmark == nil) {
+			return nil, ErrInvalidConfiguration
+		}
+		if capable {
+			var target reconcile.BenchmarkTarget
+			if dependencies.Controllers.Benchmark != nil {
+				target = dependencies.Controllers.Benchmark
+			}
+			lifecycle, err = reconcile.NewBenchmarkReconciler(store, resolver, target,
+				dependencies.Controllers.Execution, dependencies.Controllers.Execution, bound, router, reconciliationConfig.Provisioning)
+			if err != nil {
+				return nil, ErrInvalidConfiguration
+			}
+		}
+	}
+	runtime, err := worker.New(dependencies.Store, lifecycle, report, workerConfig)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}

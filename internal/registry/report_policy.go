@@ -31,6 +31,7 @@ type ReportPolicyEntry struct {
 	Normalization      reconcile.NormalizationSpec
 	ReportProducer     rawresult.Producer
 	ExecutionTemplate  *batchv1.Job
+	Benchmark          *reconcile.BenchmarkPlan
 	NativeBaseline     *nativeworker.BaselineTemplate
 	Workload           rawresult.Identity
 	Environment        baseline.Environment
@@ -63,6 +64,7 @@ type reportPolicyValue struct {
 	normalization      reconcile.NormalizationSpec
 	reportProducer     rawresult.Producer
 	executionTemplate  *batchv1.Job
+	benchmark          *reconcile.BenchmarkPlan
 	executionTarget    run.ExecutionTarget
 	nativeBaseline     *nativeworker.BaselineTemplate
 	workload           rawresult.Identity
@@ -114,6 +116,9 @@ func (registry *ReportPolicyRegistry) ValidateContractsVersion(version string) e
 func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 	executionTarget, validExecution := classifyExecution(entry.RawProducer, entry.ExecutionTemplate)
 	validBaseline := validNativeBaseline(executionTarget, entry)
+	if !validBenchmarkEntry(entry) {
+		return run.ErrValidation
+	}
 	document, err := policy.Parse(entry.PolicyBytes)
 	if err != nil || !rawresult.ValidResourceID(entry.TestID) ||
 		!rawresult.ValidContractsVersion(entry.ContractsVersion) ||
@@ -183,6 +188,7 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 			normalization:      entry.Normalization,
 			reportProducer:     entry.ReportProducer.Clone(),
 			executionTemplate:  cloneJob(entry.ExecutionTemplate),
+			benchmark:          cloneBenchmark(entry.Benchmark),
 			executionTarget:    executionTarget,
 			nativeBaseline:     cloneNativeBaseline(entry.NativeBaseline),
 			workload:           entry.Workload,
@@ -287,6 +293,9 @@ func (registry *ReportPolicyRegistry) ResolveJob(
 		return nil, run.ErrForbidden
 	}
 	if _, approved := entry.candidates[current.Request.Candidate.Image]; !approved {
+		return nil, run.ErrForbidden
+	}
+	if entry.benchmark != nil && current.State != run.StateValidating {
 		return nil, run.ErrForbidden
 	}
 
