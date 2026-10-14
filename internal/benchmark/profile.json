@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "kind": "KubernetesBenchmarkProfile",
+  "metadata": {"id": "local-kind-integration", "version": "1.0.0"},
+  "purpose": "integration",
+  "spec": {
+    "clusterName": "perfeng-local",
+    "kubernetesVersion": "v1.35.0",
+    "nodes": {
+      "perfeng-local-control-plane": "control-plane",
+      "perfeng-local-worker": "performance-generator",
+      "perfeng-local-worker2": "sut"
+    },
+    "architecture": "amd64",
+    "minimumAllocatableCpuMilliCores": 500,
+    "minimumAllocatableMemoryBytes": 1073741824,
+    "maximumCpuUsageRatio": 0.75,
+    "maximumMemoryUsageRatio": 0.85,
+    "maximumMetricAgeSeconds": 120,
+    "maximumMetricWindowSeconds": 60,
+    "allowedActiveNamespaces": ["kube-system", "local-path-storage", "argocd", "perf-platform", "perf-sut", "monitoring"]
+  }
+}

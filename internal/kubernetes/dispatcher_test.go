@@ -296,6 +296,83 @@ func TestEnsureJobAcceptsAPIServerDefaults(t *testing.T) {
 	}
 }
 
+func TestDispatcherAcceptsServiceAccountAlias(t *testing.T) {
+	client := &memoryJobs{mutateStored: func(job *batchv1.Job) {
+		addAPIServerDefaults(job)
+		pod := &job.Spec.Template.Spec
+		pod.DeprecatedServiceAccount = pod.ServiceAccountName
+	}}
+	dispatcher := newTestDispatcher(t, client)
+	template := jobTemplate()
+	template.Spec.Template.Spec.ServiceAccountName = "benchmark-executor"
+	ctx := context.Background()
+
+	created, err := dispatcher.EnsureJob(ctx, testRunID, template)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adopted, err := dispatcher.EnsureJob(ctx, testRunID, template)
+	if err != nil || adopted.Created || adopted.Execution() != created.Execution() {
+		t.Fatalf("Job with API service-account alias was not adopted: %v", err)
+	}
+	found, exists, err := dispatcher.FindJob(ctx, testRunID, template)
+	if err != nil || !exists || found.Execution() != created.Execution() {
+		t.Fatalf("Job with API service-account alias was not recovered: %v", err)
+	}
+	if _, err := dispatcher.ObserveJob(ctx, created.Execution()); err != nil {
+		t.Fatal(err)
+	}
+	if err := dispatcher.RequestJobStop(ctx, created.Execution()); err != nil {
+		t.Fatal(err)
+	}
+	if template.Spec.Template.Spec.DeprecatedServiceAccount != "" {
+		t.Fatal("normalization mutated the caller's template")
+	}
+}
+
+func TestServiceAccountChangesRemainConflicts(t *testing.T) {
+	for name, mutate := range map[string]func(*corev1.PodSpec){
+		"different alias":   func(pod *corev1.PodSpec) { pod.DeprecatedServiceAccount = "foreign" },
+		"different account": func(pod *corev1.PodSpec) { pod.ServiceAccountName = "foreign" },
+		"different account and alias": func(pod *corev1.PodSpec) {
+			pod.ServiceAccountName = "foreign"
+			pod.DeprecatedServiceAccount = "foreign"
+		},
+		"alias without account": func(pod *corev1.PodSpec) {
+			pod.ServiceAccountName = ""
+			pod.DeprecatedServiceAccount = "benchmark-executor"
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := &memoryJobs{}
+			dispatcher := newTestDispatcher(t, client)
+			template := jobTemplate()
+			template.Spec.Template.Spec.ServiceAccountName = "benchmark-executor"
+			ctx := context.Background()
+			created, err := dispatcher.EnsureJob(ctx, testRunID, template)
+			if err != nil {
+				t.Fatal(err)
+			}
+			mutate(&client.job.Spec.Template.Spec)
+			if _, err := dispatcher.EnsureJob(ctx, testRunID, template); !errors.Is(err, ErrJobConflict) {
+				t.Fatalf("changed service account was adopted: %v", err)
+			}
+			if _, _, err := dispatcher.FindJob(ctx, testRunID, template); !errors.Is(err, ErrJobConflict) {
+				t.Fatalf("changed service account was recovered: %v", err)
+			}
+			if _, err := dispatcher.ObserveJob(ctx, created.Execution()); !errors.Is(err, ErrJobConflict) {
+				t.Fatalf("changed service account was observed: %v", err)
+			}
+			if err := dispatcher.RequestJobStop(ctx, created.Execution()); !errors.Is(err, ErrJobConflict) {
+				t.Fatalf("changed service account was deleted: %v", err)
+			}
+			if client.deletes != 0 {
+				t.Fatal("conflicting Job was deleted")
+			}
+		})
+	}
+}
+
 func TestNormalizationKeepsExplicitReplacementPolicy(t *testing.T) {
 	desired := jobTemplate()
 	policy := batchv1.Failed

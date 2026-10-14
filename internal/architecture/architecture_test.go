@@ -30,6 +30,7 @@ const (
 var packageLayers = map[string]layer{
 	modulePath + "/internal/analysisresult":   coreLayer,
 	modulePath + "/internal/baseline":         coreLayer,
+	modulePath + "/internal/benchmark":        coreLayer,
 	modulePath + "/internal/contract":         coreLayer,
 	modulePath + "/internal/jsondocument":     coreLayer,
 	modulePath + "/internal/nativeworker":     coreLayer,

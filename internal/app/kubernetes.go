@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"io"
 
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -9,12 +10,15 @@ import (
 	platformkubernetes "github.com/stanimirivanov/perfeng-control-plane/internal/kubernetes"
 )
 
-// KubernetesClients contains only the namespaced operations required by
-// execution dispatch, observation, cancellation and termination verification.
+// KubernetesClients groups namespaced ordinary execution clients with the
+// explicit cluster/RBAC capability needed only by admitted benchmarks. Client
+// construction does not grant permissions or perform cluster I/O.
 type KubernetesClients struct {
-	Namespace string
-	Jobs      platformkubernetes.Jobs
-	Pods      platformkubernetes.Pods
+	Namespace        string
+	Jobs             platformkubernetes.Jobs
+	Pods             platformkubernetes.Pods
+	BenchmarkClient  clientset.Interface
+	BenchmarkMetrics platformkubernetes.BenchmarkMetrics
 }
 
 type loadKubernetesRESTConfig func() (*rest.Config, error)
@@ -71,8 +75,21 @@ func newKubernetesClients(
 	}
 
 	return KubernetesClients{
-		Namespace: config.Namespace,
-		Jobs:      clients.BatchV1().Jobs(config.Namespace),
-		Pods:      clients.CoreV1().Pods(config.Namespace),
+		Namespace:       config.Namespace,
+		Jobs:            clients.BatchV1().Jobs(config.Namespace),
+		Pods:            clients.CoreV1().Pods(config.Namespace),
+		BenchmarkClient: clients,
+		BenchmarkMetrics: func(ctx context.Context) ([]byte, error) {
+			stream, err := clients.Discovery().RESTClient().Get().AbsPath("/apis/metrics.k8s.io/v1beta1/nodes").Stream(ctx)
+			if err != nil {
+				return nil, err
+			}
+			defer stream.Close()
+			data, err := io.ReadAll(io.LimitReader(stream, (1<<20)+1))
+			if err != nil || len(data) > 1<<20 {
+				return nil, ErrDependencyInitialization
+			}
+			return data, nil
+		},
 	}, nil
 }

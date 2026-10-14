@@ -1,6 +1,10 @@
 package app
 
-import platformkubernetes "github.com/stanimirivanov/perfeng-control-plane/internal/kubernetes"
+import (
+	"time"
+
+	platformkubernetes "github.com/stanimirivanov/perfeng-control-plane/internal/kubernetes"
+)
 
 // KubernetesControllers contains the Kubernetes adapters used across execution,
 // cancellation, normalization and reporting reconciliation.
@@ -9,6 +13,7 @@ type KubernetesControllers struct {
 	Termination *platformkubernetes.StopVerifier
 	Analysis    *platformkubernetes.AnalysisDispatcher
 	Reporting   *platformkubernetes.ReportingDispatcher
+	Benchmark   *platformkubernetes.BenchmarkController
 }
 
 // NewKubernetesControllers binds every controller to the clients' namespace.
@@ -31,10 +36,18 @@ func NewKubernetesControllers(clients KubernetesClients) (KubernetesControllers,
 		return KubernetesControllers{}, ErrInvalidConfiguration
 	}
 
+	var benchmark *platformkubernetes.BenchmarkController
+	if clients.Namespace == "perf-generators" && (clients.BenchmarkClient != nil || clients.BenchmarkMetrics != nil) {
+		benchmark, err = platformkubernetes.NewBenchmarkController(clients.BenchmarkClient, clients.BenchmarkMetrics, clients.Namespace, time.Now)
+		if err != nil {
+			return KubernetesControllers{}, ErrInvalidConfiguration
+		}
+	}
 	return KubernetesControllers{
 		Execution:   execution,
 		Termination: termination,
 		Analysis:    analysis,
 		Reporting:   reporting,
+		Benchmark:   benchmark,
 	}, nil
 }
