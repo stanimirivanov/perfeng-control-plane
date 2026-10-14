@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
@@ -64,6 +65,9 @@ func (r *Repository) ReserveBenchmark(
 		return run.BenchmarkReservation{}, run.ErrTargetReserved
 	}
 	if !stored.Intent.Same(intent) {
+		return run.BenchmarkReservation{}, run.ErrBenchmarkConflict
+	}
+	if stored.Cleanup != nil {
 		return run.BenchmarkReservation{}, run.ErrBenchmarkConflict
 	}
 
@@ -154,7 +158,7 @@ func (r *Repository) materializeBenchmark(
 	if err != nil {
 		return run.BenchmarkReservation{}, err
 	}
-	if !found || stored.Intent.PlanSHA256 != planSHA256 {
+	if !found || stored.Intent.PlanSHA256 != planSHA256 || stored.Cleanup != nil {
 		return run.BenchmarkReservation{}, run.ErrBenchmarkConflict
 	}
 
@@ -205,10 +209,16 @@ func benchmarkProvisioning(current run.Run, revision int64) error {
 func readBenchmarkReservation(ctx context.Context, tx *sql.Tx, runID string) (run.BenchmarkReservation, bool, error) {
 	var stored run.BenchmarkReservation
 	var uid sql.NullString
+	var started, fenced, deadline, released sql.NullTime
+	var next, receipt []byte
+	var ready bool
 	err := tx.QueryRowContext(ctx, `
-		SELECT run_id, target_id, cluster_uid::text, plan, plan_sha256, admission, namespace_uid::text, request
+		SELECT run_id, target_id, cluster_uid::text, plan, plan_sha256, admission, namespace_uid::text, request,
+		    cleanup_started_at, cleanup_fenced_at, cleanup_not_before, cleanup_change, cleanup_receipt, released_at,
+		    cleanup_fenced_at IS NOT NULL AND COALESCE(clock_timestamp() >= cleanup_not_before, false)
 		FROM perfeng_control.benchmark_target_reservations WHERE run_id = $1
-	`, runID).Scan(&stored.RunID, &stored.Intent.TargetID, &stored.Intent.ClusterUID, &stored.Intent.Plan, &stored.Intent.PlanSHA256, &stored.Admission, &uid, &stored.Request)
+	`, runID).Scan(&stored.RunID, &stored.Intent.TargetID, &stored.Intent.ClusterUID, &stored.Intent.Plan, &stored.Intent.PlanSHA256, &stored.Admission, &uid, &stored.Request,
+		&started, &fenced, &deadline, &next, &receipt, &released, &ready)
 	if errors.Is(err, sql.ErrNoRows) {
 		return run.BenchmarkReservation{}, false, nil
 	}
@@ -216,6 +226,13 @@ func readBenchmarkReservation(ctx context.Context, tx *sql.Tx, runID string) (ru
 		return run.BenchmarkReservation{}, false, storageError(err)
 	}
 	stored.NamespaceUID = uid.String
+	if started.Valid {
+		cleanup := &run.BenchmarkCleanup{StartedAt: started.Time, FencedAt: fenced.Time, NotBefore: deadline.Time, Ready: ready, Receipt: receipt, ReleasedAt: released.Time}
+		if !deadline.Valid || json.Unmarshal(next, &cleanup.Next) != nil || cleanup.Next.State == "" {
+			return run.BenchmarkReservation{}, false, errors.New("invalid stored benchmark cleanup")
+		}
+		stored.Cleanup = cleanup
+	}
 	if !stored.Intent.Valid() || len(stored.Admission) == 0 || (uid.Valid && !run.ValidBenchmarkUID(uid.String)) {
 		return run.BenchmarkReservation{}, false, errors.New("invalid stored benchmark reservation")
 	}

@@ -447,7 +447,11 @@ requests and a durable stop-intent/admission strategy; the platform does not cla
 exactly-once execution.
 
 The reconciler intentionally rejects a missing execution binding. The provisioning
-stage resolves unbound cancellation before delegating here.
+stage resolves unbound cancellation before delegating here. Contained benchmarks
+use the outer `BenchmarkReconciler` instead: it seals dispatch and gates target
+release on the independent workload's verified cleanup. Normal completion first
+preserves raw collection, then cleanup gates analysis. See the
+[benchmark lifecycle guide](kubernetes-benchmarks.md#owned-cleanup-and-restart-recovery).
 
 ## Ownership and concurrency
 
@@ -510,9 +514,11 @@ VALIDATING become ABORTED immediately because dispatch has not started. A worker
 holding their older revision loses its lease authority against the terminal Run.
 From PROVISIONING onward, cancellation enters CANCELLING; RenewClaim returns that
 latest snapshot so the worker can react to it. CANCELLING bypasses
-release/backoff delays but does not steal a still-live lease. Terminal runs are
-never discovered, and a terminal AdvanceClaim expires the lease in the same
-transaction.
+release/backoff delays but does not steal a still-live lease. A terminal
+AdvanceClaim expires the lease in the same transaction. Terminal Runs are
+normally ineligible; the only exception is a retained, unreleased benchmark
+reservation. A fresh lease authorizes cleanup-only recovery, never reopening
+the public lifecycle. Release removes that discovery exception atomically.
 
 Claim, renewal and release change only coordination metadata, not Run revisions
 or the original idempotent acceptance response. Existing records need no queue
@@ -533,7 +539,8 @@ was rolled back. An unacknowledged new lease eventually expires.
 
 Input validation returns ErrValidation before storage access. After a Run is
 locked, missing Run/lease rows, owner or token mismatch, expiry, and terminal
-state are intentionally reported as the same ErrLeaseLost value. This prevents
+state without an unreleased benchmark hold are intentionally reported as the
+same ErrLeaseLost value. This prevents
 the privileged interface from exposing whether another principal or worker owns
 the Run. AdvanceClaim verifies ownership before revision/transition validation.
 
@@ -571,6 +578,13 @@ Migration `0002_reconciliation_leases.sql` adds the lease table and migration
 are unchanged. Grant the trusted worker only the operations listed in
 [PostgreSQL operations](postgresql.md). No credentials, PUBLIC grants or
 destructive cleanup are applied automatically.
+
+Benchmark dispatch/recovery also requires migrations 0017 and 0018, including
+when no benchmark entries are configured. The latter persists cleanup cutoff,
+confirmed quota fence, database-time drain and verified release; it retains old
+terminal holds for fresh-lease cleanup without modifying their public snapshots.
+Stop pre-cleanup workers during rollout and follow the lock/rollback constraints
+in the [benchmark migration guide](kubernetes-benchmarks.md#migration-rollback-and-verification).
 
 The existing PostgreSQL CI job runs the tests automatically. Locally, with a
 disposable loopback PostgreSQL and PERFENG_TEST_DATABASE_URL configured:

@@ -31,8 +31,8 @@ coordination, not load generation or statistical decisions.
 - Durable worker claims, lease renewal/recovery and fenced lifecycle updates.
 - Duplicate-safe Kubernetes Job creation and adoption boundary.
 - [Contained kube-burner dispatch](docs/kubernetes-benchmarks.md) with fresh
-  integration admission, durable target reservations and sealed per-Run inputs
-  (runtime promotion and scoped cleanup remain separate M04 work).
+  integration admission, durable target reservations, sealed per-Run inputs and
+  owned workload cleanup/restart recovery (runtime promotion remains M04 work).
 - Identity-checked Kubernetes Job observation and cancellation requests.
 - Lease-fenced, restart-safe persistence of Kubernetes execution identity.
 - Bounded reconciliation attempts with lease renewal and cooperative shutdown.

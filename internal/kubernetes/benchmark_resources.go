@@ -28,7 +28,7 @@ type BenchmarkFence func(context.Context) error
 // EnsureNamespace creates or adopts only the exact Run-owned namespace after a
 // durable reservation exists. It never substitutes a new incarnation for a bound UID.
 func (controller *BenchmarkController) EnsureNamespace(ctx context.Context, reservation run.BenchmarkReservation, fence BenchmarkFence) (string, error) {
-	if !contract.ValidID(reservation.RunID) || !reservation.Intent.Valid() || fence == nil || len(benchmark.Namespace(reservation.RunID)) > 63 {
+	if !contract.ValidID(reservation.RunID) || !reservation.Intent.Valid() || reservation.Cleanup != nil || fence == nil || len(benchmark.Namespace(reservation.RunID)) > 63 {
 		return "", run.ErrValidation
 	}
 	if reservation.NamespaceUID != "" {
@@ -81,7 +81,7 @@ func (controller *BenchmarkController) CheckNamespace(ctx context.Context, reser
 // Existing objects are compared, never patched, deleted or replaced.
 func (controller *BenchmarkController) EnsureResources(ctx context.Context, spec benchmark.Spec, reservation run.BenchmarkReservation, fence BenchmarkFence) error {
 	expected, err := benchmark.RequestBytes(spec, reservation.RunID, reservation.NamespaceUID)
-	if err != nil || string(expected) != string(reservation.Request) || fence == nil ||
+	if err != nil || reservation.Cleanup != nil || string(expected) != string(reservation.Request) || fence == nil ||
 		spec.ClusterID != reservation.Intent.TargetID || spec.ClusterUID != reservation.Intent.ClusterUID {
 		return run.ErrBenchmarkConflict
 	}
@@ -103,6 +103,58 @@ func (controller *BenchmarkController) EnsureResources(ctx context.Context, spec
 	if len(pods.Items) != 0 || pods.Continue != "" {
 		return run.ErrBenchmarkConflict
 	}
+	objects := benchmarkTemplates(controller.namespace, spec, reservation)
+	target := benchmark.Namespace(reservation.RunID)
+	quota, sa, role, clusterRole := objects.quota, objects.account, objects.role, objects.clusterRole
+	binding, clusterBinding, inputs := objects.binding, objects.clusterBinding, objects.inputs
+
+	if _, err := ensureBenchmarkObject(ctx, controller.client.CoreV1().ResourceQuotas(target), quota, guard, func(actual *corev1.ResourceQuota) bool {
+		return benchmarkMetadataMatches(quota, actual) && apiequality.Semantic.DeepEqual(quota.Spec, actual.Spec)
+	}); err != nil {
+		return err
+	}
+	if _, err := ensureBenchmarkObject(ctx, controller.client.CoreV1().ServiceAccounts(controller.namespace), sa, guard, func(actual *corev1.ServiceAccount) bool {
+		return benchmarkMetadataMatches(sa, actual) && actual.AutomountServiceAccountToken != nil && !*actual.AutomountServiceAccountToken && len(actual.Secrets) == 0 && len(actual.ImagePullSecrets) == 0
+	}); err != nil {
+		return err
+	}
+	if _, err := ensureBenchmarkObject(ctx, controller.client.RbacV1().Roles(target), role, guard, func(actual *rbacv1.Role) bool {
+		return benchmarkMetadataMatches(role, actual) && reflect.DeepEqual(role.Rules, actual.Rules)
+	}); err != nil {
+		return err
+	}
+	if _, err := ensureBenchmarkObject(ctx, controller.client.RbacV1().ClusterRoles(), clusterRole, guard, func(actual *rbacv1.ClusterRole) bool {
+		return benchmarkMetadataMatches(clusterRole, actual) && actual.AggregationRule == nil && reflect.DeepEqual(clusterRole.Rules, actual.Rules)
+	}); err != nil {
+		return err
+	}
+	if _, err := ensureBenchmarkObject(ctx, controller.client.RbacV1().RoleBindings(target), binding, guard, func(actual *rbacv1.RoleBinding) bool {
+		return benchmarkMetadataMatches(binding, actual) && reflect.DeepEqual(binding.Subjects, actual.Subjects) && binding.RoleRef == actual.RoleRef
+	}); err != nil {
+		return err
+	}
+	if _, err := ensureBenchmarkObject(ctx, controller.client.RbacV1().ClusterRoleBindings(), clusterBinding, guard, func(actual *rbacv1.ClusterRoleBinding) bool {
+		return benchmarkMetadataMatches(clusterBinding, actual) && reflect.DeepEqual(clusterBinding.Subjects, actual.Subjects) && clusterBinding.RoleRef == actual.RoleRef
+	}); err != nil {
+		return err
+	}
+	_, err = ensureBenchmarkObject(ctx, controller.client.CoreV1().ConfigMaps(controller.namespace), inputs, guard, func(actual *corev1.ConfigMap) bool {
+		return benchmarkMetadataMatches(inputs, actual) && actual.Immutable != nil && *actual.Immutable && reflect.DeepEqual(inputs.Data, actual.Data) && len(actual.BinaryData) == 0
+	})
+	return err
+}
+
+type benchmarkResourceSet struct {
+	quota          *corev1.ResourceQuota
+	account        *corev1.ServiceAccount
+	role           *rbacv1.Role
+	clusterRole    *rbacv1.ClusterRole
+	binding        *rbacv1.RoleBinding
+	clusterBinding *rbacv1.ClusterRoleBinding
+	inputs         *corev1.ConfigMap
+}
+
+func benchmarkTemplates(executorNamespace string, spec benchmark.Spec, reservation run.BenchmarkReservation) benchmarkResourceSet {
 	name := benchmark.ResourceName(reservation.RunID)
 	target := benchmark.Namespace(reservation.RunID)
 	meta := func(namespace string) metav1.ObjectMeta { return benchmarkMetadata(name, namespace, reservation) }
@@ -110,26 +162,11 @@ func (controller *BenchmarkController) EnsureResources(ctx context.Context, spec
 		corev1.ResourcePods: resource.MustParse("10"), corev1.ResourceLimitsCPU: resource.MustParse("100m"),
 		corev1.ResourceLimitsMemory: resource.MustParse("160Mi"), corev1.ResourceLimitsEphemeralStorage: resource.MustParse("10Mi"),
 	}}}
-	if _, err := ensureBenchmarkObject(ctx, controller.client.CoreV1().ResourceQuotas(target), quota, guard, func(actual *corev1.ResourceQuota) bool {
-		return benchmarkMetadataMatches(quota, actual) && apiequality.Semantic.DeepEqual(quota.Spec, actual.Spec)
-	}); err != nil {
-		return err
-	}
-	sa := &corev1.ServiceAccount{ObjectMeta: meta(controller.namespace), AutomountServiceAccountToken: ptr.To(false)}
-	if _, err := ensureBenchmarkObject(ctx, controller.client.CoreV1().ServiceAccounts(controller.namespace), sa, guard, func(actual *corev1.ServiceAccount) bool {
-		return benchmarkMetadataMatches(sa, actual) && actual.AutomountServiceAccountToken != nil && !*actual.AutomountServiceAccountToken && len(actual.Secrets) == 0 && len(actual.ImagePullSecrets) == 0
-	}); err != nil {
-		return err
-	}
+	sa := &corev1.ServiceAccount{ObjectMeta: meta(executorNamespace), AutomountServiceAccountToken: ptr.To(false)}
 	role := &rbacv1.Role{ObjectMeta: meta(target), Rules: []rbacv1.PolicyRule{
 		{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"create"}},
 		{APIGroups: []string{""}, Resources: []string{"resourcequotas"}, ResourceNames: []string{"benchmark-budget"}, Verbs: []string{"get"}},
 	}}
-	if _, err := ensureBenchmarkObject(ctx, controller.client.RbacV1().Roles(target), role, guard, func(actual *rbacv1.Role) bool {
-		return benchmarkMetadataMatches(role, actual) && reflect.DeepEqual(role.Rules, actual.Rules)
-	}); err != nil {
-		return err
-	}
 	clusterRole := &rbacv1.ClusterRole{ObjectMeta: meta(""), Rules: []rbacv1.PolicyRule{
 		{APIGroups: []string{""}, Resources: []string{"pods", "events"}, Verbs: []string{"get", "list", "watch"}},
 		{APIGroups: []string{""}, Resources: []string{"nodes"}, Verbs: []string{"get", "list"}},
@@ -137,31 +174,13 @@ func (controller *BenchmarkController) EnsureResources(ctx context.Context, spec
 		{APIGroups: []string{""}, Resources: []string{"namespaces"}, ResourceNames: []string{"kube-system", target}, Verbs: []string{"get"}},
 		{NonResourceURLs: []string{"/api", "/api/*", "/apis", "/apis/*", "/version"}, Verbs: []string{"get"}},
 	}}
-	if _, err := ensureBenchmarkObject(ctx, controller.client.RbacV1().ClusterRoles(), clusterRole, guard, func(actual *rbacv1.ClusterRole) bool {
-		return benchmarkMetadataMatches(clusterRole, actual) && actual.AggregationRule == nil && reflect.DeepEqual(clusterRole.Rules, actual.Rules)
-	}); err != nil {
-		return err
-	}
-	subjects := []rbacv1.Subject{{Kind: "ServiceAccount", Name: name, Namespace: controller.namespace}}
+	subjects := []rbacv1.Subject{{Kind: "ServiceAccount", Name: name, Namespace: executorNamespace}}
 	binding := &rbacv1.RoleBinding{ObjectMeta: meta(target), Subjects: subjects, RoleRef: rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "Role", Name: name}}
-	if _, err := ensureBenchmarkObject(ctx, controller.client.RbacV1().RoleBindings(target), binding, guard, func(actual *rbacv1.RoleBinding) bool {
-		return benchmarkMetadataMatches(binding, actual) && reflect.DeepEqual(binding.Subjects, actual.Subjects) && binding.RoleRef == actual.RoleRef
-	}); err != nil {
-		return err
-	}
 	clusterBinding := &rbacv1.ClusterRoleBinding{ObjectMeta: meta(""), Subjects: subjects, RoleRef: rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "ClusterRole", Name: name}}
-	if _, err := ensureBenchmarkObject(ctx, controller.client.RbacV1().ClusterRoleBindings(), clusterBinding, guard, func(actual *rbacv1.ClusterRoleBinding) bool {
-		return benchmarkMetadataMatches(clusterBinding, actual) && reflect.DeepEqual(clusterBinding.Subjects, actual.Subjects) && clusterBinding.RoleRef == actual.RoleRef
-	}); err != nil {
-		return err
-	}
-	inputs := &corev1.ConfigMap{ObjectMeta: meta(controller.namespace), Immutable: ptr.To(true), Data: map[string]string{
+	inputs := &corev1.ConfigMap{ObjectMeta: meta(executorNamespace), Immutable: ptr.To(true), Data: map[string]string{
 		"request.json": string(reservation.Request), "environment.json": string(spec.EnvironmentBytes),
 	}}
-	_, err = ensureBenchmarkObject(ctx, controller.client.CoreV1().ConfigMaps(controller.namespace), inputs, guard, func(actual *corev1.ConfigMap) bool {
-		return benchmarkMetadataMatches(inputs, actual) && actual.Immutable != nil && *actual.Immutable && reflect.DeepEqual(inputs.Data, actual.Data) && len(actual.BinaryData) == 0
-	})
-	return err
+	return benchmarkResourceSet{quota, sa, role, clusterRole, binding, clusterBinding, inputs}
 }
 
 type benchmarkObject interface {
