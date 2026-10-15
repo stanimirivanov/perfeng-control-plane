@@ -214,7 +214,7 @@ func benchmarkPlanFixture(t *testing.T) BenchmarkPlan {
 		Workload:       rawresult.Identity{ID: "pod-startup-contained", Version: "1.0.0", SHA256: benchmark.WorkloadSHA256},
 		TemplateSHA256: benchmark.TemplateSHA256, RunnerImage: "ghcr.io/stanimirivanov/perfeng-kube-burner@sha256:" + strings.Repeat("a", 64), Bucket: "perfeng-artifacts",
 	}
-	plan := BenchmarkPlan{Selection: spec, Template: kubernetes.BenchmarkJobTemplate(spec.RunnerImage, "registry", "storage", "http://seaweedfs-s3.perf-platform.svc.cluster.local:8333")}
+	plan := BenchmarkPlan{Selection: spec, Template: kubernetes.BenchmarkJobTemplate(spec.RunnerImage, "registry", "storage", "http://seaweedfs.perf-platform.svc.cluster.local:8333")}
 	if err := plan.Validate(); err != nil {
 		t.Fatal(err)
 	}

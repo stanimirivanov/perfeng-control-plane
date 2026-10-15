@@ -28,7 +28,7 @@ func benchmarkPolicyFixture(t *testing.T) (ReportPolicyEntry, run.Run) {
 	image := "ghcr.io/stanimirivanov/perfeng-kube-burner@sha256:" + strings.Repeat("a", 64)
 	entry.RawProducer = rawresult.Producer{Name: "kube-burner", Version: "2.8.5", Artifact: &rawresult.ExecutionArtifact{Kind: "oci-image", Image: image}}
 	entry.Normalization = reconcile.NormalizationSpec{SourceFormat: reconcile.KubeBurnerPodLatencyFormat}
-	entry.ExecutionTemplate = kubernetes.BenchmarkJobTemplate(image, "registry", "storage", "http://seaweedfs-s3.perf-platform.svc.cluster.local:8333")
+	entry.ExecutionTemplate = kubernetes.BenchmarkJobTemplate(image, "registry", "storage", "http://seaweedfs.perf-platform.svc.cluster.local:8333")
 	entry.Benchmark = &reconcile.BenchmarkPlan{Selection: benchmark.Spec{
 		ClusterID: "perfeng-local", ClusterUID: "00000000-0000-4000-8000-000000000001", Environment: entry.Environment, EnvironmentBytes: descriptor,
 		Workload: entry.Workload, TemplateSHA256: benchmark.TemplateSHA256, RunnerImage: image, Bucket: "perfeng-artifacts",
