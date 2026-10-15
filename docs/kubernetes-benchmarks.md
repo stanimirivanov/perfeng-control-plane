@@ -69,6 +69,18 @@ S3 credentials. Inputs are immutable ConfigMap files mounted with `subPath`.
 Do not commit tokens, credential values or pretend a synthetic test digest is a
 published runtime selection.
 
+The local endpoint is exactly `http://seaweedfs.perf-platform.svc.cluster.local:8333`.
+The existing restricted uploader Secret in `perf-generators` (locally
+`perfeng-s3-uploader-auth`) supplies `access-key` and `secret-key`, mapped only
+into the publisher's `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. Templates
+using the former `seaweedfs-s3` HTTP alias or `access-key-id`/`secret-access-key`
+keys are rejected, not repaired. No Service alias, copied credentials or Secret
+rotation is required. Promote a compatible, newly published contained runner
+image together with the corrected template in a new immutable bundle; changing
+source alone does not fix an older image. This correction changes neither
+reservation/cleanup semantics nor historical bundle bytes. Persisted Run plans
+remain immutable and are not rewritten by registry or template updates.
+
 ## Admission and dispatch sequence
 
 1. Check the lease-owned reservation and immutable execution binding first.

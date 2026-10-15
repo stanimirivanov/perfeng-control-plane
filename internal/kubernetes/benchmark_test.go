@@ -222,9 +222,76 @@ func TestBenchmarkResourcesAreExactCreateOnlyAndIncarnationBound(t *testing.T) {
 	}
 }
 
+func TestBenchmarkTemplateUsesExistingUploaderSecretKeys(t *testing.T) {
+	_, _, spec, _ := benchmarkFixture(t)
+	template := BenchmarkJobTemplate(spec.RunnerImage, "registry", "perfeng-s3-uploader-auth", "http://seaweedfs.perf-platform.svc.cluster.local:8333")
+	if err := ValidateBenchmarkTemplate(template, spec.RunnerImage); err != nil {
+		t.Fatal(err)
+	}
+	environment := template.Spec.Template.Spec.Containers[0].Env
+	for index, expected := range []struct{ name, key string }{
+		{"AWS_ACCESS_KEY_ID", "access-key"},
+		{"AWS_SECRET_ACCESS_KEY", "secret-key"},
+	} {
+		value := environment[index+1]
+		if value.Name != expected.name || value.Value != "" || value.ValueFrom == nil || value.ValueFrom.SecretKeyRef == nil {
+			t.Fatalf("publisher credential must be an explicit Secret reference: %s", expected.name)
+		}
+		reference := value.ValueFrom.SecretKeyRef
+		if reference.Name != "perfeng-s3-uploader-auth" || reference.Key != expected.key {
+			t.Fatalf("publisher credential reference differs: %+v", reference)
+		}
+	}
+	for index, key := range []string{"access-key-id", "secret-access-key"} {
+		t.Run(key, func(t *testing.T) {
+			altered := template.DeepCopy()
+			altered.Spec.Template.Spec.Containers[0].Env[index+1].ValueFrom.SecretKeyRef.Key = key
+			if err := ValidateBenchmarkTemplate(altered, spec.RunnerImage); !errors.Is(err, run.ErrValidation) {
+				t.Fatalf("incorrect uploader key accepted: %v", err)
+			}
+		})
+	}
+}
+
+func TestBenchmarkTemplateStorageEndpointBoundary(t *testing.T) {
+	_, _, spec, _ := benchmarkFixture(t)
+	for _, endpoint := range []string{
+		"http://seaweedfs.perf-platform.svc.cluster.local:8333",
+		"https://storage.example.test",
+		"https://storage.example.test:9443/",
+	} {
+		t.Run(endpoint, func(t *testing.T) {
+			template := BenchmarkJobTemplate(spec.RunnerImage, "registry", "storage", endpoint)
+			if err := ValidateBenchmarkTemplate(template, spec.RunnerImage); err != nil {
+				t.Fatalf("reviewed endpoint rejected: %v", err)
+			}
+		})
+	}
+	for _, endpoint := range []string{
+		"http://seaweedfs-s3.perf-platform.svc.cluster.local:8333",
+		"http://storage.example.test:8333",
+		"http://seaweedfs.perf-platform.svc.cluster.local.evil.test:8333",
+		"http://seaweedfs.perf-platform.svc.cluster.local:8334",
+		"http://seaweedfs.perf-platform.svc.cluster.local:8333/",
+		"http://seaweedfs.perf-platform.svc.cluster.local:8333?token=value",
+		"http://seaweedfs.perf-platform.svc.cluster.local:8333#fragment",
+		"https://user:password@storage.example.test",
+		"https://storage.example.test/bucket",
+		"https://storage.example.test?token=value",
+		"https://storage.example.test#fragment",
+	} {
+		t.Run(endpoint, func(t *testing.T) {
+			template := BenchmarkJobTemplate(spec.RunnerImage, "registry", "storage", endpoint)
+			if err := ValidateBenchmarkTemplate(template, spec.RunnerImage); !errors.Is(err, run.ErrValidation) {
+				t.Fatalf("unreviewed endpoint accepted: %v", err)
+			}
+		})
+	}
+}
+
 func TestBenchmarkTemplateRejectsCapabilityExpansionAndBindsExactInputs(t *testing.T) {
 	_, _, spec, _ := benchmarkFixture(t)
-	template := BenchmarkJobTemplate(spec.RunnerImage, "registry", "storage", "http://seaweedfs-s3.perf-platform.svc.cluster.local:8333")
+	template := BenchmarkJobTemplate(spec.RunnerImage, "registry", "storage", "http://seaweedfs.perf-platform.svc.cluster.local:8333")
 	if err := ValidateBenchmarkTemplate(template, spec.RunnerImage); err != nil {
 		t.Fatal(err)
 	}

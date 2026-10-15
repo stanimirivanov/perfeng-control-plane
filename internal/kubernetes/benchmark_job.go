@@ -47,8 +47,8 @@ func BenchmarkJobTemplate(image, pullSecret, storageSecret, endpoint string) *ba
 		Args: []string{"publish", "--request", "/inputs/request.json", "--request-sha256", benchmarkRequestPlaceholder},
 		Env: []corev1.EnvVar{
 			{Name: "PERFENG_S3_ENDPOINT", Value: endpoint},
-			{Name: "AWS_ACCESS_KEY_ID", ValueFrom: benchmarkSecret(storageSecret, "access-key-id")},
-			{Name: "AWS_SECRET_ACCESS_KEY", ValueFrom: benchmarkSecret(storageSecret, "secret-access-key")},
+			{Name: "AWS_ACCESS_KEY_ID", ValueFrom: benchmarkSecret(storageSecret, "access-key")},
+			{Name: "AWS_SECRET_ACCESS_KEY", ValueFrom: benchmarkSecret(storageSecret, "secret-key")},
 		},
 		SecurityContext: security.DeepCopy(),
 		Resources:       benchmarkResources("100m", "128Mi", "64Mi", "500m", "256Mi", "256Mi"),
@@ -102,7 +102,7 @@ func ValidateBenchmarkTemplate(template *batchv1.Job, image string) error {
 	endpoint, err := url.Parse(environment[0].Value)
 	if err != nil || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" ||
 		(endpoint.Path != "" && endpoint.Path != "/") ||
-		(endpoint.Scheme != "https" && environment[0].Value != "http://seaweedfs-s3.perf-platform.svc.cluster.local:8333") || endpoint.Host == "" ||
+		(endpoint.Scheme != "https" && environment[0].Value != "http://seaweedfs.perf-platform.svc.cluster.local:8333") || endpoint.Host == "" ||
 		len(validation.IsDNS1123Subdomain(pullSecret)) != 0 || len(validation.IsDNS1123Subdomain(storageSecret)) != 0 {
 		return run.ErrValidation
 	}

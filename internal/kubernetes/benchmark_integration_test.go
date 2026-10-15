@@ -100,7 +100,7 @@ func TestBenchmarkAgainstAPIServer(t *testing.T) {
 	if err := controller.EnsureResources(ctx, spec, reservation, fence); err != nil {
 		t.Fatalf("API-defaulted objects were not adopted: %v", err)
 	}
-	template := BenchmarkJobTemplate(spec.RunnerImage, "registry", "storage", "http://seaweedfs-s3.perf-platform.svc.cluster.local:8333")
+	template := BenchmarkJobTemplate(spec.RunnerImage, "registry", "storage", "http://seaweedfs.perf-platform.svc.cluster.local:8333")
 	job, err := BindBenchmarkJob(template, spec, reservation)
 	if err != nil {
 		t.Fatal(err)
