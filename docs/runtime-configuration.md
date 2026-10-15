@@ -246,15 +246,21 @@ executable-composition inputs.
 
 | Variable | Meaning |
 | --- | --- |
-| `PERFENG_CONTRACTS_VERSION` | Exact contracts bundle version expected in raw, normalized and report evidence |
+| `PERFENG_CONTRACTS_VERSION` | `registry` for exact per-entry evidence verification, or numeric `x.y.z` to require one uniform contracts version |
 
-The contracts version uses numeric `x.y.z` syntax and has no `latest` fallback.
-`NewArtifactCollectors` binds one validated version to raw-manifest,
-normalized-result and analysis-report verification. It combines deterministic
+There is no missing-value, `latest`, range or evidence-derived fallback.
+Explicit `registry` mode permits a reviewed bundle with different contracts
+versions, such as k6 `0.13.0` and contained kube-burner `0.22.0`. Numeric settings
+preserve the existing whole-registry equality constraint.
+
+`NewArtifactCollectors` resolves the exact expected version from the authorized
+registry entry separately for each Run and operation, before publication
+discovery or evidence reads. That selection binds raw-manifest,
+normalized-result, persisted raw-input and analysis-report parsing. It combines deterministic
 publication discovery and verified reads with immutable registry approval,
 approved baseline resolution and independent verdict checking. Construction
 does not read object storage, query the registry or database, or parse evidence.
-The registry entries populated at startup must authorize the same contracts
+The artifact's claimed version cannot select its verifier or another entry's
 version. The registry is loaded from two explicit settings:
 
 | Variable | Meaning |
@@ -262,10 +268,16 @@ version. The registry is loaded from two explicit settings:
 | `PERFENG_REGISTRY_ROOT` | Canonical absolute non-root directory of the mounted reviewed bundle |
 | `PERFENG_REGISTRY_MANIFEST` | Portable manifest path relative to that root |
 
-Startup strictly loads the complete immutable registry and rejects it unless
-every entry uses `PERFENG_CONTRACTS_VERSION`. Registry paths and content are not
-included in returned configuration errors. Signing, attestation and refresh
-policy remain deployment responsibilities.
+Startup strictly loads and validates the complete immutable registry. Numeric
+configuration additionally requires every entry to use that exact version;
+`registry` retains each entry's reviewed binding. Neither mode disables schema,
+producer, workload, source, baseline or verdict verification. Registry paths and
+content are not included in returned configuration errors. Signing, attestation
+and refresh policy remain deployment responsibilities.
+
+Deploy `registry` only with a corrected image that supports it; older images
+reject the setting. Rollback must restore compatible image, configuration and
+bundle selections together. See [ADR-0008](decisions/0008-resolve-evidence-contracts-per-registry-entry.md).
 
 A v2 Playwright source-checkout entry includes a `nativeBaseline` template:
 

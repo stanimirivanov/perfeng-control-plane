@@ -37,10 +37,10 @@ type ArtifactByteReader interface {
 // VerifiedRawCollector composes manifest resolution, byte verification,
 // structural parsing and provenance approval for CollectionReconciler.
 type VerifiedRawCollector struct {
-	resolver         RawManifestResolver
-	reader           ArtifactByteReader
-	approver         RawManifestApprover
-	contractsVersion string
+	resolver  RawManifestResolver
+	reader    ArtifactByteReader
+	approver  RawManifestApprover
+	contracts ContractsVersionResolver
 }
 
 var (
@@ -51,24 +51,24 @@ var (
 	_ RawManifestResolver  = (*objectstore.S3ArtifactAccess)(nil)
 )
 
-// NewVerifiedRawCollector validates all collection dependencies and the exact
-// contracts bundle version expected from the producer.
+// NewVerifiedRawCollector validates the collection dependencies, including the
+// trusted per-Run contracts selector. Construction performs no resolution or I/O.
 func NewVerifiedRawCollector(
 	resolver RawManifestResolver,
 	reader ArtifactByteReader,
 	approver RawManifestApprover,
-	contractsVersion string,
+	contracts ContractsVersionResolver,
 ) (*VerifiedRawCollector, error) {
 	if resolver == nil || reader == nil || approver == nil ||
-		!rawresult.ValidContractsVersion(contractsVersion) {
+		contracts == nil {
 		return nil, run.ErrValidation
 	}
 
 	return &VerifiedRawCollector{
-		resolver:         resolver,
-		reader:           reader,
-		approver:         approver,
-		contractsVersion: contractsVersion,
+		resolver:  resolver,
+		reader:    reader,
+		approver:  approver,
+		contracts: contracts,
 	}, nil
 }
 
@@ -87,6 +87,11 @@ func (collector *VerifiedRawCollector) CollectRawArtifacts(
 		return RawArtifactSet{}, run.ErrValidation
 	}
 
+	contractsVersion, err := evidenceContractsVersion(ctx, collector.contracts, principal, current)
+	if err != nil {
+		return RawArtifactSet{}, classifyCollectionApproval(err)
+	}
+
 	manifestReference, err := collector.resolver.ResolveRawManifest(
 		ctx,
 		principal,
@@ -103,7 +108,7 @@ func (collector *VerifiedRawCollector) CollectRawArtifacts(
 	if err != nil {
 		return RawArtifactSet{}, classifyCollectionEvidence(err)
 	}
-	manifest, err := rawresult.Parse(manifestBytes, current.ID, collector.contractsVersion)
+	manifest, err := rawresult.Parse(manifestBytes, current.ID, contractsVersion)
 	if err != nil || manifestReference.Format != rawManifestFormat(manifest.SchemaVersion) {
 		return RawArtifactSet{}, ErrInvalidArtifacts
 	}

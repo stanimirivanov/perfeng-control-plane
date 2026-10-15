@@ -386,7 +386,7 @@ func TestVerifiedNormalizedCollectorRejectsChangedPersistedRawManifest(t *testin
 					return encodeNormalizedManifest(t, manifest), nil
 				}),
 				acceptingNormalizedApprover(),
-				normalizedContractsVersion,
+				fixedContractsVersion(normalizedContractsVersion),
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -449,19 +449,19 @@ func TestVerifiedNormalizedCollectorValidatesDependenciesAndContext(t *testing.T
 	approver := acceptingNormalizedApprover()
 	for name, build := range map[string]func() error{
 		"resolver": func() error {
-			_, err := NewVerifiedNormalizedCollector(nil, reader, approver, normalizedContractsVersion)
+			_, err := NewVerifiedNormalizedCollector(nil, reader, approver, fixedContractsVersion(normalizedContractsVersion))
 			return err
 		},
 		"reader": func() error {
-			_, err := NewVerifiedNormalizedCollector(resolver, nil, approver, normalizedContractsVersion)
+			_, err := NewVerifiedNormalizedCollector(resolver, nil, approver, fixedContractsVersion(normalizedContractsVersion))
 			return err
 		},
 		"approver": func() error {
-			_, err := NewVerifiedNormalizedCollector(resolver, reader, nil, normalizedContractsVersion)
+			_, err := NewVerifiedNormalizedCollector(resolver, reader, nil, fixedContractsVersion(normalizedContractsVersion))
 			return err
 		},
 		"version": func() error {
-			_, err := NewVerifiedNormalizedCollector(resolver, reader, approver, "latest")
+			_, err := NewVerifiedNormalizedCollector(resolver, reader, approver, nil)
 			return err
 		},
 	} {
@@ -578,7 +578,7 @@ func newVerifiedNormalizedCollector(
 		resolver,
 		normalizedCollectorReader{t: t, delegate: reader},
 		approver,
-		normalizedContractsVersion,
+		fixedContractsVersion(normalizedContractsVersion),
 	)
 	if err != nil {
 		t.Fatal(err)

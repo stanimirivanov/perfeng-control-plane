@@ -8,21 +8,27 @@ import (
 
 const contractsVersionVariable = "PERFENG_CONTRACTS_VERSION"
 
-// ArtifactVerificationConfig pins evidence parsing to one contracts bundle.
+// RegistryContractsVersion opts into exact per-entry contracts versions rather
+// than requiring a uniform version across the complete runtime registry.
+const RegistryContractsVersion = "registry"
+
+// ArtifactVerificationConfig selects registry-scoped evidence verification or
+// preserves a uniform contracts-version constraint for an existing deployment.
 type ArtifactVerificationConfig struct {
 	ContractsVersion string
 }
 
-// Validate checks the expected producer contracts version.
+// Validate accepts the explicit registry mode or one exact contracts version.
 func (config ArtifactVerificationConfig) Validate() error {
-	if !rawresult.ValidContractsVersion(config.ContractsVersion) {
+	if config.ContractsVersion != RegistryContractsVersion &&
+		!rawresult.ValidContractsVersion(config.ContractsVersion) {
 		return ErrInvalidConfiguration
 	}
 
 	return nil
 }
 
-// LoadArtifactVerificationConfig reads the expected producer contracts version.
+// LoadArtifactVerificationConfig reads the evidence contracts selection policy.
 func LoadArtifactVerificationConfig() (ArtifactVerificationConfig, error) {
 	return loadArtifactVerificationConfig(os.LookupEnv)
 }

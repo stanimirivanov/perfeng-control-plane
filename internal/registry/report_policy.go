@@ -78,6 +78,7 @@ var (
 	_ reconcile.NormalizedManifestApprover = (*ReportPolicyRegistry)(nil)
 	_ reconcile.RawManifestApprover        = (*ReportPolicyRegistry)(nil)
 	_ reconcile.ReportTrustResolver        = (*ReportPolicyRegistry)(nil)
+	_ reconcile.ContractsVersionResolver   = (*ReportPolicyRegistry)(nil)
 )
 
 // NewReportPolicyRegistry validates and isolates every approved entry.

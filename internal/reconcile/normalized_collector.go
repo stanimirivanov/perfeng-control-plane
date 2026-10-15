@@ -41,32 +41,32 @@ type NormalizedManifestApprover interface {
 // VerifiedNormalizedCollector composes trusted output resolution, byte
 // verification, strict parsing, source binding and provenance approval.
 type VerifiedNormalizedCollector struct {
-	resolver         NormalizedManifestResolver
-	reader           ArtifactByteReader
-	approver         NormalizedManifestApprover
-	contractsVersion string
+	resolver  NormalizedManifestResolver
+	reader    ArtifactByteReader
+	approver  NormalizedManifestApprover
+	contracts ContractsVersionResolver
 }
 
 var _ NormalizedArtifactCollector = (*VerifiedNormalizedCollector)(nil)
 
-// NewVerifiedNormalizedCollector validates every adapter boundary and the exact
-// contracts bundle version expected from the normalizer.
+// NewVerifiedNormalizedCollector validates the adapter boundaries and trusted
+// per-Run contracts selector without resolving a version or reading evidence.
 func NewVerifiedNormalizedCollector(
 	resolver NormalizedManifestResolver,
 	reader ArtifactByteReader,
 	approver NormalizedManifestApprover,
-	contractsVersion string,
+	contracts ContractsVersionResolver,
 ) (*VerifiedNormalizedCollector, error) {
 	if resolver == nil || reader == nil || approver == nil ||
-		!rawresult.ValidContractsVersion(contractsVersion) {
+		contracts == nil {
 		return nil, run.ErrValidation
 	}
 
 	return &VerifiedNormalizedCollector{
-		resolver:         resolver,
-		reader:           reader,
-		approver:         approver,
-		contractsVersion: contractsVersion,
+		resolver:  resolver,
+		reader:    reader,
+		approver:  approver,
+		contracts: contracts,
 	}, nil
 }
 
@@ -87,6 +87,11 @@ func (collector *VerifiedNormalizedCollector) CollectNormalizedArtifact(
 		return run.Artifact{}, run.ErrValidation
 	}
 
+	contractsVersion, err := evidenceContractsVersion(ctx, collector.contracts, principal, current)
+	if err != nil {
+		return run.Artifact{}, classifyAnalysisApproval(err)
+	}
+
 	reference, err := collector.resolver.ResolveNormalizedManifest(
 		ctx,
 		principal,
@@ -103,11 +108,11 @@ func (collector *VerifiedNormalizedCollector) CollectNormalizedArtifact(
 	if err != nil {
 		return run.Artifact{}, classifyAnalysisEvidence(err)
 	}
-	manifest, err := normalizedresult.Parse(content, current.ID, collector.contractsVersion)
+	manifest, err := normalizedresult.Parse(content, current.ID, contractsVersion)
 	if err != nil || !artifactSubset(manifest.SourceArtifacts, input.Sources) {
 		return run.Artifact{}, ErrAnalysisFailed
 	}
-	rawManifest, err := collector.readRawManifest(ctx, current.ID, input)
+	rawManifest, err := collector.readRawManifest(ctx, current.ID, input, contractsVersion)
 	if err != nil {
 		return run.Artifact{}, err
 	}
@@ -132,12 +137,13 @@ func (collector *VerifiedNormalizedCollector) readRawManifest(
 	ctx context.Context,
 	runID string,
 	input AnalysisInput,
+	contractsVersion string,
 ) (rawresult.Manifest, error) {
 	content, err := collector.reader.Read(ctx, input.Manifest)
 	if err != nil {
 		return rawresult.Manifest{}, classifyPersistedAnalysisInput(err)
 	}
-	manifest, err := rawresult.Parse(content, runID, collector.contractsVersion)
+	manifest, err := rawresult.Parse(content, runID, contractsVersion)
 	if err != nil || input.Manifest.Format != rawManifestFormat(manifest.SchemaVersion) ||
 		!sameArtifacts(manifest.Artifacts, input.Sources) {
 		return rawresult.Manifest{}, ErrAnalysisFailed

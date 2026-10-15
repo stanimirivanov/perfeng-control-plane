@@ -89,3 +89,4 @@ How will assumptions and consequences be verified?
 | [0005](0005-serialize-native-worker-discovery.md) | Serialize native discovery before presence exists | Proposed |
 | [0006](0006-reserve-benchmark-targets-before-dispatch.md) | Reserve benchmark targets before dispatch | Proposed |
 | [0007](0007-fence-and-verify-benchmark-cleanup.md) | Fence and verify benchmark cleanup before releasing a target | Proposed |
+| [0008](0008-resolve-evidence-contracts-per-registry-entry.md) | Resolve evidence contracts per authorized registry entry | Proposed |

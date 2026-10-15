@@ -214,8 +214,11 @@ Implementing the worker-side upload, registration and terminal-report flow
 remains a later M03 slice.
 
 The application composition layer combines this access bundle with immutable
-registry trust, baseline persistence and one pinned contracts version to create
-the three verified collectors. Registry population and lifecycle wiring remain
+registry trust, baseline persistence and a trusted per-Run contracts selector to
+create the three verified collectors. Numeric configuration retains the uniform
+startup constraint; explicit `registry` mode verifies each Run against its own
+authorized entry's exact version before evidence I/O. Neither mode derives an
+expected version from evidence. Registry population and lifecycle wiring remain
 separate startup work.
 
 References: [AWS SDK for Go v2 GetObject usage](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/using.html),

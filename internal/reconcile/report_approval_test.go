@@ -263,7 +263,7 @@ func TestVerifiedReportCollectorUsesTrustedReportApproval(t *testing.T) {
 			return encodeReportManifest(t, fixture.manifest), nil
 		}),
 		approver,
-		reportContractsVersion,
+		fixedContractsVersion(reportContractsVersion),
 	)
 	if err != nil {
 		t.Fatal(err)

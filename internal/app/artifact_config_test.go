@@ -17,6 +17,15 @@ func TestLoadArtifactVerificationConfigReturnsPinnedVersion(t *testing.T) {
 	}
 }
 
+func TestLoadArtifactVerificationConfigSelectsRegistryVersions(t *testing.T) {
+	config, err := loadArtifactVerificationConfig(mapLookup(map[string]string{
+		contractsVersionVariable: "registry",
+	}))
+	if err != nil || config.ContractsVersion != "registry" {
+		t.Fatalf("config = %#v, error = %v", config, err)
+	}
+}
+
 func TestLoadArtifactVerificationConfigRejectsInvalidEnvironment(t *testing.T) {
 	for name, lookup := range map[string]lookupEnvironment{
 		"nil":     nil,
