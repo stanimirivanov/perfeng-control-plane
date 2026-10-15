@@ -44,6 +44,10 @@ func (inertArtifactStorage) Read(context.Context, run.Artifact) ([]byte, error) 
 
 type inertArtifactTrust struct{}
 
+func (inertArtifactTrust) ResolveContractsVersion(context.Context, string, run.Run) (string, error) {
+	panic("artifact trust called during construction")
+}
+
 func (inertArtifactTrust) ApproveRawManifest(
 	context.Context,
 	string,

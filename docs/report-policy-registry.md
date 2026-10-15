@@ -45,6 +45,16 @@ name, version and exact-byte digest form the policy reference, while the entry's
 test ID supplies the separately reviewed applicability decision.
 
 Construction strictly parses every policy and validates all entry identities.
+Process composition may explicitly select registry-scoped contracts verification
+with `PERFENG_CONTRACTS_VERSION=registry`; numeric settings retain the uniform
+startup constraint. `ResolveContractsVersion` selects the authorized entry's
+exact version for COLLECTING, ANALYZING and REPORTING before evidence I/O. It
+uses the same exact principal/resource-context lookup as provenance approval,
+not an artifact claim, mutable global version or candidate readmission. Invalid
+context returns `run.ErrValidation`, an unmatched binding returns
+`run.ErrForbidden`, and cancellation retains its identity. Concurrent lookups
+perform no writes or external I/O. See [ADR-0008](decisions/0008-resolve-evidence-contracts-per-registry-entry.md).
+
 V1 and v2 OCI producers require a reusable Job template that passes the
 restricted Kubernetes policy and contains the configured producer image. V2
 source checkouts and release archives require no Job template; supplying one is

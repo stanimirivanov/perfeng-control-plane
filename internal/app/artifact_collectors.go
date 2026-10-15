@@ -18,6 +18,7 @@ type ArtifactStorage interface {
 // ArtifactTrust combines the immutable registry decisions used while attesting
 // raw, normalized and report evidence. ReportPolicyRegistry satisfies it.
 type ArtifactTrust interface {
+	reconcile.ContractsVersionResolver
 	reconcile.RawManifestApprover
 	reconcile.NormalizedManifestApprover
 	reconcile.ReportTrustResolver
@@ -42,11 +43,12 @@ func NewArtifactCollectors(
 		return ArtifactCollectors{}, ErrInvalidConfiguration
 	}
 
+	contracts := artifactContracts{registry: trust, configured: config.ContractsVersion}
 	raw, err := reconcile.NewVerifiedRawCollector(
 		storage,
 		storage,
 		trust,
-		config.ContractsVersion,
+		contracts,
 	)
 	if err != nil {
 		return ArtifactCollectors{}, ErrInvalidConfiguration
@@ -55,7 +57,7 @@ func NewArtifactCollectors(
 		storage,
 		storage,
 		trust,
-		config.ContractsVersion,
+		contracts,
 	)
 	if err != nil {
 		return ArtifactCollectors{}, ErrInvalidConfiguration
@@ -72,7 +74,7 @@ func NewArtifactCollectors(
 		storage,
 		storage,
 		reportApprover,
-		config.ContractsVersion,
+		contracts,
 	)
 	if err != nil {
 		return ArtifactCollectors{}, ErrInvalidConfiguration

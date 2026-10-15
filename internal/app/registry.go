@@ -10,8 +10,8 @@ import (
 type loadReportPolicyRegistry func(fs.FS, string) (*registry.ReportPolicyRegistry, error)
 type validateRegistryContracts func(*registry.ReportPolicyRegistry, string) error
 
-// NewRuntimeRegistry loads one reviewed bundle and requires all its entries to
-// use the contracts version configured for evidence verification.
+// NewRuntimeRegistry loads one reviewed bundle. Registry mode preserves each
+// entry's exact contracts version; an explicit version requires uniform entries.
 func NewRuntimeRegistry(
 	config RegistryConfig,
 	verification ArtifactVerificationConfig,
@@ -40,8 +40,10 @@ func newRuntimeRegistry(
 	if err != nil || loaded == nil {
 		return nil, ErrInvalidConfiguration
 	}
-	if err := validateContracts(loaded, verification.ContractsVersion); err != nil {
-		return nil, ErrInvalidConfiguration
+	if verification.ContractsVersion != RegistryContractsVersion {
+		if err := validateContracts(loaded, verification.ContractsVersion); err != nil {
+			return nil, ErrInvalidConfiguration
+		}
 	}
 
 	return loaded, nil

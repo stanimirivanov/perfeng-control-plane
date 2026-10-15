@@ -7,7 +7,6 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/analysisresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/objectstore"
-	"github.com/stanimirivanov/perfeng-control-plane/internal/rawresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
@@ -39,30 +38,30 @@ type ReportManifestApprover interface {
 // VerifiedReportCollector composes trusted output resolution, byte
 // verification, strict parsing, candidate binding and report approval.
 type VerifiedReportCollector struct {
-	resolver         ReportManifestResolver
-	reader           ArtifactByteReader
-	approver         ReportManifestApprover
-	contractsVersion string
+	resolver  ReportManifestResolver
+	reader    ArtifactByteReader
+	approver  ReportManifestApprover
+	contracts ContractsVersionResolver
 }
 
 var _ ReportArtifactCollector = (*VerifiedReportCollector)(nil)
 
-// NewVerifiedReportCollector validates every report attestation boundary and
-// the exact contracts bundle version expected from the report producer.
+// NewVerifiedReportCollector validates the report attestation boundaries and
+// trusted per-Run contracts selector without resolution or external I/O.
 func NewVerifiedReportCollector(
 	resolver ReportManifestResolver,
 	reader ArtifactByteReader,
 	approver ReportManifestApprover,
-	contractsVersion string,
+	contracts ContractsVersionResolver,
 ) (*VerifiedReportCollector, error) {
 	if resolver == nil || reader == nil || approver == nil ||
-		!rawresult.ValidContractsVersion(contractsVersion) {
+		contracts == nil {
 		return nil, run.ErrValidation
 	}
 
 	return &VerifiedReportCollector{
 		resolver: resolver, reader: reader, approver: approver,
-		contractsVersion: contractsVersion,
+		contracts: contracts,
 	}, nil
 }
 
@@ -82,6 +81,11 @@ func (collector *VerifiedReportCollector) CollectReportArtifact(
 		return run.Artifact{}, run.ErrValidation
 	}
 
+	contractsVersion, err := evidenceContractsVersion(ctx, collector.contracts, principal, current)
+	if err != nil {
+		return run.Artifact{}, classifyReportApproval(err)
+	}
+
 	reference, err := collector.resolver.ResolveReportManifest(
 		ctx,
 		principal,
@@ -98,7 +102,7 @@ func (collector *VerifiedReportCollector) CollectReportArtifact(
 	if err != nil {
 		return run.Artifact{}, classifyReportEvidence(err)
 	}
-	manifest, err := analysisresult.Parse(content, current.ID, collector.contractsVersion)
+	manifest, err := analysisresult.Parse(content, current.ID, contractsVersion)
 	if err != nil || manifest.CandidateArtifact != input.Candidate {
 		return run.Artifact{}, ErrReportFailed
 	}

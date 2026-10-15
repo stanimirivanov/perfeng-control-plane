@@ -291,19 +291,19 @@ func TestVerifiedReportCollectorValidatesDependenciesAndContext(t *testing.T) {
 	approver := acceptingReportApprover()
 	for name, build := range map[string]func() error{
 		"resolver": func() error {
-			_, err := NewVerifiedReportCollector(nil, reader, approver, reportContractsVersion)
+			_, err := NewVerifiedReportCollector(nil, reader, approver, fixedContractsVersion(reportContractsVersion))
 			return err
 		},
 		"reader": func() error {
-			_, err := NewVerifiedReportCollector(resolver, nil, approver, reportContractsVersion)
+			_, err := NewVerifiedReportCollector(resolver, nil, approver, fixedContractsVersion(reportContractsVersion))
 			return err
 		},
 		"approver": func() error {
-			_, err := NewVerifiedReportCollector(resolver, reader, nil, reportContractsVersion)
+			_, err := NewVerifiedReportCollector(resolver, reader, nil, fixedContractsVersion(reportContractsVersion))
 			return err
 		},
 		"version": func() error {
-			_, err := NewVerifiedReportCollector(resolver, reader, approver, "latest")
+			_, err := NewVerifiedReportCollector(resolver, reader, approver, nil)
 			return err
 		},
 	} {
@@ -403,7 +403,7 @@ func newVerifiedReportCollector(
 		resolver,
 		reader,
 		approver,
-		reportContractsVersion,
+		fixedContractsVersion(reportContractsVersion),
 	)
 	if err != nil {
 		t.Fatal(err)

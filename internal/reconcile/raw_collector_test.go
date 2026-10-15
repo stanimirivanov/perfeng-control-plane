@@ -145,7 +145,7 @@ func TestVerifiedRawCollectorReturnsVerifiedV2Evidence(t *testing.T) {
 		return nil
 	})
 	collector, err := NewVerifiedRawCollector(
-		fixedRawResolver(reference), reader, approver, "0.12.0",
+		fixedRawResolver(reference), reader, approver, fixedContractsVersion("0.12.0"),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -196,7 +196,7 @@ func TestVerifiedRawCollectorRejectsManifestGenerationMismatch(t *testing.T) {
 				return encodeRawManifest(t, manifest), nil
 			})
 			collector, err := NewVerifiedRawCollector(
-				fixedRawResolver(reference), reader, acceptingRawApprover(), contractsVersion,
+				fixedRawResolver(reference), reader, acceptingRawApprover(), fixedContractsVersion(contractsVersion),
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -366,18 +366,18 @@ func TestVerifiedRawCollectorValidatesDependenciesAndContext(t *testing.T) {
 	approver := acceptingRawApprover()
 	for name, build := range map[string]func() error{
 		"resolver": func() error {
-			_, err := NewVerifiedRawCollector(nil, reader, approver, rawContractsVersion)
+			_, err := NewVerifiedRawCollector(nil, reader, approver, fixedContractsVersion(rawContractsVersion))
 			return err
 		},
 		"reader": func() error {
-			_, err := NewVerifiedRawCollector(resolver, nil, approver, rawContractsVersion)
+			_, err := NewVerifiedRawCollector(resolver, nil, approver, fixedContractsVersion(rawContractsVersion))
 			return err
 		},
 		"approver": func() error {
-			_, err := NewVerifiedRawCollector(resolver, reader, nil, rawContractsVersion)
+			_, err := NewVerifiedRawCollector(resolver, reader, nil, fixedContractsVersion(rawContractsVersion))
 			return err
 		},
-		"version": func() error { _, err := NewVerifiedRawCollector(resolver, reader, approver, "01.0.0"); return err },
+		"version": func() error { _, err := NewVerifiedRawCollector(resolver, reader, approver, nil); return err },
 	} {
 		if err := build(); !errors.Is(err, run.ErrValidation) {
 			t.Fatalf("%s error = %v", name, err)
@@ -459,7 +459,7 @@ func newVerifiedRawCollector(
 	approver RawManifestApprover,
 ) *VerifiedRawCollector {
 	t.Helper()
-	collector, err := NewVerifiedRawCollector(resolver, reader, approver, rawContractsVersion)
+	collector, err := NewVerifiedRawCollector(resolver, reader, approver, fixedContractsVersion(rawContractsVersion))
 	if err != nil {
 		t.Fatal(err)
 	}
