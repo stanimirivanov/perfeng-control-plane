@@ -60,8 +60,27 @@ var packageLayers = map[string]layer{
 var allowedDependencies = map[layer]map[layer]bool{
 	coreLayer:        {coreLayer: true},
 	applicationLayer: {coreLayer: true, applicationLayer: true},
-	edgeLayer:        {coreLayer: true, applicationLayer: true, edgeLayer: true},
+	edgeLayer:        {coreLayer: true, applicationLayer: true},
 	compositionLayer: {coreLayer: true, applicationLayer: true, edgeLayer: true, compositionLayer: true},
+}
+
+// existingEdgeDependencies records current concrete coupling while those
+// packages are refactored. Removing a dependency should also remove its entry;
+// adding one requires a separate architecture decision, not a blanket layer rule.
+var existingEdgeDependencies = map[string]map[string]bool{
+	modulePath + "/internal/authentication": {modulePath + "/internal/httpapi": true},
+	modulePath + "/internal/postgres": {
+		modulePath + "/internal/httpapi":    true,
+		modulePath + "/internal/kubernetes": true,
+	},
+	modulePath + "/internal/reconcile": {
+		modulePath + "/internal/kubernetes":  true,
+		modulePath + "/internal/objectstore": true,
+	},
+	modulePath + "/internal/registry": {
+		modulePath + "/internal/kubernetes": true,
+		modulePath + "/internal/reconcile":  true,
+	},
 }
 
 type productionPackage struct {
@@ -72,6 +91,7 @@ type productionPackage struct {
 func TestProductionDependenciesFollowDeclaredBoundary(t *testing.T) {
 	root := repositoryRoot(t)
 	packages := discoverProductionPackages(t, root)
+	observedEdgeDependencies := map[string]map[string]bool{}
 
 	for path := range packages {
 		if _, classified := packageLayers[path]; !classified {
@@ -102,8 +122,25 @@ func TestProductionDependenciesFollowDeclaredBoundary(t *testing.T) {
 				t.Errorf("%s imports unknown repository package %s; classify the target before adding the dependency", sourcePath, importedPath)
 				continue
 			}
+			if sourceLayer == edgeLayer && targetLayer == edgeLayer {
+				if observedEdgeDependencies[sourcePath] == nil {
+					observedEdgeDependencies[sourcePath] = map[string]bool{}
+				}
+				observedEdgeDependencies[sourcePath][importedPath] = true
+				if !existingEdgeDependencies[sourcePath][importedPath] {
+					t.Errorf("%s imports %s: new edge-to-edge dependency is forbidden; introduce a consumer-owned contract or record a reviewed architecture decision", sourcePath, importedPath)
+				}
+				continue
+			}
 			if !allowedDependencies[sourceLayer][targetLayer] {
 				t.Errorf("%s (%s) imports %s (%s): dependency points outward; introduce a consumer-owned contract or move composition outward", sourcePath, sourceLayer, importedPath, targetLayer)
+			}
+		}
+	}
+	for sourcePath, targets := range existingEdgeDependencies {
+		for targetPath := range targets {
+			if !observedEdgeDependencies[sourcePath][targetPath] {
+				t.Errorf("edge-to-edge exception %s -> %s is stale; remove it after deleting the import", sourcePath, targetPath)
 			}
 		}
 	}
@@ -217,6 +254,9 @@ func TestAllowedLayerDirections(t *testing.T) {
 	t.Parallel()
 	if allowedDependencies[coreLayer][edgeLayer] {
 		t.Fatal("core must not depend on edge")
+	}
+	if allowedDependencies[edgeLayer][edgeLayer] {
+		t.Fatal("edge-to-edge dependencies must use the explicit exception list")
 	}
 	if !allowedDependencies[compositionLayer][coreLayer] || !allowedDependencies[edgeLayer][applicationLayer] {
 		t.Fatal("outer layers must retain inward dependency authority")

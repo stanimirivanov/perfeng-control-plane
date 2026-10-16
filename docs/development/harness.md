@@ -55,10 +55,13 @@ when a check cannot run.
 The architecture sensor deliberately describes today's behavior-preserving
 boundary. The broad edge layer is transitional: reconciliation and registry
 code currently references concrete Kubernetes or object-store types. The gate
-prevents core packages from acquiring infrastructure authority and requires new
-packages to be classified; it does not claim that the remaining edge is already
-a strict hexagonal design. Tightening that boundary belongs in focused,
-behavior-preserving refactoring changes.
+prevents core packages from acquiring infrastructure authority, requires new
+packages to be classified, and permits only the seven existing edge-to-edge
+package pairs listed in `internal/architecture/architecture_test.go`. These
+exceptions record current coupling, not the desired final structure. Remove an
+entry when its import is removed; review any proposed new pair as an architecture
+decision. Tightening the remaining edge belongs in focused, behavior-preserving
+refactoring changes.
 
 ## Steering the harness
 
