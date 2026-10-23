@@ -24,6 +24,7 @@
 | Contained Kubernetes benchmarks | [Benchmark admission, reservations and cleanup](kubernetes-benchmarks.md), [ADR-0006](decisions/0006-reserve-benchmark-targets-before-dispatch.md), [ADR-0007](decisions/0007-fence-and-verify-benchmark-cleanup.md) | `make db-validate`, `make kubernetes-validate` |
 | Artifact storage or result validation | [Artifact storage](artifact-storage.md), the relevant raw/normalized/analysis validation guide | Focused adapter tests and `make verify` |
 | Registry or performance-policy behavior | [Registry guide](report-policy-registry.md), [policy validation](performance-policy-validation.md) | Registry and policy tests |
+| Performance catalog contract adapters | [Pinned catalog conformance](performance-catalog-contract.md), [ADR-0009](decisions/0009-pin-performance-catalog-contracts.md) | Pinned schema, provenance and cross-language digest tests |
 | Baseline behavior or administration | [Baseline lifecycle](baseline-lifecycle.md), [baseline administration](baseline-administration.md) | Domain, HTTP, and PostgreSQL tests as applicable |
 | Durable technical decision | [ADR index](decisions/README.md) | ADR template and supersession rules |
 | Native Worker discovery or manual recovery | [Discovery guide](native-worker-discovery.md), [ADR-0005](decisions/0005-serialize-native-worker-discovery.md) | HTTP/application tests and `make db-validate` |

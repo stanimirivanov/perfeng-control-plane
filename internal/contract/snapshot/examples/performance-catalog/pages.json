@@ -1,0 +1,283 @@
+[
+  {
+    "schemaVersion": 1,
+    "kind": "PerformanceCatalogPage",
+    "snapshot": {
+      "reference": {
+        "issuer": "https://provider.example/identity",
+        "id": "catalog-1",
+        "revision": "1",
+        "sha256": "3ecd2efb63d415a9ee83d0caba5f005139fcc64920583fbe44421a7e1db19295"
+      },
+      "principal": {
+        "issuer": "https://auth.example/tenant",
+        "id": "argus-service"
+      },
+      "producer": {
+        "identity": {
+          "issuer": "https://provider.example/identity",
+          "id": "perfeng-control-plane"
+        },
+        "version": "1.0.0"
+      },
+      "generatedAt": "2026-10-22T11:00:00Z",
+      "validUntil": "2026-10-22T13:00:00Z",
+      "complete": true,
+      "totalItems": 8,
+      "totalPages": 2
+    },
+    "page": {
+      "index": 0,
+      "cursor": null,
+      "nextCursor": "opaque-page-2"
+    },
+    "items": [
+      {
+        "kind": "workload",
+        "reference": {
+          "issuer": "https://provider.example/identity",
+          "id": "checkout",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "displayName": "checkout",
+        "state": "ACTIVE",
+        "ownerRoute": {
+          "issuer": "https://provider.example/identity",
+          "id": "checkout-owner",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "supportedProfiles": [
+          {
+            "issuer": "https://provider.example/identity",
+            "id": "checkout-smoke",
+            "revision": "1",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      {
+        "kind": "profile",
+        "reference": {
+          "issuer": "https://provider.example/identity",
+          "id": "checkout-smoke",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "displayName": "checkout-smoke",
+        "state": "ACTIVE",
+        "purpose": "smoke",
+        "workload": {
+          "issuer": "https://provider.example/identity",
+          "id": "checkout",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "selections": [
+          {
+            "environment": {
+              "issuer": "https://provider.example/identity",
+              "id": "staging",
+              "revision": "1",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "policy": {
+              "issuer": "https://provider.example/identity",
+              "id": "checkout-policy",
+              "revision": "1",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "baseline": {
+              "issuer": "https://provider.example/identity",
+              "id": "approved-baseline",
+              "revision": "1",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          }
+        ]
+      },
+      {
+        "kind": "environment",
+        "reference": {
+          "issuer": "https://provider.example/identity",
+          "id": "staging",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "displayName": "staging",
+        "state": "ACTIVE"
+      },
+      {
+        "kind": "policy",
+        "reference": {
+          "issuer": "https://provider.example/identity",
+          "id": "checkout-policy",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "displayName": "checkout-policy",
+        "state": "ACTIVE"
+      }
+    ]
+  },
+  {
+    "schemaVersion": 1,
+    "kind": "PerformanceCatalogPage",
+    "snapshot": {
+      "reference": {
+        "issuer": "https://provider.example/identity",
+        "id": "catalog-1",
+        "revision": "1",
+        "sha256": "3ecd2efb63d415a9ee83d0caba5f005139fcc64920583fbe44421a7e1db19295"
+      },
+      "principal": {
+        "issuer": "https://auth.example/tenant",
+        "id": "argus-service"
+      },
+      "producer": {
+        "identity": {
+          "issuer": "https://provider.example/identity",
+          "id": "perfeng-control-plane"
+        },
+        "version": "1.0.0"
+      },
+      "generatedAt": "2026-10-22T11:00:00Z",
+      "validUntil": "2026-10-22T13:00:00Z",
+      "complete": true,
+      "totalItems": 8,
+      "totalPages": 2
+    },
+    "page": {
+      "index": 1,
+      "cursor": "opaque-page-2",
+      "nextCursor": null
+    },
+    "items": [
+      {
+        "kind": "owner-route",
+        "reference": {
+          "issuer": "https://provider.example/identity",
+          "id": "checkout-owner",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "displayName": "checkout-owner",
+        "state": "ACTIVE",
+        "owner": {
+          "issuer": "https://owners.example",
+          "id": "checkout-team"
+        },
+        "route": {
+          "issuer": "https://routing.example",
+          "id": "performance-maintenance"
+        }
+      },
+      {
+        "kind": "baseline",
+        "reference": {
+          "issuer": "https://provider.example/identity",
+          "id": "approved-baseline",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "displayName": "approved-baseline",
+        "state": "APPROVED",
+        "workload": {
+          "issuer": "https://provider.example/identity",
+          "id": "checkout",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "profile": {
+          "issuer": "https://provider.example/identity",
+          "id": "checkout-smoke",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "environment": {
+          "issuer": "https://provider.example/identity",
+          "id": "staging",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "policy": {
+          "issuer": "https://provider.example/identity",
+          "id": "checkout-policy",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      {
+        "kind": "baseline",
+        "reference": {
+          "issuer": "https://provider.example/identity",
+          "id": "candidate-baseline",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "displayName": "candidate-baseline",
+        "state": "CANDIDATE",
+        "workload": {
+          "issuer": "https://provider.example/identity",
+          "id": "checkout",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "profile": {
+          "issuer": "https://provider.example/identity",
+          "id": "checkout-smoke",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "environment": {
+          "issuer": "https://provider.example/identity",
+          "id": "staging",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "policy": {
+          "issuer": "https://provider.example/identity",
+          "id": "checkout-policy",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      {
+        "kind": "baseline",
+        "reference": {
+          "issuer": "https://provider.example/identity",
+          "id": "retired-baseline",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "displayName": "retired-baseline",
+        "state": "RETIRED",
+        "workload": {
+          "issuer": "https://provider.example/identity",
+          "id": "checkout",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "profile": {
+          "issuer": "https://provider.example/identity",
+          "id": "checkout-smoke",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "environment": {
+          "issuer": "https://provider.example/identity",
+          "id": "staging",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "policy": {
+          "issuer": "https://provider.example/identity",
+          "id": "checkout-policy",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    ]
+  }
+]
