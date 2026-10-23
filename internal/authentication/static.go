@@ -25,12 +25,13 @@ const (
 	maximumCredentials         = 100
 	maximumPrincipalBytes      = 256
 	maximumTokenBytes          = 4096
-	permissionCount            = 6
+	permissionCount            = 7
 )
 
 const (
 	permissionCreateRun          = "runs:create"
 	permissionReadRun            = "runs:read"
+	permissionReadCatalog        = "catalog:read"
 	permissionCancelRun          = "runs:cancel"
 	permissionCreateBaseline     = "baselines:create"
 	permissionReadBaseline       = "baselines:read"
@@ -256,6 +257,8 @@ func applyPermission(identity *httpapi.Identity, permission string) bool {
 	switch permission {
 	case permissionCreateRun:
 		identity.CreateRun = true
+	case permissionReadCatalog:
+		identity.ReadCatalog = true
 	case permissionReadRun:
 		identity.ReadRun = true
 	case permissionCancelRun:

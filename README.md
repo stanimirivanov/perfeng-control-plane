@@ -21,6 +21,7 @@ coordination, not load generation or statistical decisions.
 ## Current scope
 
 - Authenticated Run and exact-version baseline administration handlers.
+- Opt-in [authorized performance catalog](docs/performance-catalog.md) with immutable principal-scoped snapshot pagination.
 - Strict declarative request validation against the pinned contract.
 - Atomic, principal-scoped idempotent creation with 24-hour retention.
 - Original acceptance replay, current-state reads and dispatch-aware cancellation.

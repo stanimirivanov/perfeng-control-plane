@@ -8,6 +8,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/jsondocument"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/nativeworker"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/rawresult"
@@ -22,11 +23,13 @@ const (
 )
 
 type reportPolicyBundle struct {
-	SchemaVersion int                       `json:"schemaVersion"`
-	Entries       []reportPolicyBundleEntry `json:"entries"`
+	PerformanceCatalog *CatalogConfig            `json:"performanceCatalog,omitempty"`
+	SchemaVersion      int                       `json:"schemaVersion"`
+	Entries            []reportPolicyBundleEntry `json:"entries"`
 }
 
 type reportPolicyBundleEntry struct {
+	CatalogOwnerRoute  *contract.CatalogOwnerRoute    `json:"catalogOwnerRoute,omitempty"`
 	Policy             string                         `json:"policy"`
 	TestID             string                         `json:"testId"`
 	ContractsVersion   string                         `json:"contractsVersion"`
@@ -75,7 +78,18 @@ func LoadReportPolicyRegistry(source fs.FS, manifestPath string) (*ReportPolicyR
 		entries = append(entries, entry)
 	}
 
-	return NewReportPolicyRegistry(entries)
+	registry, err := NewReportPolicyRegistry(entries)
+	if err != nil {
+		return nil, err
+	}
+	if bundle.PerformanceCatalog != nil {
+		if !bundle.PerformanceCatalog.valid() {
+			return nil, run.ErrValidation
+		}
+		copy := *bundle.PerformanceCatalog
+		registry.catalog = &copy
+	}
+	return registry, nil
 }
 
 func loadReportPolicyEntry(
@@ -96,7 +110,8 @@ func loadReportPolicyEntry(
 	}
 
 	return ReportPolicyEntry{
-		PolicyBytes: policyBytes, TestID: configured.TestID,
+		CatalogOwnerRoute: configured.CatalogOwnerRoute,
+		PolicyBytes:       policyBytes, TestID: configured.TestID,
 		ContractsVersion: configured.ContractsVersion,
 		Catalogue:        configured.Catalogue, Profile: configured.Profile,
 		RawProducer: configured.RawProducer, NormalizerProducer: configured.NormalizerProducer,

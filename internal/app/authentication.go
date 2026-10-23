@@ -71,7 +71,11 @@ func NewAPIHandler(
 	if repository == nil || authenticator == nil || approver == nil {
 		return nil, ErrInvalidConfiguration
 	}
-	handler, err := httpapi.New(repository, authenticator.Authenticate, approver.ApproveRun)
+	var catalogs []httpapi.PerformanceCatalogSource
+	if source, ok := approver.(httpapi.PerformanceCatalogSource); ok {
+		catalogs = append(catalogs, source)
+	}
+	handler, err := httpapi.New(repository, authenticator.Authenticate, approver.ApproveRun, catalogs...)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}

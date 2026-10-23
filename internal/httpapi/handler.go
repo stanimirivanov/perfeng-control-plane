@@ -23,6 +23,7 @@ const MaxBodyBytes = 65536
 
 // Identity must come from verified credentials, never request body/token bytes.
 type Identity struct {
+	ReadCatalog        bool
 	Principal          string
 	CreateRun          bool
 	ReadRun            bool
@@ -52,20 +53,28 @@ type Repository interface {
 	ListArtifacts(context.Context, string, string) ([]run.Artifact, error)
 }
 
-// Handler serves the authenticated run and baseline management HTTP contract.
+// Handler serves authenticated run, baseline management and optional catalog contracts.
 type Handler struct {
+	catalog      *performanceCatalog
 	repository   Repository
 	authenticate Authenticate
 	approve      Approve
 }
 
 // New constructs a Handler only when all mandatory authorization and storage
-// dependencies are present.
-func New(repository Repository, authenticate Authenticate, approve Approve) (*Handler, error) {
+// dependencies are present. At most one optional catalog source may be supplied.
+func New(repository Repository, authenticate Authenticate, approve Approve, catalogs ...PerformanceCatalogSource) (*Handler, error) {
 	if repository == nil || authenticate == nil || approve == nil {
 		return nil, errors.New("repository, authentication and resource approval are required")
 	}
-	return &Handler{repository, authenticate, approve}, nil
+	handler := &Handler{repository: repository, authenticate: authenticate, approve: approve}
+	if len(catalogs) > 1 || (len(catalogs) == 1 && catalogs[0] == nil) {
+		return nil, errors.New("invalid catalog source")
+	}
+	if len(catalogs) == 1 {
+		handler.catalog = &performanceCatalog{source: catalogs[0], now: time.Now, snapshots: make(map[string]catalogSnapshot)}
+	}
+	return handler, nil
 }
 
 type apiError struct {
@@ -138,6 +147,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := r.URL.Path
+	if path == "/v1/performance-catalog" && r.Method == http.MethodGet {
+		h.servePerformanceCatalog(w, r, identity)
+		return
+	}
 	if path == "/v1/runs" && r.Method == http.MethodPost {
 		if !identity.CreateRun {
 			fail(w, 403, "FORBIDDEN")

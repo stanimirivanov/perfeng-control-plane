@@ -20,6 +20,18 @@ import (
 
 const credentialPath = "credentials.json"
 
+func TestCatalogPermissionIsExplicitAndReadOnly(t *testing.T) {
+	source := credentialFixture(t, []credentialConfig{{TokenSHA256: tokenDigest("catalog-token"), Principal: "integration", Permissions: []string{"catalog:read"}}})
+	authenticator, err := LoadStatic(source, credentialPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := authenticator.Authenticate(context.Background(), "catalog-token")
+	if err != nil || identity != (httpapi.Identity{Principal: "integration", ReadCatalog: true}) {
+		t.Fatalf("identity=%+v error=%v", identity, err)
+	}
+}
+
 func TestStaticAuthenticatesExactTokenAndPermissions(t *testing.T) {
 	source := credentialFixture(t, []credentialConfig{{
 		TokenSHA256: tokenDigest("alice-token"),

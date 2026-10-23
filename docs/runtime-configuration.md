@@ -88,7 +88,8 @@ has this shape:
 ~~~
 
 The accepted permissions are `runs:create`, `runs:read`, `runs:cancel`,
-`baselines:create`, `baselines:read` and `baselines:transition`. The loader
+`baselines:create`, `baselines:read`, `baselines:transition` and the opt-in
+[`catalog:read`](performance-catalog.md) permission. The loader
 rejects unknown or duplicate fields, digests and permissions. It
 also rejects two credentials for the same principal when their permissions
 differ. Consequently, overlapping old and new token hashes can rotate a
