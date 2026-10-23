@@ -1,0 +1,498 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://perfeng.dev/schemas/performance-catalog/v1/performance-catalog.schema.json",
+  "$defs": {
+    "IntegrationReference": {
+      "type": "object",
+      "required": [
+        "issuer",
+        "id",
+        "revision",
+        "sha256"
+      ],
+      "properties": {
+        "issuer": {
+          "type": "string",
+          "format": "uri",
+          "description": "a string at most 512 character(s) long",
+          "title": "maxLength(512)",
+          "maxLength": 512
+        },
+        "id": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "maxLength(256)",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "maxLength(256)",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "sha256": {
+          "type": "string",
+          "description": "a string matching the pattern ^[0-9a-f]{64}$",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "IntegrationIdentity": {
+      "type": "object",
+      "required": [
+        "issuer",
+        "id"
+      ],
+      "properties": {
+        "issuer": {
+          "type": "string",
+          "format": "uri",
+          "description": "a string at most 512 character(s) long",
+          "title": "maxLength(512)",
+          "maxLength": 512
+        },
+        "id": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "maxLength(256)",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        }
+      },
+      "additionalProperties": false
+    },
+    "version": {
+      "type": "string",
+      "description": "a string matching the pattern ^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "a string matching the pattern ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$"
+    }
+  },
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "kind",
+    "snapshot",
+    "page",
+    "items"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "enum": [
+        1
+      ]
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "PerformanceCatalogPage"
+      ]
+    },
+    "snapshot": {
+      "type": "object",
+      "required": [
+        "reference",
+        "principal",
+        "producer",
+        "generatedAt",
+        "validUntil",
+        "complete",
+        "totalItems",
+        "totalPages"
+      ],
+      "properties": {
+        "reference": {
+          "$ref": "#/$defs/IntegrationReference"
+        },
+        "principal": {
+          "$ref": "#/$defs/IntegrationIdentity"
+        },
+        "producer": {
+          "type": "object",
+          "required": [
+            "identity",
+            "version"
+          ],
+          "properties": {
+            "identity": {
+              "$ref": "#/$defs/IntegrationIdentity"
+            },
+            "version": {
+              "$ref": "#/$defs/version"
+            }
+          },
+          "additionalProperties": false
+        },
+        "generatedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "validUntil": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "complete": {
+          "type": "boolean",
+          "enum": [
+            true
+          ]
+        },
+        "totalItems": {
+          "type": "integer",
+          "description": "a number less than or equal to 100000",
+          "title": "lessThanOrEqualTo(100000)",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "totalPages": {
+          "type": "integer",
+          "description": "a number less than or equal to 1000",
+          "title": "lessThanOrEqualTo(1000)",
+          "minimum": 1,
+          "maximum": 1000
+        }
+      },
+      "additionalProperties": false
+    },
+    "page": {
+      "type": "object",
+      "required": [
+        "index",
+        "cursor",
+        "nextCursor"
+      ],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "description": "a number less than 1000",
+          "title": "lessThan(1000)",
+          "minimum": 0,
+          "exclusiveMaximum": 1000
+        },
+        "cursor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "a string matching the pattern \\S",
+              "title": "maxLength(256)",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "a string matching the pattern \\S",
+              "title": "maxLength(256)",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": [
+              "reference",
+              "displayName",
+              "state",
+              "kind",
+              "ownerRoute",
+              "supportedProfiles"
+            ],
+            "properties": {
+              "reference": {
+                "$ref": "#/$defs/IntegrationReference"
+              },
+              "displayName": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE",
+                  "RETIRED"
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "workload"
+                ]
+              },
+              "ownerRoute": {
+                "$ref": "#/$defs/IntegrationReference"
+              },
+              "supportedProfiles": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/IntegrationReference"
+                },
+                "description": "an array of at most 32 item(s)",
+                "title": "maxItems(32)",
+                "maxItems": 32
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "reference",
+              "displayName",
+              "state",
+              "kind",
+              "purpose",
+              "workload",
+              "selections"
+            ],
+            "properties": {
+              "reference": {
+                "$ref": "#/$defs/IntegrationReference"
+              },
+              "displayName": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE",
+                  "RETIRED"
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "profile"
+                ]
+              },
+              "purpose": {
+                "type": "string",
+                "enum": [
+                  "smoke",
+                  "average",
+                  "regression",
+                  "stress",
+                  "capacity",
+                  "soak"
+                ]
+              },
+              "workload": {
+                "$ref": "#/$defs/IntegrationReference"
+              },
+              "selections": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "environment",
+                    "policy",
+                    "baseline"
+                  ],
+                  "properties": {
+                    "environment": {
+                      "$ref": "#/$defs/IntegrationReference"
+                    },
+                    "policy": {
+                      "$ref": "#/$defs/IntegrationReference"
+                    },
+                    "baseline": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/IntegrationReference"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "description": "an array of at most 32 item(s)",
+                "title": "maxItems(32)",
+                "maxItems": 32
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "reference",
+              "displayName",
+              "state",
+              "kind"
+            ],
+            "properties": {
+              "reference": {
+                "$ref": "#/$defs/IntegrationReference"
+              },
+              "displayName": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE",
+                  "RETIRED"
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "environment",
+                  "policy"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "reference",
+              "displayName",
+              "state",
+              "kind",
+              "owner",
+              "route"
+            ],
+            "properties": {
+              "reference": {
+                "$ref": "#/$defs/IntegrationReference"
+              },
+              "displayName": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE",
+                  "RETIRED"
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "owner-route"
+                ]
+              },
+              "owner": {
+                "$ref": "#/$defs/IntegrationIdentity"
+              },
+              "route": {
+                "$ref": "#/$defs/IntegrationIdentity"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "reference",
+              "displayName",
+              "kind",
+              "state",
+              "workload",
+              "profile",
+              "environment",
+              "policy"
+            ],
+            "properties": {
+              "reference": {
+                "$ref": "#/$defs/IntegrationReference"
+              },
+              "displayName": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "baseline"
+                ]
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "CANDIDATE",
+                  "QUALIFIED",
+                  "APPROVED",
+                  "RETIRED"
+                ]
+              },
+              "workload": {
+                "$ref": "#/$defs/IntegrationReference"
+              },
+              "profile": {
+                "$ref": "#/$defs/IntegrationReference"
+              },
+              "environment": {
+                "$ref": "#/$defs/IntegrationReference"
+              },
+              "policy": {
+                "$ref": "#/$defs/IntegrationReference"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "description": "an array of at most 100 item(s)",
+      "title": "maxItems(100)",
+      "maxItems": 100
+    }
+  },
+  "additionalProperties": false
+}

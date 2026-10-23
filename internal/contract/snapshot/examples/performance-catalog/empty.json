@@ -1,0 +1,36 @@
+[
+  {
+    "schemaVersion": 1,
+    "kind": "PerformanceCatalogPage",
+    "snapshot": {
+      "reference": {
+        "issuer": "https://provider.example/identity",
+        "id": "empty-catalog",
+        "revision": "1",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "principal": {
+        "issuer": "https://auth.example/tenant",
+        "id": "argus-service"
+      },
+      "producer": {
+        "identity": {
+          "issuer": "https://provider.example/identity",
+          "id": "perfeng-control-plane"
+        },
+        "version": "1.0.0"
+      },
+      "generatedAt": "2026-10-22T11:00:00Z",
+      "validUntil": "2026-10-22T13:00:00Z",
+      "complete": true,
+      "totalItems": 0,
+      "totalPages": 1
+    },
+    "page": {
+      "index": 0,
+      "cursor": null,
+      "nextCursor": null
+    },
+    "items": []
+  }
+]

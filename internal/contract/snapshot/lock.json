@@ -4,7 +4,7 @@
   "bundleVersion": "0.21.0",
   "runManagementApiVersion": "0.4.0",
   "nativeWorkerApiVersion": "2.2.0",
-  "transformation": "Files copied byte-for-byte from the reviewed contract commit. Hashes cover local snapshot bytes.",
+  "transformation": "Existing API files retain the primary commit; performanceCatalog files use its separately pinned commit. All files are copied byte-for-byte; hashes cover local snapshot bytes.",
   "sha256": {
     "api/native-worker/v2/examples/acquire.json": "e9ba2464e978e4383b43e90cfe305d646fc2c9005049d1dd20698f223cd80b10",
     "api/native-worker/v2/examples/artifact.json": "e2018a96a6d6ded52ddbecbedf52ac02bc3be68009edb370f493a231bbbad394",
@@ -69,6 +69,18 @@
     "examples/policy/browser.json": "566a9d13e277db0b492c4a7b55294a2e479c9d449768317c072f0f4dda988646",
     "openapi.json": "78019af05eabbe942310396586875db06afb6ae7fa666871a7b23df0ac7310c7",
     "schemas/policy/v1/performance-policy.schema.json": "76935f55c9aef751e0b51b9c9bcb8210e297eea35e022b35d96d258d9a7ce328",
-    "transitions.json": "b19eff90dacebe8b6e890dbea0e1b320f9bc683dda51ef82d00116d1355032a0"
+    "transitions.json": "b19eff90dacebe8b6e890dbea0e1b320f9bc683dda51ef82d00116d1355032a0",
+    "schemas/performance-catalog/v1/performance-catalog.schema.json": "becf420e60231bd0411352ba94b63c8450aa1abb0cf569c0e1634915eb19ce75",
+    "examples/performance-catalog/pages.json": "f07a6d6f1b8a3ba02692acd615f636d0300fcf9fe7f434f4bb12f185bebd1e30",
+    "examples/performance-catalog/empty.json": "88ddd468009e239061897dbc39ac30525c45e9f8e0f163ec6b0fcdedecefb97c"
+  },
+  "performanceCatalog": {
+    "files": [
+      "schemas/performance-catalog/v1/performance-catalog.schema.json",
+      "examples/performance-catalog/pages.json",
+      "examples/performance-catalog/empty.json"
+    ],
+    "bundleVersion": "0.24.0",
+    "commit": "041273947703542f7fe22eab838c176df5517974"
   }
 }

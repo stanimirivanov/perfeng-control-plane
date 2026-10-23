@@ -125,7 +125,7 @@ dispatch, recovery, artifact collection and analysis integration follow.
 
 ## Development
 
-Use Go 1.26.9 (the tested toolchain, recorded in go.mod), or a reviewed newer Go
+Use Go 1.26.10 (the tested toolchain, recorded in go.mod), or a reviewed newer Go
 toolchain. PostgreSQL uses pgx v5.10.0; the Kubernetes API libraries are aligned
 at v0.37.0; and the S3 adapter uses AWS SDK for Go v2 core v1.46.0,
 config v1.33.3 and service/s3 v1.110.0.

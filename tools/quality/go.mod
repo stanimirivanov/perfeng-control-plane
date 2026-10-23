@@ -1,6 +1,6 @@
 module github.com/stanimirivanov/perfeng-control-plane/tools/quality
 
-go 1.26.9
+go 1.26.10
 
 tool (
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint

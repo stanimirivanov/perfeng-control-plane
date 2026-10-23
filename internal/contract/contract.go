@@ -31,6 +31,7 @@ type schema struct {
 	AdditionalProperties *bool             `json:"additionalProperties"`
 	AllOf                []schema          `json:"allOf"`
 	OneOf                []schema          `json:"oneOf"`
+	AnyOf                []schema          `json:"anyOf"`
 	Items                json.RawMessage   `json:"items"`
 	PrefixItems          []schema          `json:"prefixItems"`
 	If                   *schema           `json:"if"`
@@ -41,6 +42,7 @@ type schema struct {
 	MaxLength            *int              `json:"maxLength"`
 	Minimum              *float64          `json:"minimum"`
 	Maximum              *float64          `json:"maximum"`
+	ExclusiveMaximum     *float64          `json:"exclusiveMaximum"`
 	MinItems             *int              `json:"minItems"`
 	MaxItems             *int              `json:"maxItems"`
 	UniqueItems          bool              `json:"uniqueItems"`
@@ -147,6 +149,13 @@ func compilePatterns(definition schema) (schema, error) {
 		}
 		definition.OneOf[index] = compiled
 	}
+	for index, child := range definition.AnyOf {
+		compiled, err := compilePatterns(child)
+		if err != nil {
+			return schema{}, fmt.Errorf("anyOf: %w", err)
+		}
+		definition.AnyOf[index] = compiled
+	}
 	if len(definition.Items) != 0 {
 		if bytes.Equal(bytes.TrimSpace(definition.Items), []byte("false")) {
 			definition.itemsForbidden = true
@@ -206,7 +215,7 @@ func validateSupportedSchema(
 	all map[string]schema,
 	visited map[string]bool,
 ) error {
-	for _, child := range append(definition.AllOf, definition.OneOf...) {
+	for _, child := range append(append(definition.AllOf, definition.OneOf...), definition.AnyOf...) {
 		if err := validateSupportedSchema(child, all, visited); err != nil {
 			return err
 		}
@@ -242,7 +251,7 @@ func validateSupportedSchema(
 		if definition.Type == "" && len(definition.Properties) == 0 &&
 			len(definition.Required) == 0 && definition.AdditionalProperties == nil {
 			if definition.Const == nil && len(definition.Enum) == 0 &&
-				len(definition.AllOf) == 0 && len(definition.OneOf) == 0 &&
+				len(definition.AllOf) == 0 && len(definition.OneOf) == 0 && len(definition.AnyOf) == 0 &&
 				definition.If == nil && definition.Not == nil &&
 				len(definition.Items) == 0 && len(definition.PrefixItems) == 0 &&
 				definition.MinItems == nil && definition.MaxItems == nil {
@@ -256,7 +265,7 @@ func validateSupportedSchema(
 				return fmt.Errorf("property %s: %w", name, err)
 			}
 		}
-	case "string", "integer", "number", "boolean", "array":
+	case "string", "integer", "number", "boolean", "array", "null":
 	default:
 		return fmt.Errorf("unsupported schema type %q", definition.Type)
 	}
@@ -407,6 +416,18 @@ func validate(s schema, value any) error {
 }
 
 func validateWithSchemas(s schema, value any, all map[string]schema) error {
+	if len(s.AnyOf) > 0 {
+		matched := false
+		for _, child := range s.AnyOf {
+			if validateWithSchemas(child, value, all) == nil {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return fmt.Errorf("expected a matching schema")
+		}
+	}
 	for _, child := range s.AllOf {
 		if err := validateWithSchemas(child, value, all); err != nil {
 			return err
@@ -472,6 +493,10 @@ func validateWithSchemas(s schema, value any, all map[string]schema) error {
 		}
 	}
 	switch kind {
+	case "null":
+		if value != nil {
+			return fmt.Errorf("expected null")
+		}
 	case "object":
 		object, ok := value.(map[string]any)
 		if !ok {
@@ -573,7 +598,8 @@ func validateWithSchemas(s schema, value any, all map[string]schema) error {
 
 func withinBounds(value float64, s schema) bool {
 	return (s.Minimum == nil || value >= *s.Minimum) &&
-		(s.Maximum == nil || value <= *s.Maximum)
+		(s.Maximum == nil || value <= *s.Maximum) &&
+		(s.ExclusiveMaximum == nil || value < *s.ExclusiveMaximum)
 }
 
 // ValidID reports whether id has the pinned Run identifier syntax.
