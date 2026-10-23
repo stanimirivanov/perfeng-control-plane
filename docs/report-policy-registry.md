@@ -63,8 +63,11 @@ dispatcher. They instead require the Playwright producer and a valid native
 assignment template; container entries reject one. Duplicate
 principal/context bindings reject the complete registry. Policy bytes, producer
 artifacts, Job templates, baseline dataset seed pointers and returned selections
-are copied so callers cannot mutate registry state. Once constructed, the
-registry performs read-only map lookups and is safe for concurrent resolution.
+are copied so callers cannot mutate registry state. Execution and provenance
+resolution perform read-only map lookups and are safe for concurrent resolution.
+The opt-in [performance catalog projection](performance-catalog.md) also uses a
+caller-supplied principal-scoped baseline reader to publish current eligibility;
+it does not change the immutable registry or existing execution resolvers.
 
 Resolution requires an exact match on principal, test, catalogue, profile,
 environment and policy. An unmatched valid context returns `run.ErrForbidden`

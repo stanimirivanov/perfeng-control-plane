@@ -13,6 +13,8 @@ import (
 	"testing"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/authentication"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/httpapi"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/memory"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
@@ -28,6 +30,32 @@ func (authenticatorStub) Authenticate(
 }
 
 type approverStub struct{}
+
+type catalogAuthenticatorStub struct{}
+
+func (catalogAuthenticatorStub) Authenticate(context.Context, string) (httpapi.Identity, error) {
+	return httpapi.Identity{Principal: "integration", ReadCatalog: true}, nil
+}
+
+type catalogApproverStub struct{ approverStub }
+
+func (catalogApproverStub) PerformanceCatalog(context.Context, string, func(context.Context, string, string) (baseline.Record, error)) (contract.CatalogProjection, error) {
+	return contract.CatalogProjection{Issuer: "https://provider.example", PrincipalIssuer: "https://auth.example", ProducerVersion: "1.0.0", Items: make([]map[string]any, 0)}, nil
+}
+
+func TestNewAPIHandlerComposesOptionalPerformanceCatalog(t *testing.T) {
+	handler, err := NewAPIHandler(memory.New(nil), catalogAuthenticatorStub{}, catalogApproverStub{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest("GET", "/v1/performance-catalog", nil)
+	r.Header.Set("Authorization", "Bearer integration-token")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"totalItems":0`) {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body)
+	}
+}
 
 func (approverStub) ApproveRun(context.Context, string, run.Request) (run.ExecutionTarget, error) {
 	return run.ExecutionTargetKubernetes, nil

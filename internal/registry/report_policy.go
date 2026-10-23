@@ -10,6 +10,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/kubernetes"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/nativeworker"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/normalizedresult"
@@ -21,6 +22,7 @@ import (
 
 // ReportPolicyEntry binds approved runtime resources to one execution context.
 type ReportPolicyEntry struct {
+	CatalogOwnerRoute  *contract.CatalogOwnerRoute
 	PolicyBytes        []byte
 	TestID             string
 	ContractsVersion   string
@@ -43,6 +45,7 @@ type ReportPolicyEntry struct {
 // ReportPolicyRegistry authorizes Runs, resolves execution templates, approves
 // execution evidence and resolves report trust from immutable reviewed entries.
 type ReportPolicyRegistry struct {
+	catalog *CatalogConfig
 	entries map[reportPolicyKey]reportPolicyValue
 }
 
@@ -56,6 +59,7 @@ type reportPolicyKey struct {
 }
 
 type reportPolicyValue struct {
+	catalogOwner       *contract.CatalogOwnerRoute
 	policyBytes        []byte
 	mode               string
 	contractsVersion   string
@@ -115,6 +119,14 @@ func (registry *ReportPolicyRegistry) ValidateContractsVersion(version string) e
 }
 
 func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
+	var owner *contract.CatalogOwnerRoute
+	if entry.CatalogOwnerRoute != nil {
+		if contract.ValidateCatalogResource(ownerResource(*entry.CatalogOwnerRoute)) != nil {
+			return run.ErrValidation
+		}
+		copy := *entry.CatalogOwnerRoute
+		owner = &copy
+	}
 	executionTarget, validExecution := classifyExecution(entry.RawProducer, entry.ExecutionTemplate)
 	validBaseline := validNativeBaseline(executionTarget, entry)
 	if !validBenchmarkEntry(entry) {
@@ -181,6 +193,7 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 			return run.ErrValidation
 		}
 		registry.entries[key] = reportPolicyValue{
+			catalogOwner:       owner,
 			policyBytes:        append([]byte(nil), entry.PolicyBytes...),
 			mode:               document.Spec.Mode,
 			contractsVersion:   entry.ContractsVersion,
