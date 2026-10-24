@@ -92,3 +92,4 @@ How will assumptions and consequences be verified?
 | [0008](0008-resolve-evidence-contracts-per-registry-entry.md) | Resolve evidence contracts per authorized registry entry | Proposed |
 | [0009](0009-pin-performance-catalog-contracts.md) | Pin performance catalog contract conformance | Proposed |
 | [0010](0010-publish-authorized-performance-catalog.md) | Publish authorized performance catalog snapshots | Proposed |
+| [0011](0011-pin-performance-integration-contracts.md) | Pin performance integration contract conformance | Proposed |

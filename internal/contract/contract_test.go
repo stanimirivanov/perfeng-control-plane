@@ -27,7 +27,7 @@ func TestPinnedSnapshot(t *testing.T) {
 	}
 	if lock.Commit != "143daa58774d8807f1745f8410ccab8b610170a0" ||
 		lock.BundleVersion != "0.21.0" || lock.RunManagementAPIVersion != "0.4.0" ||
-		lock.NativeWorkerAPIVersion != "2.2.0" || len(lock.SHA256) != 67 {
+		lock.NativeWorkerAPIVersion != "2.2.0" || len(lock.SHA256) != 72 {
 		t.Fatal("unexpected contract provenance")
 	}
 	actualFiles := make(map[string]struct{}, len(lock.SHA256))

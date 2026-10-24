@@ -28,16 +28,17 @@ const (
 // registry dependencies are removed through focused refactoring. It is not a
 // claim that every edge-to-edge dependency is the desired final architecture.
 var packageLayers = map[string]layer{
-	modulePath + "/internal/analysisresult":   coreLayer,
-	modulePath + "/internal/baseline":         coreLayer,
-	modulePath + "/internal/benchmark":        coreLayer,
-	modulePath + "/internal/contract":         coreLayer,
-	modulePath + "/internal/jsondocument":     coreLayer,
-	modulePath + "/internal/nativeworker":     coreLayer,
-	modulePath + "/internal/normalizedresult": coreLayer,
-	modulePath + "/internal/policy":           coreLayer,
-	modulePath + "/internal/rawresult":        coreLayer,
-	modulePath + "/internal/run":              coreLayer,
+	modulePath + "/internal/integrationcontract": edgeLayer,
+	modulePath + "/internal/analysisresult":      coreLayer,
+	modulePath + "/internal/baseline":            coreLayer,
+	modulePath + "/internal/benchmark":           coreLayer,
+	modulePath + "/internal/contract":            coreLayer,
+	modulePath + "/internal/jsondocument":        coreLayer,
+	modulePath + "/internal/nativeworker":        coreLayer,
+	modulePath + "/internal/normalizedresult":    coreLayer,
+	modulePath + "/internal/policy":              coreLayer,
+	modulePath + "/internal/rawresult":           coreLayer,
+	modulePath + "/internal/run":                 coreLayer,
 
 	modulePath + "/internal/worker": applicationLayer,
 

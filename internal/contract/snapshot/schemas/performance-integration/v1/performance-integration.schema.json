@@ -1,0 +1,643 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json",
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "a string matching the pattern ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "IntegrationRequestContext": {
+      "type": "object",
+      "required": [
+        "request",
+        "attempt",
+        "principal",
+        "requestedAt",
+        "deadline",
+        "service",
+        "capability",
+        "deployment",
+        "environment",
+        "workload",
+        "profile",
+        "policy",
+        "baseline",
+        "evidence",
+        "candidate"
+      ],
+      "properties": {
+        "request": {
+          "$ref": "#/$defs/IntegrationIdentity"
+        },
+        "attempt": {
+          "$ref": "#/$defs/IntegrationIdentity"
+        },
+        "principal": {
+          "$ref": "#/$defs/IntegrationIdentity"
+        },
+        "requestedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "deadline": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "service": {
+          "$ref": "#/$defs/IntegrationReference"
+        },
+        "capability": {
+          "$ref": "#/$defs/IntegrationReference"
+        },
+        "deployment": {
+          "$ref": "#/$defs/IntegrationReference"
+        },
+        "environment": {
+          "$ref": "#/$defs/IntegrationReference"
+        },
+        "workload": {
+          "$ref": "#/$defs/IntegrationReference"
+        },
+        "profile": {
+          "$ref": "#/$defs/IntegrationReference"
+        },
+        "policy": {
+          "$ref": "#/$defs/IntegrationReference"
+        },
+        "baseline": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntegrationReference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/IntegrationReference"
+          },
+          "description": "an array of at most 32 item(s)",
+          "title": "maxItems(32)",
+          "maxItems": 32
+        },
+        "candidate": {
+          "type": "object",
+          "required": [
+            "source",
+            "imageDigest"
+          ],
+          "properties": {
+            "source": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "algorithm",
+                    "digest"
+                  ],
+                  "properties": {
+                    "algorithm": {
+                      "type": "string",
+                      "enum": [
+                        "git-sha1"
+                      ]
+                    },
+                    "digest": {
+                      "type": "string",
+                      "description": "a string matching the pattern ^[0-9a-f]{40}$",
+                      "pattern": "^[0-9a-f]{40}$"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "algorithm",
+                    "digest"
+                  ],
+                  "properties": {
+                    "algorithm": {
+                      "type": "string",
+                      "enum": [
+                        "git-sha256"
+                      ]
+                    },
+                    "digest": {
+                      "type": "string",
+                      "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "imageDigest": {
+              "type": "string",
+              "description": "a string matching the pattern ^sha256:[0-9a-f]{64}$",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "IntegrationIdentity": {
+      "type": "object",
+      "required": [
+        "issuer",
+        "id"
+      ],
+      "properties": {
+        "issuer": {
+          "type": "string",
+          "format": "uri",
+          "description": "a string at most 512 character(s) long",
+          "title": "maxLength(512)",
+          "maxLength": 512
+        },
+        "id": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "maxLength(256)",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        }
+      },
+      "additionalProperties": false
+    },
+    "IntegrationReference": {
+      "type": "object",
+      "required": [
+        "issuer",
+        "id",
+        "revision",
+        "sha256"
+      ],
+      "properties": {
+        "issuer": {
+          "type": "string",
+          "format": "uri",
+          "description": "a string at most 512 character(s) long",
+          "title": "maxLength(512)",
+          "maxLength": 512
+        },
+        "id": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "maxLength(256)",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "maxLength(256)",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "sha256": {
+          "type": "string",
+          "description": "a string matching the pattern ^[0-9a-f]{64}$",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "IntegrationError": {
+      "type": "object",
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "invalid_request",
+            "unauthenticated",
+            "forbidden",
+            "conflict",
+            "unknown_request",
+            "expired",
+            "unsupported_version",
+            "unsupported_revision",
+            "unavailable_reference",
+            "rate_limited",
+            "unavailable"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "maxLength(256)",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "specversion",
+        "id",
+        "source",
+        "time",
+        "datacontenttype",
+        "dataschema",
+        "type",
+        "data"
+      ],
+      "properties": {
+        "specversion": {
+          "type": "string",
+          "enum": [
+            "1.0"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "maxLength(256)",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "source": {
+          "type": "string",
+          "format": "uri",
+          "description": "a string at most 512 character(s) long",
+          "title": "maxLength(512)",
+          "maxLength": 512
+        },
+        "time": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "datacontenttype": {
+          "type": "string",
+          "enum": [
+            "application/json"
+          ]
+        },
+        "dataschema": {
+          "type": "string",
+          "enum": [
+            "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "dev.perfeng.integration.requested.v1"
+          ]
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "context"
+          ],
+          "properties": {
+            "context": {
+              "$ref": "#/$defs/IntegrationRequestContext"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "specversion",
+        "id",
+        "source",
+        "time",
+        "datacontenttype",
+        "dataschema",
+        "type",
+        "data"
+      ],
+      "properties": {
+        "specversion": {
+          "type": "string",
+          "enum": [
+            "1.0"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "maxLength(256)",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "source": {
+          "type": "string",
+          "format": "uri",
+          "description": "a string at most 512 character(s) long",
+          "title": "maxLength(512)",
+          "maxLength": 512
+        },
+        "time": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "datacontenttype": {
+          "type": "string",
+          "enum": [
+            "application/json"
+          ]
+        },
+        "dataschema": {
+          "type": "string",
+          "enum": [
+            "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "dev.perfeng.integration.accepted.v1"
+          ]
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "context",
+            "run"
+          ],
+          "properties": {
+            "context": {
+              "$ref": "#/$defs/IntegrationRequestContext"
+            },
+            "run": {
+              "$ref": "#/$defs/IntegrationIdentity"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "specversion",
+        "id",
+        "source",
+        "time",
+        "datacontenttype",
+        "dataschema",
+        "type",
+        "data"
+      ],
+      "properties": {
+        "specversion": {
+          "type": "string",
+          "enum": [
+            "1.0"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "maxLength(256)",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "source": {
+          "type": "string",
+          "format": "uri",
+          "description": "a string at most 512 character(s) long",
+          "title": "maxLength(512)",
+          "maxLength": 512
+        },
+        "time": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "datacontenttype": {
+          "type": "string",
+          "enum": [
+            "application/json"
+          ]
+        },
+        "dataschema": {
+          "type": "string",
+          "enum": [
+            "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "dev.perfeng.integration.rejected.v1"
+          ]
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "context",
+            "error"
+          ],
+          "properties": {
+            "context": {
+              "$ref": "#/$defs/IntegrationRequestContext"
+            },
+            "error": {
+              "$ref": "#/$defs/IntegrationError"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "specversion",
+        "id",
+        "source",
+        "time",
+        "datacontenttype",
+        "dataschema",
+        "type",
+        "data"
+      ],
+      "properties": {
+        "specversion": {
+          "type": "string",
+          "enum": [
+            "1.0"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "maxLength(256)",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "source": {
+          "type": "string",
+          "format": "uri",
+          "description": "a string at most 512 character(s) long",
+          "title": "maxLength(512)",
+          "maxLength": 512
+        },
+        "time": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "datacontenttype": {
+          "type": "string",
+          "enum": [
+            "application/json"
+          ]
+        },
+        "dataschema": {
+          "type": "string",
+          "enum": [
+            "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "dev.perfeng.integration.lifecycle.v1"
+          ]
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "context",
+            "run",
+            "revision",
+            "state"
+          ],
+          "properties": {
+            "context": {
+              "$ref": "#/$defs/IntegrationRequestContext"
+            },
+            "run": {
+              "$ref": "#/$defs/IntegrationIdentity"
+            },
+            "revision": {
+              "type": "integer",
+              "description": "a number less than or equal to 9007199254740991",
+              "title": "lessThanOrEqualTo(9007199254740991)",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "ACCEPTED",
+                "RUNNING",
+                "CANCELLING",
+                "COMPLETED",
+                "FAILED",
+                "CANCELLED"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "specversion",
+        "id",
+        "source",
+        "time",
+        "datacontenttype",
+        "dataschema",
+        "type",
+        "data"
+      ],
+      "properties": {
+        "specversion": {
+          "type": "string",
+          "enum": [
+            "1.0"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "maxLength(256)",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "source": {
+          "type": "string",
+          "format": "uri",
+          "description": "a string at most 512 character(s) long",
+          "title": "maxLength(512)",
+          "maxLength": 512
+        },
+        "time": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "datacontenttype": {
+          "type": "string",
+          "enum": [
+            "application/json"
+          ]
+        },
+        "dataschema": {
+          "type": "string",
+          "enum": [
+            "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "dev.perfeng.integration.cancel-requested.v1"
+          ]
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "context",
+            "reason"
+          ],
+          "properties": {
+            "context": {
+              "$ref": "#/$defs/IntegrationRequestContext"
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "user",
+                "superseded",
+                "deadline"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}
