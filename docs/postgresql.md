@@ -22,6 +22,8 @@ runners do not write these tables directly.
 | schema_migrations | Applied forward migrations and SHA-256 checksums |
 | runs | Principal-owned current Run snapshots and server-selected execution targets |
 | create_bindings | Original acceptance snapshot and 24-hour key expiration |
+| integration_requests | Retained principal/issuer/request dispositions and atomic Run mapping |
+| integration_events | Principal-scoped delivery digests and conflict detection |
 | artifacts | Immutable identities for raw/normalized object references |
 | reconciliation_leases | Worker ownership tokens, lease expiry and retry availability |
 | kubernetes_executions | Immutable Job UID and specification identity per Run |
@@ -97,6 +99,7 @@ runtime login. Once migrations have completed, the runtime role needs:
 GRANT USAGE ON SCHEMA perfeng_control TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.runs TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.create_bindings TO perfeng_runtime;
+GRANT SELECT, INSERT ON perfeng_control.integration_requests, perfeng_control.integration_events TO perfeng_runtime;
 GRANT SELECT, INSERT ON perfeng_control.artifacts TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.baselines TO perfeng_runtime;
 GRANT SELECT, INSERT, UPDATE ON perfeng_control.native_worker_presence TO perfeng_runtime;

@@ -29,6 +29,7 @@ const (
 // claim that every edge-to-edge dependency is the desired final architecture.
 var packageLayers = map[string]layer{
 	modulePath + "/internal/integrationcontract": edgeLayer,
+	modulePath + "/internal/integration":         coreLayer,
 	modulePath + "/internal/analysisresult":      coreLayer,
 	modulePath + "/internal/baseline":            coreLayer,
 	modulePath + "/internal/benchmark":           coreLayer,

@@ -53,10 +53,12 @@ implementation exceeds the agreed review size.
    schema validation and portable exchange tests. No runtime exposure.
 2. **PR6b: reviewed admission bindings** — resolve approved service, capability,
    deployment, source/image and evidence pins into an existing native Run input.
-3. **PR6c: durable request admission and reads** — atomically bind authenticated
-   request identity to a native Run, persist accepted/rejected dispositions,
-   preserve replay beyond the native create-key lifetime and expose scoped
-   create/read operations. Keep external calls outside transactions.
+3. **PR6c: durable request admission and reads** — storage slice PR6c1 atomically binds
+   request identity to a native Run, persists accepted/rejected dispositions,
+   and preserves replay beyond the native create-key lifetime. The dependent
+   PR6c2 transport/composition slice exposes authenticated create/read operations.
+   Keep external calls outside transactions. The storage contract and rollout
+   are specified in [ADR-0013](decisions/0013-retain-integration-admission-atomically.md).
 4. **PR6d: request lifecycle and recovery** — project monotonic native revisions,
    handle scoped cancellation and deadline recovery, and retain correlation or
    tombstones so expiration cannot silently create duplicate runs.

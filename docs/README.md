@@ -28,6 +28,7 @@
 | Authorized performance catalog publication | [Publication guide](performance-catalog.md), [ADR-0010](decisions/0010-publish-authorized-performance-catalog.md) | Registry, HTTP, authentication and composition tests; `make validate` |
 | Performance integration wire boundary and delivery sequence | [Integration guide](performance-integration.md), [ADR-0011](decisions/0011-pin-performance-integration-contracts.md) | Pinned exchange, offline schema and architecture tests; `make validate` |
 | Reviewed integration admission bindings | [Integration guide](performance-integration.md#reviewed-admission-bindings), [ADR-0012](decisions/0012-bind-integration-admission-to-reviewed-registry.md) | Registry resolution, baseline and configuration tests; `make validate` |
+| Durable integration admission and scoped reads | [ADR-0013](decisions/0013-retain-integration-admission-atomically.md), [PostgreSQL guide](postgresql.md) | Live integration request/approval-lock tests; `make db-validate` |
 | Baseline behavior or administration | [Baseline lifecycle](baseline-lifecycle.md), [baseline administration](baseline-administration.md) | Domain, HTTP, and PostgreSQL tests as applicable |
 | Durable technical decision | [ADR index](decisions/README.md) | ADR template and supersession rules |
 | Native Worker discovery or manual recovery | [Discovery guide](native-worker-discovery.md), [ADR-0005](decisions/0005-serialize-native-worker-discovery.md) | HTTP/application tests and `make db-validate` |
