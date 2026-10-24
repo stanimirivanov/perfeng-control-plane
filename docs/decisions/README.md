@@ -93,3 +93,4 @@ How will assumptions and consequences be verified?
 | [0009](0009-pin-performance-catalog-contracts.md) | Pin performance catalog contract conformance | Proposed |
 | [0010](0010-publish-authorized-performance-catalog.md) | Publish authorized performance catalog snapshots | Proposed |
 | [0011](0011-pin-performance-integration-contracts.md) | Pin performance integration contract conformance | Proposed |
+| [0012](0012-bind-integration-admission-to-reviewed-registry.md) | Bind integration admission to reviewed registry entries | Proposed |

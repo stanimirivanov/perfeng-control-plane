@@ -29,6 +29,7 @@ type reportPolicyBundle struct {
 }
 
 type reportPolicyBundleEntry struct {
+	Integration        *IntegrationBinding            `json:"integration,omitempty"`
 	CatalogOwnerRoute  *contract.CatalogOwnerRoute    `json:"catalogOwnerRoute,omitempty"`
 	Policy             string                         `json:"policy"`
 	TestID             string                         `json:"testId"`
@@ -89,6 +90,11 @@ func LoadReportPolicyRegistry(source fs.FS, manifestPath string) (*ReportPolicyR
 		copy := *bundle.PerformanceCatalog
 		registry.catalog = &copy
 	}
+	for _, entry := range entries {
+		if entry.Integration != nil && registry.catalog == nil {
+			return nil, run.ErrValidation
+		}
+	}
 	return registry, nil
 }
 
@@ -110,6 +116,7 @@ func loadReportPolicyEntry(
 	}
 
 	return ReportPolicyEntry{
+		Integration:       configured.Integration,
 		CatalogOwnerRoute: configured.CatalogOwnerRoute,
 		PolicyBytes:       policyBytes, TestID: configured.TestID,
 		ContractsVersion: configured.ContractsVersion,
