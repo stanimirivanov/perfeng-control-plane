@@ -22,6 +22,7 @@ import (
 
 // ReportPolicyEntry binds approved runtime resources to one execution context.
 type ReportPolicyEntry struct {
+	Integration        *IntegrationBinding
 	CatalogOwnerRoute  *contract.CatalogOwnerRoute
 	PolicyBytes        []byte
 	TestID             string
@@ -59,6 +60,7 @@ type reportPolicyKey struct {
 }
 
 type reportPolicyValue struct {
+	integration        *IntegrationBinding
 	catalogOwner       *contract.CatalogOwnerRoute
 	policyBytes        []byte
 	mode               string
@@ -165,6 +167,15 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 		ID: entry.Environment.ID, Version: entry.Environment.Version,
 		SHA256: entry.Environment.SHA256,
 	}
+	integration, err := prepareIntegration(entry.Integration, run.Request{TestSuite: entry.TestID, Catalogue: entry.Catalogue, Profile: entry.Profile, Environment: environmentReference, Policy: policyReference})
+	if err != nil || (integration != nil && owner == nil) {
+		return run.ErrValidation
+	}
+	if integration != nil {
+		if _, approved := candidates[integration.Candidate.Image]; !approved {
+			return run.ErrValidation
+		}
+	}
 	baselines := make([]baseline.Selection, 0, len(document.Spec.Rules))
 	for _, reference := range document.BaselineReferences() {
 		baselines = append(baselines, baseline.Selection{
@@ -193,6 +204,7 @@ func (registry *ReportPolicyRegistry) add(entry ReportPolicyEntry) error {
 			return run.ErrValidation
 		}
 		registry.entries[key] = reportPolicyValue{
+			integration:        integration,
 			catalogOwner:       owner,
 			policyBytes:        append([]byte(nil), entry.PolicyBytes...),
 			mode:               document.Spec.Mode,
