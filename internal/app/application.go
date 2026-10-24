@@ -4,6 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/httpapi"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/integration"
 )
 
 // NewApplicationRuntime composes the complete HTTP and reconciliation service
@@ -87,9 +88,17 @@ func NewApplicationRuntime(
 		return nil, ErrInvalidConfiguration
 	}
 
+	var supervised ReconciliationWorker = reconciliationWorker
+	if _, _, enabled := resources.Registry.IntegrationNamespaces(); enabled {
+		store, ok := resources.Database.(integration.RecoveryStore)
+		if !ok {
+			return nil, ErrInvalidConfiguration
+		}
+		supervised = integrationRecovery{next: reconciliationWorker, store: store, report: reporter.Report, every: config.Worker.PollEvery}
+	}
 	runtime, err := NewRuntime(
 		server,
-		reconciliationWorker,
+		supervised,
 		config.HTTPServer.ShutdownTimeout,
 	)
 	if err != nil {
