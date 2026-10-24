@@ -37,7 +37,7 @@ type integrationHandler struct {
 	options      IntegrationOptions
 }
 
-// NewIntegrationHandler exposes only admission and scoped reads. Codec injection
+// NewIntegrationHandler exposes admission, scoped reads and cancellation. Codec injection
 // keeps vendor schema adapters out of this adapter's dependencies. Dependencies
 // are immutable and concurrent-safe; a durable store is mandatory.
 func NewIntegrationHandler(store integration.Repository, authenticate Authenticate, options IntegrationOptions) (http.Handler, error) {
@@ -80,13 +80,14 @@ func (h *integrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	var result integration.Record
 	status := 200
+	isCancel := r.Method == http.MethodPost && strings.HasPrefix(r.URL.EscapedPath(), integrationPath+"/") && strings.HasSuffix(r.URL.EscapedPath(), "/cancellation")
 	switch {
-	case r.URL.Path == integrationPath && r.Method == http.MethodPost:
-		if !identity.CreateRun {
+	case r.URL.Path == integrationPath && r.Method == http.MethodPost || isCancel:
+		if !isCancel && !identity.CreateRun || isCancel && !identity.CancelRun {
 			integrationFailure(w, 403, "forbidden")
 			return
 		}
-		if r.URL.RawQuery != "" {
+		if !isCancel && r.URL.RawQuery != "" {
 			integrationFailure(w, 400, "invalid_request")
 			return
 		}
@@ -105,7 +106,11 @@ func (h *integrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		message, decodeErr := h.options.Decode(raw)
-		if decodeErr != nil || message.Type != "dev.perfeng.integration.requested.v1" {
+		kind := "dev.perfeng.integration.requested.v1"
+		if isCancel {
+			kind = "dev.perfeng.integration.cancel-requested.v1"
+		}
+		if decodeErr != nil || message.Type != kind {
 			code := "invalid_request"
 			if errors.Is(decodeErr, contract.ErrIntegrationVersion) {
 				code = "unsupported_version"
@@ -117,24 +122,29 @@ func (h *integrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			integrationFailure(w, 403, "forbidden")
 			return
 		}
-		result, err = h.store.AdmitIntegration(r.Context(), identity.Principal, h.options.Provider, message, h.options.Review)
+		if isCancel {
+			lookup, valid := integrationLookup(strings.TrimSuffix(r.URL.EscapedPath(), "/cancellation"), r.URL.RawQuery)
+			if !valid || lookup != message.Data.Context.Request {
+				integrationFailure(w, 400, "invalid_request")
+				return
+			}
+			result, err = h.store.CancelIntegration(r.Context(), identity.Principal, message)
+		} else {
+			result, err = h.store.AdmitIntegration(r.Context(), identity.Principal, h.options.Provider, message, h.options.Review)
+		}
 		status = 202
 	case strings.HasPrefix(r.URL.Path, integrationPath+"/") && r.Method == http.MethodGet:
 		if !identity.ReadRun {
 			integrationFailure(w, 403, "forbidden")
 			return
 		}
-		encodedID := strings.TrimPrefix(r.URL.EscapedPath(), integrationPath+"/")
-		id, idErr := url.PathUnescape(encodedID)
-		query, queryErr := url.ParseQuery(r.URL.RawQuery)
-		issuer := query.Get("issuer")
-		parsed, issuerErr := url.Parse(issuer)
+		lookup, valid := integrationLookup(r.URL.EscapedPath(), r.URL.RawQuery)
 		body, bodyErr := io.ReadAll(io.LimitReader(r.Body, 1))
-		if idErr != nil || strings.Contains(encodedID, "/") || strings.TrimSpace(id) == "" || !utf8.ValidString(id) || utf8.RuneCountInString(id) > 256 || strings.ContainsRune(id, 0) || queryErr != nil || len(query) != 1 || len(query["issuer"]) != 1 || issuerErr != nil || !parsed.IsAbs() || len(issuer) > 512 || strings.ContainsRune(issuer, 0) || bodyErr != nil || len(body) != 0 {
+		if !valid || bodyErr != nil || len(body) != 0 {
 			integrationFailure(w, 400, "invalid_request")
 			return
 		}
-		result, err = h.store.GetIntegration(r.Context(), identity.Principal, contract.CatalogIdentity{Issuer: issuer, ID: id})
+		result, err = h.store.GetIntegration(r.Context(), identity.Principal, lookup)
 	default:
 		integrationFailure(w, 404, "unknown_request")
 		return
@@ -166,8 +176,17 @@ func (h *integrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			integrationFailure(w, 503, "unavailable")
 			return
 		}
-		if r.Method == http.MethodGet {
+		if r.Method == http.MethodGet || isCancel {
 			message = integrationSnapshot(message, *result.Run)
+			if isCancel {
+				status = 200
+				if message.Data.State == "CANCELLING" {
+					status = 202
+				} else if !contract.Terminal(string(result.Run.State)) {
+					integrationFailure(w, 503, "unavailable")
+					return
+				}
+			}
 		}
 	}
 	raw, err := h.options.Encode(message)
@@ -176,6 +195,16 @@ func (h *integrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, status, json.RawMessage(raw))
+}
+
+func integrationLookup(path, rawQuery string) (contract.CatalogIdentity, bool) {
+	encodedID := strings.TrimPrefix(path, integrationPath+"/")
+	id, idErr := url.PathUnescape(encodedID)
+	query, queryErr := url.ParseQuery(rawQuery)
+	issuer := query.Get("issuer")
+	parsed, issuerErr := url.Parse(issuer)
+	valid := idErr == nil && !strings.Contains(encodedID, "/") && strings.TrimSpace(id) != "" && utf8.ValidString(id) && utf8.RuneCountInString(id) <= 256 && !strings.ContainsRune(id, 0) && queryErr == nil && len(query) == 1 && len(query["issuer"]) == 1 && issuerErr == nil && parsed.IsAbs() && len(issuer) <= 512 && !strings.ContainsRune(issuer, 0)
+	return contract.CatalogIdentity{Issuer: issuer, ID: id}, valid
 }
 
 func integrationSnapshot(message contract.IntegrationMessage, current run.Run) contract.IntegrationMessage {

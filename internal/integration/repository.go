@@ -41,4 +41,17 @@ type Repository interface {
 	// GetIntegration returns current state scoped by principal plus issuer/ID.
 	// Unknown and cross-principal requests both return run.ErrNotFound.
 	GetIntegration(ctx context.Context, principal string, identity contract.CatalogIdentity) (Record, error)
+	// CancelIntegration binds a cancellation delivery to the full retained context.
+	// It returns the current mapped Run, including concurrent terminal outcomes;
+	// unknown/invisible requests are NotFound, rejected requests/reuse conflict.
+	CancelIntegration(ctx context.Context, principal string, message contract.IntegrationMessage) (Record, error)
+}
+
+// RecoveryStore cancels overdue accepted work in bounded database-clock batches.
+// Calls are concurrent-safe and restartable; cancellation does not confirm that
+// external work stopped. Retained dispositions and identities are never removed.
+type RecoveryStore interface {
+	// RecoverIntegration processes at most limit overdue Runs. Limits outside
+	// 1..100 return run.ErrValidation; failed batches are safe to retry.
+	RecoverIntegration(context.Context, int) error
 }

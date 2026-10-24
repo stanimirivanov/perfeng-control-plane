@@ -66,6 +66,10 @@ func (s *integrationRuntimeStore) GetIntegration(context.Context, string, contra
 	return integration.Record{}, run.ErrNotFound
 }
 
+func (s *integrationRuntimeStore) CancelIntegration(context.Context, string, contract.IntegrationMessage) (integration.Record, error) {
+	return integration.Record{}, run.ErrNotFound
+}
+
 func TestIntegrationRuntimeCompositionRequiresDurabilityAndConnectsReview(t *testing.T) {
 	raw, err := contract.Files.ReadFile("snapshot/examples/performance-integration/completed.json")
 	if err != nil {

@@ -25,6 +25,10 @@ type integrationStoreStub struct {
 	calls  int
 }
 
+func (s *integrationStoreStub) CancelIntegration(ctx context.Context, principal string, message contract.IntegrationMessage) (integration.Record, error) {
+	return s.GetIntegration(ctx, principal, message.Data.Context.Request)
+}
+
 func (s *integrationStoreStub) AdmitIntegration(_ context.Context, principal, provider string, message contract.IntegrationMessage, _ integration.Review) (integration.Record, error) {
 	s.calls++
 	if principal != "alice" || provider != s.result.Disposition.Source || message.Data.Context.Principal.ID != principal {

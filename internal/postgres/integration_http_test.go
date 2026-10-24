@@ -30,7 +30,7 @@ func TestIntegrationHTTPUsesDurableAdmissionAndScopedSnapshots(t *testing.T) {
 	}
 	options := httpapi.IntegrationOptions{Provider: "https://provider.example/identity", PrincipalIssuer: message.Data.Context.Principal.Issuer, Review: review, Decode: integrationcontract.DecodeIntegrationMessage, Encode: integrationcontract.EncodeIntegrationMessage}
 	h, err := httpapi.NewIntegrationHandler(r, func(_ context.Context, token string) (httpapi.Identity, error) {
-		return httpapi.Identity{Principal: token, CreateRun: true, ReadRun: true}, nil
+		return httpapi.Identity{Principal: token, CreateRun: true, ReadRun: true, CancelRun: true}, nil
 	}, options)
 	if err != nil {
 		t.Fatal(err)
@@ -59,6 +59,20 @@ func TestIntegrationHTTPUsesDurableAdmissionAndScopedSnapshots(t *testing.T) {
 	snapshot, err := options.Decode(got.Body.Bytes())
 	if got.Code != 200 || err != nil || snapshot.Data.State != "ACCEPTED" {
 		t.Fatal("current snapshot unavailable", got.Code, err)
+	}
+	cancellation := message
+	cancellation.ID += "-cancel"
+	cancellation.Type = "dev.perfeng.integration.cancel-requested.v1"
+	cancellation.Data.Reason = "user"
+	body, err = options.Encode(cancellation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancelPath := strings.Replace(path, "?issuer=", "/cancellation?issuer=", 1)
+	cancelled := send("POST", cancelPath, string(body), "alice")
+	terminal, err := options.Decode(cancelled.Body.Bytes())
+	if cancelled.Code != 200 || err != nil || terminal.Data.State != "CANCELLED" {
+		t.Fatal("HTTP cancellation did not persist", cancelled.Code, err)
 	}
 	message = integrationRequest(t, r, "unsupported-source")
 	message.Data.Context.Candidate.Source.Algorithm = "git-sha256"
