@@ -25,6 +25,20 @@ type IntegrationBinding struct {
 	Evidence      []contract.CatalogReference `json:"evidence"`
 }
 
+// IntegrationNamespaces returns reviewed immutable provider/principal namespaces.
+// Enabled requires at least one opt-in binding; no I/O or caller claims are used.
+func (registry *ReportPolicyRegistry) IntegrationNamespaces() (provider, principalIssuer string, enabled bool) {
+	if registry == nil || registry.catalog == nil {
+		return "", "", false
+	}
+	for _, entry := range registry.entries {
+		if entry.integration != nil {
+			return registry.catalog.Issuer, registry.catalog.PrincipalIssuer, true
+		}
+	}
+	return "", "", false
+}
+
 func prepareIntegration(binding *IntegrationBinding, request run.Request) (*IntegrationBinding, error) {
 	if binding == nil {
 		return nil, nil

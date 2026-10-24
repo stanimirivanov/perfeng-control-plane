@@ -3,16 +3,21 @@ package integration
 
 import (
 	"context"
+	"errors"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
+// ErrUnsupportedRevision rejects a source algorithm the native API cannot represent.
+var ErrUnsupportedRevision = errors.New("unsupported source revision")
+
 // Review resolves immutable registry authority and execution target. It must be
 // concurrent-safe and perform no I/O except through the supplied baseline reader.
 // That reader holds approval locks through admission commit. Forbidden/validation
-// errors are durable rejection; other errors abort without reserving identities.
+// errors and ErrUnsupportedRevision are durable rejection; other errors abort
+// without reserving identities.
 type Review func(context.Context, string, contract.IntegrationContext,
 	func(context.Context, string, string, string) (baseline.Record, error),
 ) (run.Request, run.ExecutionTarget, error)

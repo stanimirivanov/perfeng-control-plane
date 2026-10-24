@@ -13,6 +13,9 @@ const IntegrationMaximumBytes = 64 << 10
 // ErrIntegration rejects invalid protocol messages without exposing their contents.
 var ErrIntegration = errors.New("invalid performance integration message")
 
+// ErrIntegrationVersion classifies an unsupported wire generation, also invalid.
+var ErrIntegrationVersion = errors.New("unsupported performance integration version")
+
 // IntegrationContext preserves immutable correlation and producer artifact pins.
 // These transport claims do not authenticate callers or establish resource approval.
 type IntegrationContext struct {

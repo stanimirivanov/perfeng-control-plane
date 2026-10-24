@@ -4,6 +4,8 @@ package integrationcontract
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
@@ -53,6 +55,16 @@ func DecodeIntegrationMessage(raw []byte) (contract.IntegrationMessage, error) {
 		return contract.IntegrationMessage{}, contract.ErrIntegration
 	}
 	document, err := jsonschema.UnmarshalJSON(bytes.NewReader(raw))
+	if header, ok := document.(map[string]any); ok {
+		for field, expected := range map[string]string{"specversion": "1.0", "dataschema": integrationSchemaURI} {
+			if value, ok := header[field].(string); ok && value != "" && value != expected {
+				return contract.IntegrationMessage{}, errors.Join(contract.ErrIntegration, contract.ErrIntegrationVersion)
+			}
+		}
+		if kind, ok := header["type"].(string); ok && strings.HasPrefix(kind, "dev.perfeng.integration.") && !strings.HasSuffix(kind, ".v1") {
+			return contract.IntegrationMessage{}, errors.Join(contract.ErrIntegration, contract.ErrIntegrationVersion)
+		}
+	}
 	if err != nil || integrationSchema.Validate(document) != nil {
 		return contract.IntegrationMessage{}, contract.ErrIntegration
 	}
