@@ -4,7 +4,7 @@
 
 - The provider pins integration API 1.0.0 from contracts bundle 0.24.0.
 - `internal/integrationcontract` validates wire messages; it grants no authority.
-- Reviewed registry bindings resolve requests; durable admission and HTTP remain delivery work.
+- Reviewed bindings resolve requests; durable authenticated POST/GET routes are available.
 
 ## Pinned interchange
 
@@ -12,8 +12,8 @@ The schema, OpenAPI document and completed/cancelled/rejected exchanges under
 `internal/contract/snapshot` come from perfeng-contracts commit
 `041273947703542f7fe22eab838c176df5517974`. The component-specific lock records
 their checksums without replacing existing catalog or native contract pins.
-The published HTTP namespace is `/integration/v1/requests`; this change does
-not register those routes or change any existing API generation.
+The published HTTP namespace is `/integration/v1/requests`; native API generations
+remain unchanged. Cancellation routing and recovery remain separate delivery work.
 
 `integrationcontract.DecodeIntegrationMessage` accepts at most 64 KiB of
 unique-key UTF-8 JSON. It rejects unknown fields, unsupported message variants,
@@ -118,5 +118,38 @@ remove each `integration` member first; old binaries reject unknown fields.
 Run `go test -vet=off -count=1 ./internal/integrationcontract ./internal/contract ./internal/architecture`
 for focused conformance, snapshot integrity and dependency boundaries.
 `make fmt` and `make validate` provide the repository acceptance gates, including
-race, vulnerability and license checks. This boundary changes no database or
-live Kubernetes behavior; those gates belong to the later affected slices.
+race, vulnerability and license checks. Run `make db-validate` against a disposable
+PostgreSQL instance for durable admission, replay, scoped HTTP reads, and rejection
+coverage. These routes do not change live Kubernetes behavior.
+
+## Authenticated HTTP
+
+The runtime enables POST `/integration/v1/requests` and GET
+`/integration/v1/requests/{requestId}?issuer=...` only when reviewed integration
+bindings exist. `runs:create` and `runs:read` respectively authorize these operations;
+`catalog:read` grants neither. Supply one bearer header and POST `application/json`
+with the bounded shared request envelope. No native Idempotency-Key is required:
+the durable context/event identities govern replay. Principal issuer and ID must
+match configured authentication before any admission, even for expired requests.
+
+POST returns 202 with the original accepted disposition or 422 with the retained
+rejection. Retrying a timed-out POST must preserve identity/context; reconcile
+uncertain acceptance by GET. Conflicting reuse is 409. Temporary backend/auth
+unavailability returns 503 with Retry-After; malformed/unsupported wire versions
+are 400, credential failure 401, missing permissions/principal mismatch 403 and
+unsupported content type 415. Errors contain only bounded code/message fields.
+
+GET requires exactly one issuer parameter and an escaped opaque request ID,
+with no body or extra parameters. Unknown and cross-principal lookups return 404.
+Accepted requests return 200 lifecycle snapshots at the current native revision;
+rejected requests return 422 with their unchanged disposition. Snapshot IDs remain
+stable for an unchanged revision. CREATED through WARMING_UP project to ACCEPTED,
+RUNNING through REPORTING to RUNNING, CANCELLING to CANCELLING, COMPLETED to
+COMPLETED, INVALID/INFRASTRUCTURE_FAILURE/TEST_FAILURE to FAILED, and ABORTED to
+CANCELLED. Completion does not assert a passing performance verdict.
+
+Apply migration 0019 and its runtime grants before enabling bindings. Unsupported
+durable storage fails composition rather than falling back to memory. Existing
+configurations without bindings retain their behavior. Disable bindings before
+binary rollback and keep retained ledgers. Cancellation endpoint, deadline recovery
+and retired-request tombstones remain PR6d; no requests are deleted in this slice.

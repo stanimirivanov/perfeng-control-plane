@@ -166,12 +166,15 @@ func newIntegration(ctx context.Context, tx *sql.Tx, principal, provider string,
 			}
 			return decodeBaseline(snapshot)
 		})
-		if err != nil && !errors.Is(err, run.ErrForbidden) && !errors.Is(err, run.ErrValidation) {
+		if err != nil && !errors.Is(err, run.ErrForbidden) && !errors.Is(err, run.ErrValidation) && !errors.Is(err, integration.ErrUnsupportedRevision) {
 			return integration.Record{}, storageError(err)
 		}
 		code = ""
 		if err != nil {
 			code = "unavailable_reference"
+		}
+		if errors.Is(err, integration.ErrUnsupportedRevision) {
+			code = "unsupported_revision"
 		}
 		now, err = dbNow(ctx, tx)
 		if err != nil {

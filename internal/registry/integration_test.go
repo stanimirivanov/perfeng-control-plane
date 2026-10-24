@@ -68,6 +68,9 @@ func TestIntegrationResolvesExactReviewedRequestAndIsolatesAuthority(t *testing.
 	t.Parallel()
 	entry, current, claims, record := integrationEntry(t)
 	registry := integrationRegistry(t, entry)
+	if provider, issuer, enabled := registry.IntegrationNamespaces(); !enabled || provider != "https://provider.example" || issuer != "https://auth.example" {
+		t.Fatal("lost integration namespaces")
+	}
 	entry.Integration.Service.ID = "mutated"
 	entry.Integration.Evidence[0].ID = "mutated"
 	read := func(ctx context.Context, principal, id, version string) (baseline.Record, error) {
@@ -131,6 +134,9 @@ func TestIntegrationRejectsAmbiguityLegacyAndLiveBaselineFailures(t *testing.T) 
 	}
 	entry.Integration = nil
 	legacy := integrationRegistry(t, entry)
+	if _, _, enabled := legacy.IntegrationNamespaces(); enabled {
+		t.Fatal("legacy registry enabled routes")
+	}
 	if _, err := legacy.ResolveIntegration(context.Background(), "alice", claims, read); !errors.Is(err, run.ErrForbidden) {
 		t.Fatal("legacy entry opted in")
 	}

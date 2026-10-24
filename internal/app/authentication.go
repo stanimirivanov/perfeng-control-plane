@@ -80,7 +80,7 @@ func NewAPIHandler(
 		return nil, ErrInvalidConfiguration
 	}
 
-	return handler, nil
+	return composeIntegration(handler, repository, authenticator, approver)
 }
 
 // NativeWorkerStore contains the privileged persistence operations used by the
