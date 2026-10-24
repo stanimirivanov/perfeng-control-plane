@@ -1,0 +1,378 @@
+[
+  {
+    "specversion": "1.0",
+    "id": "event-0",
+    "source": "https://argus.example/identity",
+    "type": "dev.perfeng.integration.requested.v1",
+    "time": "2026-10-22T10:00:00Z",
+    "datacontenttype": "application/json",
+    "dataschema": "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json",
+    "data": {
+      "context": {
+        "request": {
+          "issuer": "https://argus.example/identity",
+          "id": "request-1"
+        },
+        "attempt": {
+          "issuer": "https://argus.example/identity",
+          "id": "attempt-1"
+        },
+        "principal": {
+          "issuer": "https://auth.example/tenant",
+          "id": "argus-service"
+        },
+        "requestedAt": "2026-10-22T10:00:00Z",
+        "deadline": "2026-10-22T10:30:00Z",
+        "service": {
+          "issuer": "https://provider.example/identity",
+          "id": "service-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "capability": {
+          "issuer": "https://provider.example/identity",
+          "id": "capability-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "deployment": {
+          "issuer": "https://provider.example/identity",
+          "id": "deployment-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "environment": {
+          "issuer": "https://provider.example/identity",
+          "id": "environment-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "workload": {
+          "issuer": "https://provider.example/identity",
+          "id": "workload-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "profile": {
+          "issuer": "https://provider.example/identity",
+          "id": "profile-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "policy": {
+          "issuer": "https://provider.example/identity",
+          "id": "policy-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "baseline": {
+          "issuer": "https://provider.example/identity",
+          "id": "baseline-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "evidence": [
+          {
+            "issuer": "https://provider.example/identity",
+            "id": "deployment-evidence-1",
+            "revision": "1",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "candidate": {
+          "source": {
+            "algorithm": "git-sha1",
+            "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "imageDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      }
+    }
+  },
+  {
+    "specversion": "1.0",
+    "id": "event-1",
+    "source": "https://provider.example/identity",
+    "type": "dev.perfeng.integration.accepted.v1",
+    "time": "2026-10-22T10:00:01Z",
+    "datacontenttype": "application/json",
+    "dataschema": "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json",
+    "data": {
+      "context": {
+        "request": {
+          "issuer": "https://argus.example/identity",
+          "id": "request-1"
+        },
+        "attempt": {
+          "issuer": "https://argus.example/identity",
+          "id": "attempt-1"
+        },
+        "principal": {
+          "issuer": "https://auth.example/tenant",
+          "id": "argus-service"
+        },
+        "requestedAt": "2026-10-22T10:00:00Z",
+        "deadline": "2026-10-22T10:30:00Z",
+        "service": {
+          "issuer": "https://provider.example/identity",
+          "id": "service-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "capability": {
+          "issuer": "https://provider.example/identity",
+          "id": "capability-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "deployment": {
+          "issuer": "https://provider.example/identity",
+          "id": "deployment-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "environment": {
+          "issuer": "https://provider.example/identity",
+          "id": "environment-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "workload": {
+          "issuer": "https://provider.example/identity",
+          "id": "workload-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "profile": {
+          "issuer": "https://provider.example/identity",
+          "id": "profile-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "policy": {
+          "issuer": "https://provider.example/identity",
+          "id": "policy-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "baseline": {
+          "issuer": "https://provider.example/identity",
+          "id": "baseline-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "evidence": [
+          {
+            "issuer": "https://provider.example/identity",
+            "id": "deployment-evidence-1",
+            "revision": "1",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "candidate": {
+          "source": {
+            "algorithm": "git-sha1",
+            "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "imageDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      },
+      "run": {
+        "issuer": "https://provider.example/identity",
+        "id": "run-1"
+      }
+    }
+  },
+  {
+    "specversion": "1.0",
+    "id": "event-2",
+    "source": "https://provider.example/identity",
+    "type": "dev.perfeng.integration.lifecycle.v1",
+    "time": "2026-10-22T10:00:02Z",
+    "datacontenttype": "application/json",
+    "dataschema": "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json",
+    "data": {
+      "context": {
+        "request": {
+          "issuer": "https://argus.example/identity",
+          "id": "request-1"
+        },
+        "attempt": {
+          "issuer": "https://argus.example/identity",
+          "id": "attempt-1"
+        },
+        "principal": {
+          "issuer": "https://auth.example/tenant",
+          "id": "argus-service"
+        },
+        "requestedAt": "2026-10-22T10:00:00Z",
+        "deadline": "2026-10-22T10:30:00Z",
+        "service": {
+          "issuer": "https://provider.example/identity",
+          "id": "service-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "capability": {
+          "issuer": "https://provider.example/identity",
+          "id": "capability-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "deployment": {
+          "issuer": "https://provider.example/identity",
+          "id": "deployment-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "environment": {
+          "issuer": "https://provider.example/identity",
+          "id": "environment-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "workload": {
+          "issuer": "https://provider.example/identity",
+          "id": "workload-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "profile": {
+          "issuer": "https://provider.example/identity",
+          "id": "profile-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "policy": {
+          "issuer": "https://provider.example/identity",
+          "id": "policy-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "baseline": {
+          "issuer": "https://provider.example/identity",
+          "id": "baseline-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "evidence": [
+          {
+            "issuer": "https://provider.example/identity",
+            "id": "deployment-evidence-1",
+            "revision": "1",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "candidate": {
+          "source": {
+            "algorithm": "git-sha1",
+            "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "imageDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      },
+      "run": {
+        "issuer": "https://provider.example/identity",
+        "id": "run-1"
+      },
+      "revision": 0,
+      "state": "RUNNING"
+    }
+  },
+  {
+    "specversion": "1.0",
+    "id": "event-3",
+    "source": "https://provider.example/identity",
+    "type": "dev.perfeng.integration.lifecycle.v1",
+    "time": "2026-10-22T10:00:03Z",
+    "datacontenttype": "application/json",
+    "dataschema": "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json",
+    "data": {
+      "context": {
+        "request": {
+          "issuer": "https://argus.example/identity",
+          "id": "request-1"
+        },
+        "attempt": {
+          "issuer": "https://argus.example/identity",
+          "id": "attempt-1"
+        },
+        "principal": {
+          "issuer": "https://auth.example/tenant",
+          "id": "argus-service"
+        },
+        "requestedAt": "2026-10-22T10:00:00Z",
+        "deadline": "2026-10-22T10:30:00Z",
+        "service": {
+          "issuer": "https://provider.example/identity",
+          "id": "service-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "capability": {
+          "issuer": "https://provider.example/identity",
+          "id": "capability-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "deployment": {
+          "issuer": "https://provider.example/identity",
+          "id": "deployment-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "environment": {
+          "issuer": "https://provider.example/identity",
+          "id": "environment-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "workload": {
+          "issuer": "https://provider.example/identity",
+          "id": "workload-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "profile": {
+          "issuer": "https://provider.example/identity",
+          "id": "profile-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "policy": {
+          "issuer": "https://provider.example/identity",
+          "id": "policy-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "baseline": {
+          "issuer": "https://provider.example/identity",
+          "id": "baseline-1",
+          "revision": "1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "evidence": [
+          {
+            "issuer": "https://provider.example/identity",
+            "id": "deployment-evidence-1",
+            "revision": "1",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "candidate": {
+          "source": {
+            "algorithm": "git-sha1",
+            "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "imageDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      },
+      "run": {
+        "issuer": "https://provider.example/identity",
+        "id": "run-1"
+      },
+      "revision": 1,
+      "state": "COMPLETED"
+    }
+  }
+]

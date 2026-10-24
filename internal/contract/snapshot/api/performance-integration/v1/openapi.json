@@ -1,0 +1,2621 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Performance integration",
+    "version": "1.0.0"
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/integration/v1/requests": {
+      "post": {
+        "operationId": "requestPerformanceRun",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rejected"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Seconds before retry; preserve request identity and immutable context."
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Seconds before retry; preserve request identity and immutable context."
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integration/v1/requests/{requestId}": {
+      "parameters": [
+        {
+          "name": "requestId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        {
+          "name": "issuer",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 512
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getPerformanceRequest",
+        "responses": {
+          "200": {
+            "description": "Lifecycle",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lifecycle"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rejected"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Seconds before retry; preserve request identity and immutable context."
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Seconds before retry; preserve request identity and immutable context."
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integration/v1/requests/{requestId}/cancellation": {
+      "parameters": [
+        {
+          "name": "requestId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        {
+          "name": "issuer",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 512
+          }
+        }
+      ],
+      "post": {
+        "operationId": "cancelPerformanceRequest",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Cancellation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Terminal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Terminal"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Cancelling",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cancelling"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Seconds before retry; preserve request identity and immutable context."
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Seconds before retry; preserve request identity and immutable context."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "Request": {
+        "type": "object",
+        "required": [
+          "specversion",
+          "id",
+          "source",
+          "time",
+          "datacontenttype",
+          "dataschema",
+          "type",
+          "data"
+        ],
+        "properties": {
+          "specversion": {
+            "type": "string",
+            "enum": [
+              "1.0"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "a string matching the pattern \\S",
+            "title": "maxLength(256)",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "\\S"
+          },
+          "source": {
+            "type": "string",
+            "format": "uri",
+            "description": "a string at most 512 character(s) long",
+            "title": "maxLength(512)",
+            "maxLength": 512
+          },
+          "time": {
+            "$ref": "#/components/schemas/Request/$defs/timestamp"
+          },
+          "datacontenttype": {
+            "type": "string",
+            "enum": [
+              "application/json"
+            ]
+          },
+          "dataschema": {
+            "type": "string",
+            "enum": [
+              "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "dev.perfeng.integration.requested.v1"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "context"
+            ],
+            "properties": {
+              "context": {
+                "$ref": "#/components/schemas/Request/$defs/IntegrationRequestContext"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false,
+        "$defs": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "a string matching the pattern ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$"
+          },
+          "IntegrationRequestContext": {
+            "type": "object",
+            "required": [
+              "request",
+              "attempt",
+              "principal",
+              "requestedAt",
+              "deadline",
+              "service",
+              "capability",
+              "deployment",
+              "environment",
+              "workload",
+              "profile",
+              "policy",
+              "baseline",
+              "evidence",
+              "candidate"
+            ],
+            "properties": {
+              "request": {
+                "$ref": "#/components/schemas/Request/$defs/IntegrationIdentity"
+              },
+              "attempt": {
+                "$ref": "#/components/schemas/Request/$defs/IntegrationIdentity"
+              },
+              "principal": {
+                "$ref": "#/components/schemas/Request/$defs/IntegrationIdentity"
+              },
+              "requestedAt": {
+                "$ref": "#/components/schemas/Request/$defs/timestamp"
+              },
+              "deadline": {
+                "$ref": "#/components/schemas/Request/$defs/timestamp"
+              },
+              "service": {
+                "$ref": "#/components/schemas/Request/$defs/IntegrationReference"
+              },
+              "capability": {
+                "$ref": "#/components/schemas/Request/$defs/IntegrationReference"
+              },
+              "deployment": {
+                "$ref": "#/components/schemas/Request/$defs/IntegrationReference"
+              },
+              "environment": {
+                "$ref": "#/components/schemas/Request/$defs/IntegrationReference"
+              },
+              "workload": {
+                "$ref": "#/components/schemas/Request/$defs/IntegrationReference"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/Request/$defs/IntegrationReference"
+              },
+              "policy": {
+                "$ref": "#/components/schemas/Request/$defs/IntegrationReference"
+              },
+              "baseline": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Request/$defs/IntegrationReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Request/$defs/IntegrationReference"
+                },
+                "description": "an array of at most 32 item(s)",
+                "title": "maxItems(32)",
+                "maxItems": 32
+              },
+              "candidate": {
+                "type": "object",
+                "required": [
+                  "source",
+                  "imageDigest"
+                ],
+                "properties": {
+                  "source": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha1"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{40}$",
+                            "pattern": "^[0-9a-f]{40}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha256"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                            "pattern": "^[0-9a-f]{64}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "imageDigest": {
+                    "type": "string",
+                    "description": "a string matching the pattern ^sha256:[0-9a-f]{64}$",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationIdentity": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationReference": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id",
+              "revision",
+              "sha256"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "revision": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "sha256": {
+                "type": "string",
+                "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "Accepted": {
+        "type": "object",
+        "required": [
+          "specversion",
+          "id",
+          "source",
+          "time",
+          "datacontenttype",
+          "dataschema",
+          "type",
+          "data"
+        ],
+        "properties": {
+          "specversion": {
+            "type": "string",
+            "enum": [
+              "1.0"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "a string matching the pattern \\S",
+            "title": "maxLength(256)",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "\\S"
+          },
+          "source": {
+            "type": "string",
+            "format": "uri",
+            "description": "a string at most 512 character(s) long",
+            "title": "maxLength(512)",
+            "maxLength": 512
+          },
+          "time": {
+            "$ref": "#/components/schemas/Accepted/$defs/timestamp"
+          },
+          "datacontenttype": {
+            "type": "string",
+            "enum": [
+              "application/json"
+            ]
+          },
+          "dataschema": {
+            "type": "string",
+            "enum": [
+              "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "dev.perfeng.integration.accepted.v1"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "context",
+              "run"
+            ],
+            "properties": {
+              "context": {
+                "$ref": "#/components/schemas/Accepted/$defs/IntegrationRequestContext"
+              },
+              "run": {
+                "$ref": "#/components/schemas/Accepted/$defs/IntegrationIdentity"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false,
+        "$defs": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "a string matching the pattern ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$"
+          },
+          "IntegrationRequestContext": {
+            "type": "object",
+            "required": [
+              "request",
+              "attempt",
+              "principal",
+              "requestedAt",
+              "deadline",
+              "service",
+              "capability",
+              "deployment",
+              "environment",
+              "workload",
+              "profile",
+              "policy",
+              "baseline",
+              "evidence",
+              "candidate"
+            ],
+            "properties": {
+              "request": {
+                "$ref": "#/components/schemas/Accepted/$defs/IntegrationIdentity"
+              },
+              "attempt": {
+                "$ref": "#/components/schemas/Accepted/$defs/IntegrationIdentity"
+              },
+              "principal": {
+                "$ref": "#/components/schemas/Accepted/$defs/IntegrationIdentity"
+              },
+              "requestedAt": {
+                "$ref": "#/components/schemas/Accepted/$defs/timestamp"
+              },
+              "deadline": {
+                "$ref": "#/components/schemas/Accepted/$defs/timestamp"
+              },
+              "service": {
+                "$ref": "#/components/schemas/Accepted/$defs/IntegrationReference"
+              },
+              "capability": {
+                "$ref": "#/components/schemas/Accepted/$defs/IntegrationReference"
+              },
+              "deployment": {
+                "$ref": "#/components/schemas/Accepted/$defs/IntegrationReference"
+              },
+              "environment": {
+                "$ref": "#/components/schemas/Accepted/$defs/IntegrationReference"
+              },
+              "workload": {
+                "$ref": "#/components/schemas/Accepted/$defs/IntegrationReference"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/Accepted/$defs/IntegrationReference"
+              },
+              "policy": {
+                "$ref": "#/components/schemas/Accepted/$defs/IntegrationReference"
+              },
+              "baseline": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Accepted/$defs/IntegrationReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Accepted/$defs/IntegrationReference"
+                },
+                "description": "an array of at most 32 item(s)",
+                "title": "maxItems(32)",
+                "maxItems": 32
+              },
+              "candidate": {
+                "type": "object",
+                "required": [
+                  "source",
+                  "imageDigest"
+                ],
+                "properties": {
+                  "source": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha1"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{40}$",
+                            "pattern": "^[0-9a-f]{40}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha256"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                            "pattern": "^[0-9a-f]{64}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "imageDigest": {
+                    "type": "string",
+                    "description": "a string matching the pattern ^sha256:[0-9a-f]{64}$",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationIdentity": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationReference": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id",
+              "revision",
+              "sha256"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "revision": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "sha256": {
+                "type": "string",
+                "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "Rejected": {
+        "type": "object",
+        "required": [
+          "specversion",
+          "id",
+          "source",
+          "time",
+          "datacontenttype",
+          "dataschema",
+          "type",
+          "data"
+        ],
+        "properties": {
+          "specversion": {
+            "type": "string",
+            "enum": [
+              "1.0"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "a string matching the pattern \\S",
+            "title": "maxLength(256)",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "\\S"
+          },
+          "source": {
+            "type": "string",
+            "format": "uri",
+            "description": "a string at most 512 character(s) long",
+            "title": "maxLength(512)",
+            "maxLength": 512
+          },
+          "time": {
+            "$ref": "#/components/schemas/Rejected/$defs/timestamp"
+          },
+          "datacontenttype": {
+            "type": "string",
+            "enum": [
+              "application/json"
+            ]
+          },
+          "dataschema": {
+            "type": "string",
+            "enum": [
+              "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "dev.perfeng.integration.rejected.v1"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "context",
+              "error"
+            ],
+            "properties": {
+              "context": {
+                "$ref": "#/components/schemas/Rejected/$defs/IntegrationRequestContext"
+              },
+              "error": {
+                "$ref": "#/components/schemas/Rejected/$defs/IntegrationError"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false,
+        "$defs": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "a string matching the pattern ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$"
+          },
+          "IntegrationRequestContext": {
+            "type": "object",
+            "required": [
+              "request",
+              "attempt",
+              "principal",
+              "requestedAt",
+              "deadline",
+              "service",
+              "capability",
+              "deployment",
+              "environment",
+              "workload",
+              "profile",
+              "policy",
+              "baseline",
+              "evidence",
+              "candidate"
+            ],
+            "properties": {
+              "request": {
+                "$ref": "#/components/schemas/Rejected/$defs/IntegrationIdentity"
+              },
+              "attempt": {
+                "$ref": "#/components/schemas/Rejected/$defs/IntegrationIdentity"
+              },
+              "principal": {
+                "$ref": "#/components/schemas/Rejected/$defs/IntegrationIdentity"
+              },
+              "requestedAt": {
+                "$ref": "#/components/schemas/Rejected/$defs/timestamp"
+              },
+              "deadline": {
+                "$ref": "#/components/schemas/Rejected/$defs/timestamp"
+              },
+              "service": {
+                "$ref": "#/components/schemas/Rejected/$defs/IntegrationReference"
+              },
+              "capability": {
+                "$ref": "#/components/schemas/Rejected/$defs/IntegrationReference"
+              },
+              "deployment": {
+                "$ref": "#/components/schemas/Rejected/$defs/IntegrationReference"
+              },
+              "environment": {
+                "$ref": "#/components/schemas/Rejected/$defs/IntegrationReference"
+              },
+              "workload": {
+                "$ref": "#/components/schemas/Rejected/$defs/IntegrationReference"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/Rejected/$defs/IntegrationReference"
+              },
+              "policy": {
+                "$ref": "#/components/schemas/Rejected/$defs/IntegrationReference"
+              },
+              "baseline": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Rejected/$defs/IntegrationReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Rejected/$defs/IntegrationReference"
+                },
+                "description": "an array of at most 32 item(s)",
+                "title": "maxItems(32)",
+                "maxItems": 32
+              },
+              "candidate": {
+                "type": "object",
+                "required": [
+                  "source",
+                  "imageDigest"
+                ],
+                "properties": {
+                  "source": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha1"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{40}$",
+                            "pattern": "^[0-9a-f]{40}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha256"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                            "pattern": "^[0-9a-f]{64}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "imageDigest": {
+                    "type": "string",
+                    "description": "a string matching the pattern ^sha256:[0-9a-f]{64}$",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationIdentity": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationReference": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id",
+              "revision",
+              "sha256"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "revision": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "sha256": {
+                "type": "string",
+                "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationError": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "invalid_request",
+                  "unauthenticated",
+                  "forbidden",
+                  "conflict",
+                  "unknown_request",
+                  "expired",
+                  "unsupported_version",
+                  "unsupported_revision",
+                  "unavailable_reference",
+                  "rate_limited",
+                  "unavailable"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "Lifecycle": {
+        "type": "object",
+        "required": [
+          "specversion",
+          "id",
+          "source",
+          "time",
+          "datacontenttype",
+          "dataschema",
+          "type",
+          "data"
+        ],
+        "properties": {
+          "specversion": {
+            "type": "string",
+            "enum": [
+              "1.0"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "a string matching the pattern \\S",
+            "title": "maxLength(256)",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "\\S"
+          },
+          "source": {
+            "type": "string",
+            "format": "uri",
+            "description": "a string at most 512 character(s) long",
+            "title": "maxLength(512)",
+            "maxLength": 512
+          },
+          "time": {
+            "$ref": "#/components/schemas/Lifecycle/$defs/timestamp"
+          },
+          "datacontenttype": {
+            "type": "string",
+            "enum": [
+              "application/json"
+            ]
+          },
+          "dataschema": {
+            "type": "string",
+            "enum": [
+              "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "dev.perfeng.integration.lifecycle.v1"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "context",
+              "run",
+              "revision",
+              "state"
+            ],
+            "properties": {
+              "context": {
+                "$ref": "#/components/schemas/Lifecycle/$defs/IntegrationRequestContext"
+              },
+              "run": {
+                "$ref": "#/components/schemas/Lifecycle/$defs/IntegrationIdentity"
+              },
+              "revision": {
+                "type": "integer",
+                "description": "a number less than or equal to 9007199254740991",
+                "title": "lessThanOrEqualTo(9007199254740991)",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "ACCEPTED",
+                  "RUNNING",
+                  "CANCELLING",
+                  "COMPLETED",
+                  "FAILED",
+                  "CANCELLED"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false,
+        "$defs": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "a string matching the pattern ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$"
+          },
+          "IntegrationRequestContext": {
+            "type": "object",
+            "required": [
+              "request",
+              "attempt",
+              "principal",
+              "requestedAt",
+              "deadline",
+              "service",
+              "capability",
+              "deployment",
+              "environment",
+              "workload",
+              "profile",
+              "policy",
+              "baseline",
+              "evidence",
+              "candidate"
+            ],
+            "properties": {
+              "request": {
+                "$ref": "#/components/schemas/Lifecycle/$defs/IntegrationIdentity"
+              },
+              "attempt": {
+                "$ref": "#/components/schemas/Lifecycle/$defs/IntegrationIdentity"
+              },
+              "principal": {
+                "$ref": "#/components/schemas/Lifecycle/$defs/IntegrationIdentity"
+              },
+              "requestedAt": {
+                "$ref": "#/components/schemas/Lifecycle/$defs/timestamp"
+              },
+              "deadline": {
+                "$ref": "#/components/schemas/Lifecycle/$defs/timestamp"
+              },
+              "service": {
+                "$ref": "#/components/schemas/Lifecycle/$defs/IntegrationReference"
+              },
+              "capability": {
+                "$ref": "#/components/schemas/Lifecycle/$defs/IntegrationReference"
+              },
+              "deployment": {
+                "$ref": "#/components/schemas/Lifecycle/$defs/IntegrationReference"
+              },
+              "environment": {
+                "$ref": "#/components/schemas/Lifecycle/$defs/IntegrationReference"
+              },
+              "workload": {
+                "$ref": "#/components/schemas/Lifecycle/$defs/IntegrationReference"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/Lifecycle/$defs/IntegrationReference"
+              },
+              "policy": {
+                "$ref": "#/components/schemas/Lifecycle/$defs/IntegrationReference"
+              },
+              "baseline": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Lifecycle/$defs/IntegrationReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Lifecycle/$defs/IntegrationReference"
+                },
+                "description": "an array of at most 32 item(s)",
+                "title": "maxItems(32)",
+                "maxItems": 32
+              },
+              "candidate": {
+                "type": "object",
+                "required": [
+                  "source",
+                  "imageDigest"
+                ],
+                "properties": {
+                  "source": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha1"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{40}$",
+                            "pattern": "^[0-9a-f]{40}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha256"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                            "pattern": "^[0-9a-f]{64}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "imageDigest": {
+                    "type": "string",
+                    "description": "a string matching the pattern ^sha256:[0-9a-f]{64}$",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationIdentity": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationReference": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id",
+              "revision",
+              "sha256"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "revision": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "sha256": {
+                "type": "string",
+                "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "Cancellation": {
+        "type": "object",
+        "required": [
+          "specversion",
+          "id",
+          "source",
+          "time",
+          "datacontenttype",
+          "dataschema",
+          "type",
+          "data"
+        ],
+        "properties": {
+          "specversion": {
+            "type": "string",
+            "enum": [
+              "1.0"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "a string matching the pattern \\S",
+            "title": "maxLength(256)",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "\\S"
+          },
+          "source": {
+            "type": "string",
+            "format": "uri",
+            "description": "a string at most 512 character(s) long",
+            "title": "maxLength(512)",
+            "maxLength": 512
+          },
+          "time": {
+            "$ref": "#/components/schemas/Cancellation/$defs/timestamp"
+          },
+          "datacontenttype": {
+            "type": "string",
+            "enum": [
+              "application/json"
+            ]
+          },
+          "dataschema": {
+            "type": "string",
+            "enum": [
+              "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "dev.perfeng.integration.cancel-requested.v1"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "context",
+              "reason"
+            ],
+            "properties": {
+              "context": {
+                "$ref": "#/components/schemas/Cancellation/$defs/IntegrationRequestContext"
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "user",
+                  "superseded",
+                  "deadline"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false,
+        "$defs": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "a string matching the pattern ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$"
+          },
+          "IntegrationRequestContext": {
+            "type": "object",
+            "required": [
+              "request",
+              "attempt",
+              "principal",
+              "requestedAt",
+              "deadline",
+              "service",
+              "capability",
+              "deployment",
+              "environment",
+              "workload",
+              "profile",
+              "policy",
+              "baseline",
+              "evidence",
+              "candidate"
+            ],
+            "properties": {
+              "request": {
+                "$ref": "#/components/schemas/Cancellation/$defs/IntegrationIdentity"
+              },
+              "attempt": {
+                "$ref": "#/components/schemas/Cancellation/$defs/IntegrationIdentity"
+              },
+              "principal": {
+                "$ref": "#/components/schemas/Cancellation/$defs/IntegrationIdentity"
+              },
+              "requestedAt": {
+                "$ref": "#/components/schemas/Cancellation/$defs/timestamp"
+              },
+              "deadline": {
+                "$ref": "#/components/schemas/Cancellation/$defs/timestamp"
+              },
+              "service": {
+                "$ref": "#/components/schemas/Cancellation/$defs/IntegrationReference"
+              },
+              "capability": {
+                "$ref": "#/components/schemas/Cancellation/$defs/IntegrationReference"
+              },
+              "deployment": {
+                "$ref": "#/components/schemas/Cancellation/$defs/IntegrationReference"
+              },
+              "environment": {
+                "$ref": "#/components/schemas/Cancellation/$defs/IntegrationReference"
+              },
+              "workload": {
+                "$ref": "#/components/schemas/Cancellation/$defs/IntegrationReference"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/Cancellation/$defs/IntegrationReference"
+              },
+              "policy": {
+                "$ref": "#/components/schemas/Cancellation/$defs/IntegrationReference"
+              },
+              "baseline": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Cancellation/$defs/IntegrationReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Cancellation/$defs/IntegrationReference"
+                },
+                "description": "an array of at most 32 item(s)",
+                "title": "maxItems(32)",
+                "maxItems": 32
+              },
+              "candidate": {
+                "type": "object",
+                "required": [
+                  "source",
+                  "imageDigest"
+                ],
+                "properties": {
+                  "source": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha1"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{40}$",
+                            "pattern": "^[0-9a-f]{40}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha256"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                            "pattern": "^[0-9a-f]{64}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "imageDigest": {
+                    "type": "string",
+                    "description": "a string matching the pattern ^sha256:[0-9a-f]{64}$",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationIdentity": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationReference": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id",
+              "revision",
+              "sha256"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "revision": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "sha256": {
+                "type": "string",
+                "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "Error": {
+        "$ref": "#/components/schemas/Error/$defs/IntegrationError",
+        "$defs": {
+          "IntegrationError": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "invalid_request",
+                  "unauthenticated",
+                  "forbidden",
+                  "conflict",
+                  "unknown_request",
+                  "expired",
+                  "unsupported_version",
+                  "unsupported_revision",
+                  "unavailable_reference",
+                  "rate_limited",
+                  "unavailable"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "Cancelling": {
+        "type": "object",
+        "required": [
+          "specversion",
+          "id",
+          "source",
+          "time",
+          "datacontenttype",
+          "dataschema",
+          "type",
+          "data"
+        ],
+        "properties": {
+          "specversion": {
+            "type": "string",
+            "enum": [
+              "1.0"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "a string matching the pattern \\S",
+            "title": "maxLength(256)",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "\\S"
+          },
+          "source": {
+            "type": "string",
+            "format": "uri",
+            "description": "a string at most 512 character(s) long",
+            "title": "maxLength(512)",
+            "maxLength": 512
+          },
+          "time": {
+            "$ref": "#/components/schemas/Cancelling/$defs/timestamp"
+          },
+          "datacontenttype": {
+            "type": "string",
+            "enum": [
+              "application/json"
+            ]
+          },
+          "dataschema": {
+            "type": "string",
+            "enum": [
+              "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "dev.perfeng.integration.lifecycle.v1"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "context",
+              "run",
+              "revision",
+              "state"
+            ],
+            "properties": {
+              "context": {
+                "$ref": "#/components/schemas/Cancelling/$defs/IntegrationRequestContext"
+              },
+              "run": {
+                "$ref": "#/components/schemas/Cancelling/$defs/IntegrationIdentity"
+              },
+              "revision": {
+                "type": "integer",
+                "description": "a number less than or equal to 9007199254740991",
+                "title": "lessThanOrEqualTo(9007199254740991)",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "CANCELLING"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false,
+        "$defs": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "a string matching the pattern ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$"
+          },
+          "IntegrationRequestContext": {
+            "type": "object",
+            "required": [
+              "request",
+              "attempt",
+              "principal",
+              "requestedAt",
+              "deadline",
+              "service",
+              "capability",
+              "deployment",
+              "environment",
+              "workload",
+              "profile",
+              "policy",
+              "baseline",
+              "evidence",
+              "candidate"
+            ],
+            "properties": {
+              "request": {
+                "$ref": "#/components/schemas/Cancelling/$defs/IntegrationIdentity"
+              },
+              "attempt": {
+                "$ref": "#/components/schemas/Cancelling/$defs/IntegrationIdentity"
+              },
+              "principal": {
+                "$ref": "#/components/schemas/Cancelling/$defs/IntegrationIdentity"
+              },
+              "requestedAt": {
+                "$ref": "#/components/schemas/Cancelling/$defs/timestamp"
+              },
+              "deadline": {
+                "$ref": "#/components/schemas/Cancelling/$defs/timestamp"
+              },
+              "service": {
+                "$ref": "#/components/schemas/Cancelling/$defs/IntegrationReference"
+              },
+              "capability": {
+                "$ref": "#/components/schemas/Cancelling/$defs/IntegrationReference"
+              },
+              "deployment": {
+                "$ref": "#/components/schemas/Cancelling/$defs/IntegrationReference"
+              },
+              "environment": {
+                "$ref": "#/components/schemas/Cancelling/$defs/IntegrationReference"
+              },
+              "workload": {
+                "$ref": "#/components/schemas/Cancelling/$defs/IntegrationReference"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/Cancelling/$defs/IntegrationReference"
+              },
+              "policy": {
+                "$ref": "#/components/schemas/Cancelling/$defs/IntegrationReference"
+              },
+              "baseline": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Cancelling/$defs/IntegrationReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Cancelling/$defs/IntegrationReference"
+                },
+                "description": "an array of at most 32 item(s)",
+                "title": "maxItems(32)",
+                "maxItems": 32
+              },
+              "candidate": {
+                "type": "object",
+                "required": [
+                  "source",
+                  "imageDigest"
+                ],
+                "properties": {
+                  "source": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha1"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{40}$",
+                            "pattern": "^[0-9a-f]{40}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha256"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                            "pattern": "^[0-9a-f]{64}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "imageDigest": {
+                    "type": "string",
+                    "description": "a string matching the pattern ^sha256:[0-9a-f]{64}$",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationIdentity": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationReference": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id",
+              "revision",
+              "sha256"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "revision": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "sha256": {
+                "type": "string",
+                "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "Terminal": {
+        "type": "object",
+        "required": [
+          "specversion",
+          "id",
+          "source",
+          "time",
+          "datacontenttype",
+          "dataschema",
+          "type",
+          "data"
+        ],
+        "properties": {
+          "specversion": {
+            "type": "string",
+            "enum": [
+              "1.0"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "a string matching the pattern \\S",
+            "title": "maxLength(256)",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "\\S"
+          },
+          "source": {
+            "type": "string",
+            "format": "uri",
+            "description": "a string at most 512 character(s) long",
+            "title": "maxLength(512)",
+            "maxLength": 512
+          },
+          "time": {
+            "$ref": "#/components/schemas/Terminal/$defs/timestamp"
+          },
+          "datacontenttype": {
+            "type": "string",
+            "enum": [
+              "application/json"
+            ]
+          },
+          "dataschema": {
+            "type": "string",
+            "enum": [
+              "https://perfeng.dev/schemas/performance-integration/v1/performance-integration.schema.json"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "dev.perfeng.integration.lifecycle.v1"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "context",
+              "run",
+              "revision",
+              "state"
+            ],
+            "properties": {
+              "context": {
+                "$ref": "#/components/schemas/Terminal/$defs/IntegrationRequestContext"
+              },
+              "run": {
+                "$ref": "#/components/schemas/Terminal/$defs/IntegrationIdentity"
+              },
+              "revision": {
+                "type": "integer",
+                "description": "a number less than or equal to 9007199254740991",
+                "title": "lessThanOrEqualTo(9007199254740991)",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "COMPLETED",
+                  "FAILED",
+                  "CANCELLED"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false,
+        "$defs": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "a string matching the pattern ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$"
+          },
+          "IntegrationRequestContext": {
+            "type": "object",
+            "required": [
+              "request",
+              "attempt",
+              "principal",
+              "requestedAt",
+              "deadline",
+              "service",
+              "capability",
+              "deployment",
+              "environment",
+              "workload",
+              "profile",
+              "policy",
+              "baseline",
+              "evidence",
+              "candidate"
+            ],
+            "properties": {
+              "request": {
+                "$ref": "#/components/schemas/Terminal/$defs/IntegrationIdentity"
+              },
+              "attempt": {
+                "$ref": "#/components/schemas/Terminal/$defs/IntegrationIdentity"
+              },
+              "principal": {
+                "$ref": "#/components/schemas/Terminal/$defs/IntegrationIdentity"
+              },
+              "requestedAt": {
+                "$ref": "#/components/schemas/Terminal/$defs/timestamp"
+              },
+              "deadline": {
+                "$ref": "#/components/schemas/Terminal/$defs/timestamp"
+              },
+              "service": {
+                "$ref": "#/components/schemas/Terminal/$defs/IntegrationReference"
+              },
+              "capability": {
+                "$ref": "#/components/schemas/Terminal/$defs/IntegrationReference"
+              },
+              "deployment": {
+                "$ref": "#/components/schemas/Terminal/$defs/IntegrationReference"
+              },
+              "environment": {
+                "$ref": "#/components/schemas/Terminal/$defs/IntegrationReference"
+              },
+              "workload": {
+                "$ref": "#/components/schemas/Terminal/$defs/IntegrationReference"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/Terminal/$defs/IntegrationReference"
+              },
+              "policy": {
+                "$ref": "#/components/schemas/Terminal/$defs/IntegrationReference"
+              },
+              "baseline": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Terminal/$defs/IntegrationReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Terminal/$defs/IntegrationReference"
+                },
+                "description": "an array of at most 32 item(s)",
+                "title": "maxItems(32)",
+                "maxItems": 32
+              },
+              "candidate": {
+                "type": "object",
+                "required": [
+                  "source",
+                  "imageDigest"
+                ],
+                "properties": {
+                  "source": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha1"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{40}$",
+                            "pattern": "^[0-9a-f]{40}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha256"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                            "pattern": "^[0-9a-f]{64}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "imageDigest": {
+                    "type": "string",
+                    "description": "a string matching the pattern ^sha256:[0-9a-f]{64}$",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationIdentity": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationReference": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id",
+              "revision",
+              "sha256"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "revision": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "sha256": {
+                "type": "string",
+                "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    }
+  }
+}

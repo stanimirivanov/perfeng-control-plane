@@ -9,6 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.3
 	github.com/aws/smithy-go v1.28.5
 	github.com/jackc/pgx/v5 v5.11.0
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	k8s.io/api v0.37.1
 	k8s.io/apimachinery v0.37.1
 	k8s.io/client-go v0.37.1
