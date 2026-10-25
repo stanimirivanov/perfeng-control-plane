@@ -96,3 +96,4 @@ How will assumptions and consequences be verified?
 | [0012](0012-bind-integration-admission-to-reviewed-registry.md) | Bind integration admission to reviewed registry entries | Proposed |
 | [0013](0013-retain-integration-admission-atomically.md) | Retain correlated admission atomically | Proposed |
 | [0014](0014-expose-authenticated-integration-http.md) | Expose authenticated integration admission and reads | Proposed |
+| [0015](0015-recover-integration-cancellation.md) | Recover integration cancellation from durable state | Proposed |

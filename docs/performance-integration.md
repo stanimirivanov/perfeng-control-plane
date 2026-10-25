@@ -4,7 +4,7 @@
 
 - The provider pins integration API 1.0.0 from contracts bundle 0.24.0.
 - `internal/integrationcontract` validates wire messages; it grants no authority.
-- Reviewed bindings resolve requests; durable authenticated POST/GET routes are available.
+- Reviewed bindings enable durable admission, reads, cancellation and recovery.
 
 ## Pinned interchange
 
@@ -13,7 +13,7 @@ The schema, OpenAPI document and completed/cancelled/rejected exchanges under
 `041273947703542f7fe22eab838c176df5517974`. The component-specific lock records
 their checksums without replacing existing catalog or native contract pins.
 The published HTTP namespace is `/integration/v1/requests`; native API generations
-remain unchanged. Cancellation routing and recovery remain separate delivery work.
+remain unchanged. Cancellation and deadline recovery use the same durable mapping.
 
 `integrationcontract.DecodeIntegrationMessage` accepts at most 64 KiB of
 unique-key UTF-8 JSON. It rejects unknown fields, unsupported message variants,
@@ -151,5 +151,33 @@ CANCELLED. Completion does not assert a passing performance verdict.
 Apply migration 0019 and its runtime grants before enabling bindings. Unsupported
 durable storage fails composition rather than falling back to memory. Existing
 configurations without bindings retain their behavior. Disable bindings before
-binary rollback and keep retained ledgers. Cancellation endpoint, deadline recovery
-and retired-request tombstones remain PR6d; no requests are deleted in this slice.
+binary rollback and keep retained ledgers. No requests or event digests are deleted.
+
+## Cancellation and recovery
+
+POST `/integration/v1/requests/{requestId}/cancellation?issuer=...` requires
+`runs:cancel`, the shared cancel-requested envelope, matching principal namespace
+and the full original immutable context. Path/query identity must match the body.
+Unknown/cross-principal requests return 404; retained rejection, changed context
+or conflicting event reuse return 409. A missing mapping never creates a Run.
+Reconcile uncertain admission through scoped GET and retry original identities.
+
+Cancellation and the delivery digest commit atomically. Unstarted CREATED or
+VALIDATING work becomes CANCELLED without dispatch. Active work returns a 202
+CANCELLING snapshot until native termination is confirmed; a terminal snapshot
+returns 200, preserving a completion/failure that won concurrently. Repeated
+cancellation does not increment revisions. Original admission replay is unchanged.
+
+With reviewed integration bindings, runtime recovery scans at startup and each
+worker poll independently of reconciliation capacity and HTTP traffic. It locks
+up to 100 overdue active mapped Runs per transaction, skips locked rows, checks
+database time, and requests native cancellation. Future, rejected, CANCELLING and
+terminal work is unchanged. Transient recovery failures are classified through
+the existing worker reporter and retried on subsequent polls. Restart resumes
+from durable state; deadline expiry alone never proves external work stopped.
+
+Correlation, original dispositions and delivery digests are retained indefinitely,
+including terminal and rejected requests. Retention replaces retirement tombstones
+in this implementation; there is no retirement operation and no 410 response is
+currently needed. Do not delete ledger rows to retry or enable another execution.
+See [ADR-0015](decisions/0015-recover-integration-cancellation.md).
