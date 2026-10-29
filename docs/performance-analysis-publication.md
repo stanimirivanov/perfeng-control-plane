@@ -63,8 +63,8 @@ The existing integration message union stays closed and rejects this new family.
 Atomic native capture is composed for enabled reviewed integration configurations.
 The offline builder below constructs a checked publication from retained evidence.
 The publication ledger below retains one immutable association with durable replay
-and conflict checks. Historical policy/provenance capture is described below;
-publication composition and authenticated runtime delivery still precede consumption.
+and conflict checks. Historical policy/provenance capture and callable composition
+are described below; authenticated runtime delivery still precedes consumption.
 
 Artifact URIs grant no fetch permission. Runtime code must authenticate scope,
 enforce configured storage/origin policy and verify size/hash before parsing.
@@ -162,7 +162,7 @@ table and indexes, takes brief referenced-table locks for foreign keys, and perf
 no backfill or existing-row rewrite. Payloads add up to 64 KiB plus indexes/WAL per
 published request. Roll back application code while retaining the additive schema;
 do not rewrite migration history or delete published evidence. Runtime activation,
-trusted policy/provenance retention and authenticated delivery remain separate.
+and authenticated delivery remain separate; historical verification retention is below.
 See [ADR-0021](decisions/0021-retain-analysis-publications-atomically.md).
 
 ## Reviewed analysis verification inputs
@@ -212,5 +212,35 @@ lock time for table size. No index or privilege changes are needed. Each capture
 adds up to 1 MiB policy bytes plus base64/provenance and TOAST/WAL overhead; the local
 encoded snapshot bound is 2 MiB. Keep schema and evidence on application rollback;
 old writers remain valid with NULL evidence. Do not reconstruct historical approval.
-Historical publication composition and authenticated delivery remain follow-ups.
+The callable materializer below consumes this evidence; runtime activation and
+authenticated delivery remain follow-ups.
 See [ADR-0023](decisions/0023-retain-reviewed-analysis-verification.md).
+
+## Callable historical materialization
+
+`integrationcontract.MaterializeAnalysisPublication` composes scoped history,
+the offline builder and atomic retention through a narrow store interface. Supply
+independently authenticated/configured provider/principal namespaces, scoped request,
+stable event ID/time and prepared registered report/candidate references plus exact
+report bytes. Callers enforce artifact storage origin/allowlists/authenticity first;
+this boundary fetches nothing and exposes no current registry/approval port.
+
+New publications require retained Verification. Its exact policy bytes, expected
+producer and concrete bundle version exclusively supply builder authority; legacy
+absence fails closed. Before retention, the no-I/O verifier rebuilds against the
+transaction-supplied admission and checks the exact proposed claims. The result must
+match the expected wire payload. Report bytes and independent outcomes are preserved.
+
+Exact replay checks stored closed wire claims, independent scope, stable event/time
+and exact report metadata, returning owned original bytes without report/candidate
+re-verification or another admission load in this layer. Prepared bytes/candidate
+may be absent on that path. Different event/time/report conflicts; scope mismatch
+is forbidden. Already retained publications need no authority reconstruction. After
+uncertain commit, retry identically or use the existing scoped publication read.
+Errors return nil bytes and classified/redacted failures; cancellation is preserved.
+
+No migration, runtime configuration, endpoint, scheduler or delivery is activated.
+Runtime orchestration must select stable event identity/time and prepare evidence
+before calling; fetch and delivery transport remain separate work. Revert callable
+composition while retaining historical records. See
+[ADR-0024](decisions/0024-materialize-historical-analysis-publications.md).
