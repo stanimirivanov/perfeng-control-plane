@@ -38,6 +38,23 @@ Publication after the admission deadline remains valid; expiry grants no verdict
 
 ## Remaining provider and consumer work
 
+`ReportPolicyRegistry.ResolveIntegrationAdmission` returns an owned
+`integration.AdmissionResolution` from the same unique reviewed entry and
+principal-scoped baseline read as the existing request-only resolver. It carries
+the native request/test/policy, execution target, explicit workload identity and
+the exact approved baseline snapshot, or nil for SLO-only policy. Baseline
+qualification pointers, dataset seed and lifecycle history are defensively copied.
+Explicit empty reason arrays retain their representation and reviewed content pin.
+Errors return zero output; no clock, second baseline lookup or new authority is
+introduced. `ResolveIntegration` remains a compatible request-only wrapper.
+
+This is current review evidence, not durable historical admission. The trusted
+reader must hold its approval lock through the later admission transaction;
+an ordinary standalone resolution provides no such lock or persistence guarantee.
+Use the same result for atomic retention and publication construction, never a
+later current-registry lookup. See
+[ADR-0017](decisions/0017-return-owned-native-admission-resolution.md).
+
 This callable boundary is shared by later native binding retention and publication
 construction; it changes no admission response, HTTP route, database or worker.
 Successful decoding proves no authentication, historical association or approval.
