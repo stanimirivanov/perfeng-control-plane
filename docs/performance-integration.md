@@ -132,6 +132,11 @@ with the bounded shared request envelope. No native Idempotency-Key is required:
 the durable context/event identities govern replay. Principal issuer and ID must
 match configured authentication before any admission, even for expired requests.
 
+Enabled runtime uses the reviewed native resolver and atomic native repository;
+legacy-only custom implementations fail configuration rather than dropping the
+binding. New accepted work retains native analysis associations; historical unbound
+rows remain absent on replay. See [runtime composition](performance-analysis-publication.md#runtime-composition).
+
 POST returns 202 with the original accepted disposition or 422 with the retained
 rejection. Retrying a timed-out POST must preserve identity/context; reconcile
 uncertain acceptance by GET. Conflicting reuse is 409. Temporary backend/auth

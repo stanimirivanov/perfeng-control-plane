@@ -27,22 +27,34 @@ const integrationPath = "/integration/v1/requests"
 type IntegrationOptions struct {
 	Provider, PrincipalIssuer string
 	Review                    integration.Review
-	Decode                    func([]byte) (contract.IntegrationMessage, error)
-	Encode                    func(contract.IntegrationMessage) ([]byte, error)
+	// ResolvedReview selects atomic native capture, requiring NativeRepository.
+	// Supply exactly one of Review or ResolvedReview; reads/cancel use the same store.
+	ResolvedReview integration.ResolvedReview
+	Decode         func([]byte) (contract.IntegrationMessage, error)
+	Encode         func(contract.IntegrationMessage) ([]byte, error)
 }
 
 type integrationHandler struct {
 	store        integration.Repository
 	authenticate Authenticate
 	options      IntegrationOptions
+	native       integration.NativeRepository
 }
 
 // NewIntegrationHandler exposes admission, scoped reads and cancellation. Codec injection
 // keeps vendor schema adapters out of this adapter's dependencies. Dependencies
 // are immutable and concurrent-safe; a durable store is mandatory.
 func NewIntegrationHandler(store integration.Repository, authenticate Authenticate, options IntegrationOptions) (http.Handler, error) {
-	if store == nil || authenticate == nil || options.Review == nil || options.Decode == nil || options.Encode == nil {
+	if store == nil || authenticate == nil || (options.Review == nil) == (options.ResolvedReview == nil) || options.Decode == nil || options.Encode == nil {
 		return nil, errors.New("integration dependencies required")
+	}
+	var native integration.NativeRepository
+	if options.ResolvedReview != nil {
+		var ok bool
+		native, ok = store.(integration.NativeRepository)
+		if !ok {
+			return nil, errors.New("native integration storage required")
+		}
 	}
 	for _, issuer := range []string{options.Provider, options.PrincipalIssuer} {
 		parsed, err := url.Parse(issuer)
@@ -50,7 +62,8 @@ func NewIntegrationHandler(store integration.Repository, authenticate Authentica
 			return nil, errors.New("invalid integration namespace")
 		}
 	}
-	return &integrationHandler{store, authenticate, options}, nil
+
+	return &integrationHandler{store: store, authenticate: authenticate, options: options, native: native}, nil
 }
 
 func integrationFailure(w http.ResponseWriter, status int, code string) {
@@ -129,6 +142,8 @@ func (h *integrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			result, err = h.store.CancelIntegration(r.Context(), identity.Principal, message)
+		} else if h.native != nil {
+			result, err = h.native.AdmitIntegrationResolved(r.Context(), identity.Principal, h.options.Provider, message, h.options.ResolvedReview)
 		} else {
 			result, err = h.store.AdmitIntegration(r.Context(), identity.Principal, h.options.Provider, message, h.options.Review)
 		}
