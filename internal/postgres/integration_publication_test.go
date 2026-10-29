@@ -20,6 +20,36 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
+func TestPublicationValidationOwnsNestedEvidence(t *testing.T) {
+	raw, err := contract.Files.ReadFile("snapshot/examples/performance-analysis/published.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	original, err := integrationcontract.DecodeAnalysisPublication(raw)
+	if err != nil || original.Data.Context.Baseline == nil || original.Data.Native.Baseline == nil {
+		t.Fatal("baseline-backed fixture required", err)
+	}
+	copy := original
+	if !validPublicationPayload(raw, &copy) {
+		t.Fatal("valid publication rejected")
+	}
+	copy.Data.Context.Baseline.ID += "-changed"
+	copy.Data.Native.Baseline.Identity.ID += "-changed"
+	if copy.Data.Context.Baseline.ID == original.Data.Context.Baseline.ID || copy.Data.Native.Baseline.Identity.ID == original.Data.Native.Baseline.Identity.ID {
+		t.Fatal("validation retained caller-owned evidence pointers")
+	}
+	var wait sync.WaitGroup
+	for range 3 {
+		wait.Go(func() {
+			// Scope rejection occurs after validation and before database access.
+			if _, err := (&Repository{}).RetainAnalysisPublication(testContext, "another-principal", original, nil); !errors.Is(err, run.ErrForbidden) {
+				t.Error("scope rejection", err)
+			}
+		})
+	}
+	wait.Wait()
+}
+
 func TestPublicationAssociationOffline(t *testing.T) {
 	raw, err := contract.Files.ReadFile("snapshot/examples/performance-analysis/published.json")
 	if err != nil {

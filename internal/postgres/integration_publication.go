@@ -147,9 +147,17 @@ func readAnalysisPublication(ctx context.Context, db integrationQuery, principal
 }
 
 func validPublicationPayload(raw []byte, message *contract.AnalysisPublication) bool {
-	return jsondocument.Valid(raw, contract.AnalysisPublicationMaximumBytes) && jsondocument.Decode(raw, message) && message.ValidContext() &&
-		message.SpecVersion == "1.0" && message.Type == "dev.perfeng.integration.analysis-published.v1" && message.DataContentType == "application/json" &&
-		message.DataSchema == "https://perfeng.dev/schemas/performance-analysis/v1/performance-analysis.schema.json" && message.ID != ""
+	// A by-value proposal can still share nested pointers with its caller.
+	// Decode into zero storage so validation never writes through those pointers.
+	var owned contract.AnalysisPublication
+	if !jsondocument.Valid(raw, contract.AnalysisPublicationMaximumBytes) || !jsondocument.Decode(raw, &owned) || !owned.ValidContext() ||
+		owned.SpecVersion != "1.0" || owned.Type != "dev.perfeng.integration.analysis-published.v1" || owned.DataContentType != "application/json" ||
+		owned.DataSchema != "https://perfeng.dev/schemas/performance-analysis/v1/performance-analysis.schema.json" || owned.ID == "" {
+		return false
+	}
+	*message = owned
+
+	return true
 }
 
 func publicationMatches(message contract.AnalysisPublication, record integration.Record, artifact run.Artifact) bool {
