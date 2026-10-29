@@ -101,3 +101,4 @@ How will assumptions and consequences be verified?
 | [0017](0017-return-owned-native-admission-resolution.md) | Return owned native admission resolution | Proposed |
 | [0018](0018-retain-native-bindings-with-integration-admission.md) | Retain native bindings with integration admission | Proposed |
 | [0019](0019-compose-native-capture-for-authenticated-admission.md) | Compose native capture for authenticated admission | Proposed |
+| [0020](0020-build-publications-from-retained-analysis-evidence.md) | Build publications from retained analysis evidence | Proposed |
