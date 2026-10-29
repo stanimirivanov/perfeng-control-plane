@@ -34,10 +34,10 @@ func (r *Repository) GetIntegration(ctx context.Context, principal string, ident
 }
 
 func readIntegration(ctx context.Context, db integrationQuery, principal string, identity contract.CatalogIdentity) (integration.Record, error) {
-	var disposition, snapshot, native []byte
-	err := db.QueryRowContext(ctx, `SELECT i.disposition,r.snapshot,i.native_binding FROM perfeng_control.integration_requests i
+	var disposition, snapshot, native, verification []byte
+	err := db.QueryRowContext(ctx, `SELECT i.disposition,r.snapshot,i.native_binding,i.analysis_verification FROM perfeng_control.integration_requests i
 		LEFT JOIN perfeng_control.runs r ON r.principal=i.principal AND r.run_id=i.run_id
-		WHERE i.principal=$1 AND i.issuer=$2 AND i.request_id=$3`, principal, identity.Issuer, identity.ID).Scan(&disposition, &snapshot, &native)
+		WHERE i.principal=$1 AND i.issuer=$2 AND i.request_id=$3`, principal, identity.Issuer, identity.ID).Scan(&disposition, &snapshot, &native, &verification)
 	if err != nil {
 		return integration.Record{}, storageError(err)
 	}
@@ -56,6 +56,10 @@ func readIntegration(ctx context.Context, db integrationQuery, principal string,
 	if err != nil {
 		return integration.Record{}, err
 	}
+	result.Verification, err = restoreIntegrationVerification(verification, result)
+	if err != nil {
+		return integration.Record{}, err
+	}
 
 	return result, nil
 }
@@ -69,7 +73,7 @@ func (r *Repository) AdmitIntegration(ctx context.Context, principal, provider s
 }
 
 func (r *Repository) admitIntegration(ctx context.Context, principal, provider string, message contract.IntegrationMessage, review integration.Review,
-	capture func(integration.Record) (contract.AnalysisNativeBinding, error),
+	capture func(integration.Record) (contract.AnalysisNativeBinding, *integration.AnalysisVerification, error),
 ) (integration.Record, error) {
 	raw, err := json.Marshal(message)
 	if err != nil || len(raw) > contract.IntegrationMaximumBytes || review == nil ||
@@ -129,9 +133,9 @@ func (r *Repository) admitIntegration(ctx context.Context, principal, provider s
 		if result.Run != nil {
 			runID = result.Run.ID
 		}
-		var native any
+		var native, verification any
 		if capture != nil && result.Run != nil {
-			binding, err := capture(result)
+			binding, evidence, err := capture(result)
 			if err != nil {
 				return integration.Record{}, err
 			}
@@ -143,9 +147,20 @@ func (r *Repository) admitIntegration(ctx context.Context, principal, provider s
 				return integration.Record{}, err
 			}
 			result.Native, native = &binding, encoded
+			if evidence != nil {
+				encoded, err := json.Marshal(verificationDocument{PolicyBytes: evidence.PolicyBytes, Producer: evidence.Producer, ContractsVersion: evidence.ContractsVersion})
+				if err != nil {
+					return integration.Record{}, run.ErrUnavailable
+				}
+				result.Verification, err = restoreIntegrationVerification(encoded, result)
+				if err != nil {
+					return integration.Record{}, err
+				}
+				verification = encoded
+			}
 		}
-		_, err = tx.ExecContext(ctx, `INSERT INTO perfeng_control.integration_requests(principal,issuer,request_id,attempt_issuer,attempt_id,context,disposition,run_id,native_binding)
-			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, principal, claims.Request.Issuer, claims.Request.ID, claims.Attempt.Issuer, claims.Attempt.ID, contextBytes, responseBytes, runID, native)
+		_, err = tx.ExecContext(ctx, `INSERT INTO perfeng_control.integration_requests(principal,issuer,request_id,attempt_issuer,attempt_id,context,disposition,run_id,native_binding,analysis_verification)
+			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, principal, claims.Request.Issuer, claims.Request.ID, claims.Attempt.Issuer, claims.Attempt.ID, contextBytes, responseBytes, runID, native, verification)
 		var pg *pgconn.PgError
 		if errors.As(err, &pg) && pg.Code == "23505" {
 			return integration.Record{}, run.ErrConflict
