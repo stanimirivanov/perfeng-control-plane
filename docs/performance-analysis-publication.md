@@ -4,7 +4,7 @@
 
 - Pin performance-analysis/v1 from contracts bundle 0.25.0 without runtime activation.
 - The offline codec validates owned claims, never admission or artifact authority.
-- Capture native bindings durably before building or delivering publications.
+- Capture native bindings and reviewed verification durably before publication.
 
 ## Published contract and codec
 
@@ -63,8 +63,8 @@ The existing integration message union stays closed and rejects this new family.
 Atomic native capture is composed for enabled reviewed integration configurations.
 The offline builder below constructs a checked publication from retained evidence.
 The publication ledger below retains one immutable association with durable replay
-and conflict checks. Historical policy/provenance capture and authenticated runtime
-delivery still precede enabling consumption.
+and conflict checks. Historical policy/provenance capture is described below;
+publication composition and authenticated runtime delivery still precede consumption.
 
 Artifact URIs grant no fetch permission. Runtime code must authenticate scope,
 enforce configured storage/origin policy and verify size/hash before parsing.
@@ -183,10 +183,34 @@ none. Errors return zero resolution, cancellation stays classified, and the old
 request-only wrapper keeps its behavior.
 
 Nil Verification means absent legacy/custom review evidence, with no reconstruction
-or fallback permission. This result is in memory only: existing admission storage
-does not yet persist it, replay does not recover it, and publication runtime remains
-disabled. Atomic capture must follow before historical publication composition.
-No migration, runtime configuration or wire/HTTP contract changes are needed.
+or fallback permission. The resolution itself remains an in-memory review result;
+the atomic capture below supplies historical storage. Publication runtime remains
+disabled. Resolution adds no runtime configuration or wire/HTTP contract changes.
 Run focused integration/registry and architecture tests plus formatting/lint and
 `make docs-check`; heavy full/race/live gates remain on CI. See
 [ADR-0022](decisions/0022-return-reviewed-analysis-verification-inputs.md).
+
+## Atomic verification retention
+
+After migration 0022, new `AdmitIntegrationResolved` acceptances retain optional
+Verification with native binding, Run, request and event in the same transaction.
+The enabled registry path supplies it from the same review; invalid shape, policy
+identity/version/hash or producer/version aborts the transaction. No extra approval
+read, remote I/O or mutable registry lookup is added. Rejections retain no evidence.
+
+Scoped `GetIntegration` and replay return owned `Record.Verification` and validate
+its stored consistency. Exact policy bytes use base64 inside private persistence
+JSON, separate from public wire messages. NULL means old/custom absence, never
+SLO-only approval or permission to backfill; retries retain that absence without
+review. SQL guards reject changes, augmentation, deletion and truncation, and check
+bounded policy bytes against the retained native SHA-256. Valid data alone proves
+no trusted origin beyond the admission review boundary.
+
+Deploy 0022 before the binary. Adding the nullable column needs no backfill or heap
+rewrite; CHECK validation scans existing rows under ACCESS EXCLUSIVE. Plan migration
+lock time for table size. No index or privilege changes are needed. Each capture
+adds up to 1 MiB policy bytes plus base64/provenance and TOAST/WAL overhead; the local
+encoded snapshot bound is 2 MiB. Keep schema and evidence on application rollback;
+old writers remain valid with NULL evidence. Do not reconstruct historical approval.
+Historical publication composition and authenticated delivery remain follow-ups.
+See [ADR-0023](decisions/0023-retain-reviewed-analysis-verification.md).

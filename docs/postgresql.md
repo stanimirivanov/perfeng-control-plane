@@ -22,7 +22,7 @@ runners do not write these tables directly.
 | schema_migrations | Applied forward migrations and SHA-256 checksums |
 | runs | Principal-owned current Run snapshots and server-selected execution targets |
 | create_bindings | Original acceptance snapshot and 24-hour key expiration |
-| integration_requests | Retained principal/issuer/request dispositions, atomic Run mapping and optional immutable native analysis binding (0020) |
+| integration_requests | Retained dispositions/Run mapping, optional immutable native binding (0020) and reviewed analysis verification (0022) |
 | integration_events | Principal-scoped delivery digests and conflict detection |
 | integration_analysis_publications | Immutable verified publication bytes, digest and scoped request/event/report bindings (0021) |
 | artifacts | Immutable identities for raw/normalized object references |

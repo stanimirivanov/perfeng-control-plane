@@ -105,6 +105,12 @@ func publicationFixture(t *testing.T, r *Repository, suffix string) contract.Ana
 	if err != nil || record.Run == nil || record.Native == nil {
 		t.Fatal("native admission", err)
 	}
+
+	return publicationFixtureFromAdmission(t, r, suffix, record)
+}
+
+func publicationFixtureFromAdmission(t *testing.T, r *Repository, suffix string, record integration.Record) contract.AnalysisPublication {
+	t.Helper()
 	artifact := artifactFor(record.Run.ID)
 	digest := sha256.Sum256([]byte(suffix))
 	uuid := hex.EncodeToString(digest[:16])
@@ -134,30 +140,8 @@ func TestAnalysisPublicationConcurrentReplayScopedReadAndReopen(t *testing.T) {
 	dsn := testDatabase(t)
 	r := openTest(t, dsn)
 	// Upgrade representative bound admission/report data from schema 0020.
-	if _, err := r.db.Exec(`CREATE SCHEMA perfeng_control; CREATE TABLE perfeng_control.schema_migrations(version text PRIMARY KEY,sha256 text NOT NULL,applied_at timestamptz NOT NULL DEFAULT clock_timestamp())`); err != nil {
-		t.Fatal(err)
-	}
-	entries, err := migrations.ReadDir("migrations")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, entry := range entries {
-		if entry.Name() >= "0021_" {
-			break
-		}
-		content, err := migrations.ReadFile("migrations/" + entry.Name())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := r.db.Exec(string(content)); err != nil {
-			t.Fatal(err)
-		}
-		digest := sha256.Sum256(content)
-		if _, err := r.db.Exec(`INSERT INTO perfeng_control.schema_migrations(version,sha256) VALUES($1,$2)`, entry.Name(), hex.EncodeToString(digest[:])); err != nil {
-			t.Fatal(err)
-		}
-	}
-	message := publicationFixture(t, r, "publication-replay")
+	migrateBeforeVerification(t, r, "0021_")
+	message := publicationFixtureFromAdmission(t, r, "publication-replay", seedPreVerificationAdmission(t, r, "publication-replay"))
 	if err := r.Migrate(testContext); err != nil {
 		t.Fatal(err)
 	}

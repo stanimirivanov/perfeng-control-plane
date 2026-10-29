@@ -56,8 +56,13 @@ func (r *Repository) AdmitIntegrationResolved(ctx context.Context, principal, pr
 		return resolved.Request, resolved.Target, nil
 	}
 
-	return r.admitIntegration(ctx, principal, provider, message, bridge, func(record integration.Record) (contract.AnalysisNativeBinding, error) {
-		return freezeIntegrationNative(record, resolved)
+	return r.admitIntegration(ctx, principal, provider, message, bridge, func(record integration.Record) (contract.AnalysisNativeBinding, *integration.AnalysisVerification, error) {
+		binding, err := freezeIntegrationNative(record, resolved)
+		if err != nil {
+			return contract.AnalysisNativeBinding{}, nil, err
+		}
+
+		return binding, resolved.Verification, nil
 	})
 }
 

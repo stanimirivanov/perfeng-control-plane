@@ -26,7 +26,7 @@ type AdmissionResolution struct {
 	Baseline *baseline.Record
 	// Verification is an owned snapshot from the same reviewed entry. Nil means
 	// absent legacy/custom review evidence, never permission to infer provenance.
-	// Existing native capture does not yet persist this value.
+	// Native capture retains non-nil evidence atomically for new admissions.
 	Verification *AnalysisVerification
 }
 
@@ -55,6 +55,9 @@ type Record struct {
 	// Native is nil for legacy/unbound or rejected admission. Non-nil evidence
 	// has an explicit nullable Baseline and survives replay without re-review.
 	Native *contract.AnalysisNativeBinding
+	// Verification is immutable admission-time evidence; nil preserves historical
+	// absence. Replay never reviews or backfills it from current registry state.
+	Verification *AnalysisVerification
 }
 
 // NativeRepository adds atomic binding capture without changing legacy writers.
