@@ -137,3 +137,29 @@ reused on retry. Future storage/runtime must retain trusted policy/provenance
 evidence rather than reconstructing it from a mutable registry or report claims.
 Persistence, dispatch/delivery and Argus consumption remain
 separate work. See [ADR-0020](decisions/0020-build-publications-from-retained-analysis-evidence.md).
+
+## Immutable publication retention
+
+After migration 0021, `integration.PublicationRepository` retains one publication
+per authenticated principal/request issuer/request ID, with unique scoped source/event
+identity. Callers supply stable event ID/time and a trusted offline verifier using
+the builder and closed codec; it returns canonical bytes identical to the proposal.
+Fetch exact evidence beforehand: no external I/O or current registry/baseline
+approval reads may occur inside the transaction. Storage checks the retained native
+binding, full original context, scoped Run and registered normalized report reference.
+Legacy unbound admissions cannot publish. Verification failure rolls back completely.
+
+Exact retries return original owned bytes without verification; different request
+or event content conflicts. After uncertain commit, retry identically or read by
+authenticated scope. Scoped reads recheck checksum and associations and return the
+same not-found result for unknown, invisible or unpublished requests. Consumers still
+decode these bytes with the publication codec. Cancellation/deadline do not erase
+historical analysis. SQL guards forbid update, delete and truncate.
+
+Apply 0021 and its SELECT/INSERT runtime grant before consumers. It creates an empty
+table and indexes, takes brief referenced-table locks for foreign keys, and performs
+no backfill or existing-row rewrite. Payloads add up to 64 KiB plus indexes/WAL per
+published request. Roll back application code while retaining the additive schema;
+do not rewrite migration history or delete published evidence. Runtime activation,
+trusted policy/provenance retention and authenticated delivery remain separate.
+See [ADR-0021](decisions/0021-retain-analysis-publications-atomically.md).
