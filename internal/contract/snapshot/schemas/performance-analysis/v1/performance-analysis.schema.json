@@ -1,0 +1,520 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://perfeng.dev/schemas/performance-analysis/v1/performance-analysis.schema.json",
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "a string matching the pattern ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "IntegrationRequestContext": {
+      "type": "object",
+      "required": [
+        "request",
+        "attempt",
+        "principal",
+        "requestedAt",
+        "deadline",
+        "service",
+        "capability",
+        "deployment",
+        "environment",
+        "workload",
+        "profile",
+        "policy",
+        "baseline",
+        "evidence",
+        "candidate"
+      ],
+      "properties": {
+        "request": {
+          "$ref": "#/$defs/IntegrationIdentity"
+        },
+        "attempt": {
+          "$ref": "#/$defs/IntegrationIdentity"
+        },
+        "principal": {
+          "$ref": "#/$defs/IntegrationIdentity"
+        },
+        "requestedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "deadline": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "service": {
+          "$ref": "#/$defs/IntegrationReference"
+        },
+        "capability": {
+          "$ref": "#/$defs/IntegrationReference"
+        },
+        "deployment": {
+          "$ref": "#/$defs/IntegrationReference"
+        },
+        "environment": {
+          "$ref": "#/$defs/IntegrationReference"
+        },
+        "workload": {
+          "$ref": "#/$defs/IntegrationReference"
+        },
+        "profile": {
+          "$ref": "#/$defs/IntegrationReference"
+        },
+        "policy": {
+          "$ref": "#/$defs/IntegrationReference"
+        },
+        "baseline": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntegrationReference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/IntegrationReference"
+          },
+          "description": "an array of at most 32 item(s)",
+          "title": "maxItems(32)",
+          "maxItems": 32
+        },
+        "candidate": {
+          "type": "object",
+          "required": [
+            "source",
+            "imageDigest"
+          ],
+          "properties": {
+            "source": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "algorithm",
+                    "digest"
+                  ],
+                  "properties": {
+                    "algorithm": {
+                      "type": "string",
+                      "enum": [
+                        "git-sha1"
+                      ]
+                    },
+                    "digest": {
+                      "type": "string",
+                      "description": "a string matching the pattern ^[0-9a-f]{40}$",
+                      "pattern": "^[0-9a-f]{40}$"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "algorithm",
+                    "digest"
+                  ],
+                  "properties": {
+                    "algorithm": {
+                      "type": "string",
+                      "enum": [
+                        "git-sha256"
+                      ]
+                    },
+                    "digest": {
+                      "type": "string",
+                      "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "imageDigest": {
+              "type": "string",
+              "description": "a string matching the pattern ^sha256:[0-9a-f]{64}$",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "IntegrationIdentity": {
+      "type": "object",
+      "required": [
+        "issuer",
+        "id"
+      ],
+      "properties": {
+        "issuer": {
+          "type": "string",
+          "format": "uri",
+          "description": "a string at most 512 character(s) long",
+          "title": "maxLength(512)",
+          "maxLength": 512
+        },
+        "id": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "maxLength(256)",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        }
+      },
+      "additionalProperties": false
+    },
+    "IntegrationReference": {
+      "type": "object",
+      "required": [
+        "issuer",
+        "id",
+        "revision",
+        "sha256"
+      ],
+      "properties": {
+        "issuer": {
+          "type": "string",
+          "format": "uri",
+          "description": "a string at most 512 character(s) long",
+          "title": "maxLength(512)",
+          "maxLength": 512
+        },
+        "id": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "maxLength(256)",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "maxLength(256)",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "sha256": {
+          "type": "string",
+          "description": "a string matching the pattern ^[0-9a-f]{64}$",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "id": {
+      "type": "string",
+      "description": "a string matching the pattern ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "version": {
+      "type": "string",
+      "description": "a string matching the pattern ^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "sha256": {
+      "type": "string",
+      "description": "a string matching the pattern ^[a-f0-9]{64}$",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "type": "object",
+  "required": [
+    "specversion",
+    "id",
+    "source",
+    "type",
+    "time",
+    "datacontenttype",
+    "dataschema",
+    "data"
+  ],
+  "properties": {
+    "specversion": {
+      "type": "string",
+      "enum": [
+        "1.0"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "description": "a string at most 256 character(s) long",
+      "title": "maxLength(256)",
+      "minLength": 1,
+      "pattern": "\\S",
+      "maxLength": 256
+    },
+    "source": {
+      "type": "string",
+      "format": "uri",
+      "description": "a string at most 512 character(s) long",
+      "title": "maxLength(512)",
+      "maxLength": 512
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "dev.perfeng.integration.analysis-published.v1"
+      ]
+    },
+    "time": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "datacontenttype": {
+      "type": "string",
+      "enum": [
+        "application/json"
+      ]
+    },
+    "dataschema": {
+      "type": "string",
+      "enum": [
+        "https://perfeng.dev/schemas/performance-analysis/v1/performance-analysis.schema.json"
+      ]
+    },
+    "data": {
+      "type": "object",
+      "required": [
+        "context",
+        "run",
+        "native",
+        "artifact"
+      ],
+      "properties": {
+        "context": {
+          "$ref": "#/$defs/IntegrationRequestContext"
+        },
+        "run": {
+          "$ref": "#/$defs/IntegrationIdentity"
+        },
+        "native": {
+          "type": "object",
+          "required": [
+            "runId",
+            "testId",
+            "workload",
+            "policy",
+            "baseline"
+          ],
+          "properties": {
+            "runId": {
+              "type": "string",
+              "description": "Reference to the run metadata",
+              "pattern": "^perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$"
+            },
+            "testId": {
+              "$ref": "#/$defs/id"
+            },
+            "workload": {
+              "type": "object",
+              "required": [
+                "id",
+                "version",
+                "sha256"
+              ],
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/id"
+                },
+                "version": {
+                  "$ref": "#/$defs/version"
+                },
+                "sha256": {
+                  "$ref": "#/$defs/sha256"
+                }
+              },
+              "additionalProperties": false
+            },
+            "policy": {
+              "type": "object",
+              "required": [
+                "id",
+                "version",
+                "sha256"
+              ],
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/id"
+                },
+                "version": {
+                  "$ref": "#/$defs/version"
+                },
+                "sha256": {
+                  "$ref": "#/$defs/sha256"
+                }
+              },
+              "additionalProperties": false
+            },
+            "baseline": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "identity",
+                    "artifact"
+                  ],
+                  "properties": {
+                    "identity": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "version",
+                        "sha256"
+                      ],
+                      "properties": {
+                        "id": {
+                          "$ref": "#/$defs/id"
+                        },
+                        "version": {
+                          "$ref": "#/$defs/version"
+                        },
+                        "sha256": {
+                          "$ref": "#/$defs/sha256"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "artifact": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "runId",
+                        "kind",
+                        "uri",
+                        "sha256",
+                        "sizeBytes",
+                        "mediaType",
+                        "format"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "runId": {
+                          "type": "string",
+                          "description": "Reference to the run metadata",
+                          "pattern": "^perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "normalized"
+                          ]
+                        },
+                        "uri": {
+                          "type": "string",
+                          "format": "uri",
+                          "description": "a string matching the pattern ^(s3|https):\\/\\/[^\\s?#]+$",
+                          "pattern": "^(s3|https):\\/\\/[^\\s?#]+$"
+                        },
+                        "sha256": {
+                          "$ref": "#/$defs/sha256"
+                        },
+                        "sizeBytes": {
+                          "type": "integer",
+                          "description": "a non-negative number",
+                          "title": "greaterThanOrEqualTo(0)",
+                          "minimum": 0
+                        },
+                        "mediaType": {
+                          "type": "string",
+                          "enum": [
+                            "application/json"
+                          ]
+                        },
+                        "format": {
+                          "type": "string",
+                          "enum": [
+                            "normalized-result/v1"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "artifact": {
+          "type": "object",
+          "required": [
+            "id",
+            "runId",
+            "kind",
+            "uri",
+            "sha256",
+            "sizeBytes",
+            "mediaType",
+            "format"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "runId": {
+              "type": "string",
+              "description": "Reference to the run metadata",
+              "pattern": "^perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "analysis"
+              ]
+            },
+            "uri": {
+              "type": "string",
+              "format": "uri",
+              "description": "a string matching the pattern ^(s3|https):\\/\\/[^\\s?#]+$",
+              "pattern": "^(s3|https):\\/\\/[^\\s?#]+$"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "sizeBytes": {
+              "type": "integer",
+              "description": "a number between 1 and 1048576",
+              "title": "between(1, 1048576)",
+              "minimum": 1,
+              "maximum": 1048576
+            },
+            "mediaType": {
+              "type": "string",
+              "enum": [
+                "application/json"
+              ]
+            },
+            "format": {
+              "type": "string",
+              "enum": [
+                "analysis-result/v1"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

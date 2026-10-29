@@ -4,7 +4,7 @@
   "bundleVersion": "0.21.0",
   "runManagementApiVersion": "0.4.0",
   "nativeWorkerApiVersion": "2.2.0",
-  "transformation": "Existing API files retain the primary commit; performanceCatalog and performanceIntegration files use their separately pinned commits. All files are copied byte-for-byte; hashes cover local snapshot bytes.",
+  "transformation": "Existing API files retain the primary commit; performanceCatalog, performanceIntegration and performanceAnalysis files use their separately pinned commits. All files are copied byte-for-byte; hashes cover local snapshot bytes.",
   "sha256": {
     "api/native-worker/v2/examples/acquire.json": "e9ba2464e978e4383b43e90cfe305d646fc2c9005049d1dd20698f223cd80b10",
     "api/native-worker/v2/examples/artifact.json": "e2018a96a6d6ded52ddbecbedf52ac02bc3be68009edb370f493a231bbbad394",
@@ -77,7 +77,9 @@
     "api/performance-integration/v1/openapi.json": "719b9b68cffd0aef9dc5ec5e059917a4df19614c047f22fcfb370a03a9a45d1a",
     "examples/performance-integration/completed.json": "d997ae6d99e194e1fbcbe58b4844903929e6c8af5ca19483cc116c42b2c59c94",
     "examples/performance-integration/cancelled.json": "ecfb16adaac162f1670fdf4a457232b5bbc11d18884c85c4ee9791e59e0b0ab3",
-    "examples/performance-integration/rejected.json": "54894e1efe999ccb38e8a1e620cd66a36eb67f9bbc19474ea6dca970f31bbec2"
+    "examples/performance-integration/rejected.json": "54894e1efe999ccb38e8a1e620cd66a36eb67f9bbc19474ea6dca970f31bbec2",
+    "schemas/performance-analysis/v1/performance-analysis.schema.json": "cb7cbb434c8ba1b74306fe2198c8fdb4a869fccd70eaa91405d945c4d4a363cd",
+    "examples/performance-analysis/published.json": "ffe6243e0d697a486f3c72631d10505830b3e9def571f7814665b5e5244c739c"
   },
   "performanceCatalog": {
     "files": [
@@ -99,5 +101,13 @@
     "commit": "041273947703542f7fe22eab838c176df5517974",
     "bundleVersion": "0.24.0",
     "apiVersion": "1.0.0"
+  },
+  "performanceAnalysis": {
+    "files": [
+      "schemas/performance-analysis/v1/performance-analysis.schema.json",
+      "examples/performance-analysis/published.json"
+    ],
+    "commit": "cd2442f433ce93d9a886c14ad6ff8aa8488a623b",
+    "bundleVersion": "0.25.0"
   }
 }
