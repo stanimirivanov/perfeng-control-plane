@@ -61,8 +61,8 @@ Successful decoding proves no authentication, historical association or approval
 The existing integration message union stays closed and rejects this new family.
 
 Atomic native capture is composed for enabled reviewed integration configurations.
-Next build one immutable publication association using retained evidence,
-verified analysis/policy bytes and admitted baseline checks. Define durable replay,
+The offline builder below constructs a checked publication from retained evidence.
+Next retain one immutable publication association and define durable replay,
 conflict, retention and authenticated delivery before enabling consumption.
 
 Artifact URIs grant no fetch permission. Runtime code must authenticate scope,
@@ -110,3 +110,30 @@ Apply 0020 before deployment. Old requests remain unbound; rollback preserves
 retained bindings while old writers create unbound requests. No publication/fetch
 or Argus consumption is enabled. See
 [ADR-0019](decisions/0019-compose-native-capture-for-authenticated-admission.md).
+
+## Offline publication builder
+
+`integrationcontract.BuildAnalysisPublication` consumes retained admission/native
+evidence, configured authenticated scope, independently trusted producer/bundle
+provenance, registered report/candidate references and exact report/policy bytes.
+Never derive these authorities from the incoming report. Storage origin/allowlists
+and actual artifact authenticity remain caller duties; the builder fetches nothing.
+
+It rejects missing historical bindings, altered/oversized bytes, substituted
+scope/run/test/policy/producer/candidate/reference, missing policy rules and invalid
+time ordering. Existing native parsing and policy validation check configured
+sections/outcomes; report Unicode/numeric resource limits match the metadata codec.
+No raw/normalized result bytes are read and no new statistics algorithm is added.
+Late valid analysis remains usable after deadline/cancellation. Inconclusive and
+SLO-pass/regression-fail evidence remain distinct through unchanged report bytes.
+
+Native registered reports use kind normalized with format analysis-result/v1.
+Only the publication reference projects kind analysis; ID/URI/hash/size stay exact.
+The builder returns owned schema-validated claims and no partial output on error;
+context cancellation stays classified. Calls are deterministic/concurrent-safe
+with immutable inputs and use no current registry, baseline, clock or I/O.
+Caller-provided event ID/time must be stored with the eventual publication and
+reused on retry. Future storage/runtime must retain trusted policy/provenance
+evidence rather than reconstructing it from a mutable registry or report claims.
+Persistence, dispatch/delivery and Argus consumption remain
+separate work. See [ADR-0020](decisions/0020-build-publications-from-retained-analysis-evidence.md).
