@@ -62,8 +62,9 @@ The existing integration message union stays closed and rejects this new family.
 
 Atomic native capture is composed for enabled reviewed integration configurations.
 The offline builder below constructs a checked publication from retained evidence.
-Next retain one immutable publication association and define durable replay,
-conflict, retention and authenticated delivery before enabling consumption.
+The publication ledger below retains one immutable association with durable replay
+and conflict checks. Historical policy/provenance capture and authenticated runtime
+delivery still precede enabling consumption.
 
 Artifact URIs grant no fetch permission. Runtime code must authenticate scope,
 enforce configured storage/origin policy and verify size/hash before parsing.
@@ -163,3 +164,29 @@ published request. Roll back application code while retaining the additive schem
 do not rewrite migration history or delete published evidence. Runtime activation,
 trusted policy/provenance retention and authenticated delivery remain separate.
 See [ADR-0021](decisions/0021-retain-analysis-publications-atomically.md).
+
+## Reviewed analysis verification inputs
+
+`ResolveIntegrationAdmission` additionally returns optional Verification evidence:
+exact policy bytes, expected report producer and concrete contracts version from
+the same uniquely authorized entry. `integration.AnalysisVerification.Validate`
+uses the existing bounded policy parser, checks metadata name/version and exact
+SHA-256 against the native request, and validates producer/version shapes. It
+performs no I/O, clock or current eligibility lookup. Validity alone proves no
+authenticated source, historical approval or publication authority.
+
+Returned policy bytes and nested producer evidence are independently owned.
+Neither input claims nor a report can supply these authorities; registry-wide
+`registry` version selection is resolved to the actual entry's concrete version.
+Baseline-backed review still uses exactly one scoped locked read; SLO-only uses
+none. Errors return zero resolution, cancellation stays classified, and the old
+request-only wrapper keeps its behavior.
+
+Nil Verification means absent legacy/custom review evidence, with no reconstruction
+or fallback permission. This result is in memory only: existing admission storage
+does not yet persist it, replay does not recover it, and publication runtime remains
+disabled. Atomic capture must follow before historical publication composition.
+No migration, runtime configuration or wire/HTTP contract changes are needed.
+Run focused integration/registry and architecture tests plus formatting/lint and
+`make docs-check`; heavy full/race/live gates remain on CI. See
+[ADR-0022](decisions/0022-return-reviewed-analysis-verification-inputs.md).

@@ -82,8 +82,8 @@ func (registry *ReportPolicyRegistry) ResolveIntegration(ctx context.Context, pr
 	return resolved.Request, err
 }
 
-// ResolveIntegrationAdmission returns owned native values from the same unique
-// reviewed entry and principal-scoped baseline read as ResolveIntegration. It
+// ResolveIntegrationAdmission returns owned native and verification values from
+// the same unique reviewed entry and scoped baseline read as ResolveIntegration. It
 // preserves cancellation and returns zero output on error. Calls are concurrent-
 // safe; the only I/O is through read, which must return an owned baseline value.
 // Claims require prior wire validation and principal independent authentication.
@@ -129,11 +129,17 @@ func (registry *ReportPolicyRegistry) ResolveIntegrationAdmission(ctx context.Co
 	if err != nil {
 		return integration.AdmissionResolution{}, err
 	}
+	verification := integration.AnalysisVerification{PolicyBytes: selected.policyBytes, Producer: selected.reportProducer, ContractsVersion: selected.contractsVersion}
+	validationErr := verification.Validate(request)
 	if err := ctx.Err(); err != nil {
 		return integration.AdmissionResolution{}, err
 	}
+	if validationErr != nil {
+		return integration.AdmissionResolution{}, run.ErrUnavailable
+	}
+	owned := verification.Clone()
 
-	return integration.AdmissionResolution{Request: request, Target: target, Workload: selected.workload, Baseline: approved}, nil
+	return integration.AdmissionResolution{Request: request, Target: target, Workload: selected.workload, Baseline: approved, Verification: &owned}, nil
 }
 
 func (binding IntegrationBinding) matches(claims contract.IntegrationContext) bool {

@@ -24,6 +24,10 @@ type AdmissionResolution struct {
 	Target   run.ExecutionTarget
 	Workload rawresult.Identity
 	Baseline *baseline.Record
+	// Verification is an owned snapshot from the same reviewed entry. Nil means
+	// absent legacy/custom review evidence, never permission to infer provenance.
+	// Existing native capture does not yet persist this value.
+	Verification *AnalysisVerification
 }
 
 // Review resolves immutable registry authority and execution target. It must be
