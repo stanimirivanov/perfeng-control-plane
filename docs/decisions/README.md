@@ -99,3 +99,4 @@ How will assumptions and consequences be verified?
 | [0015](0015-recover-integration-cancellation.md) | Recover integration cancellation from durable state | Proposed |
 | [0016](0016-pin-analysis-publication-contract.md) | Pin the analysis publication contract | Proposed |
 | [0017](0017-return-owned-native-admission-resolution.md) | Return owned native admission resolution | Proposed |
+| [0018](0018-retain-native-bindings-with-integration-admission.md) | Retain native bindings with integration admission | Proposed |
