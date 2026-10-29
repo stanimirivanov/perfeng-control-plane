@@ -7,11 +7,24 @@ import (
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/rawresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
 // ErrUnsupportedRevision rejects a source algorithm the native API cannot represent.
 var ErrUnsupportedRevision = errors.New("unsupported source revision")
+
+// AdmissionResolution owns the native values from one successful registry review.
+// Baseline is nil only for an approved SLO-only selection; otherwise it is the
+// exact approved snapshot verified against the requested immutable pin. Workload
+// is resolved explicitly, never inferred from catalog labels or Request.TestSuite.
+// This value is not durable admission evidence and grants no publication authority.
+type AdmissionResolution struct {
+	Request  run.Request
+	Target   run.ExecutionTarget
+	Workload rawresult.Identity
+	Baseline *baseline.Record
+}
 
 // Review resolves immutable registry authority and execution target. It must be
 // concurrent-safe and perform no I/O except through the supplied baseline reader.
