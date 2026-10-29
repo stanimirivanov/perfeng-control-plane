@@ -58,7 +58,7 @@ func TestIntegrationUpgradeConcurrentReplayAndScopedRead(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, entry := range entries {
-		if entry.Name() >= "0019_" {
+		if entry.Name() >= "0020_" {
 			break
 		}
 		content, err := migrations.ReadFile("migrations/" + entry.Name())
@@ -74,6 +74,22 @@ func TestIntegrationUpgradeConcurrentReplayAndScopedRead(t *testing.T) {
 		}
 	}
 	legacy := accepted(t, r, "legacy", "integration-upgrade-native")
+	previous := integrationRequest(t, r, "before-native-binding")
+	previous.Data.Context.Principal.ID = "legacy"
+	disposition := previous
+	disposition.Source, disposition.Type = "https://provider.example/identity", "dev.perfeng.integration.accepted.v1"
+	disposition.Data.Run = &contract.CatalogIdentity{Issuer: disposition.Source, ID: legacy.Run.ID}
+	contextBytes, err := json.Marshal(previous.Data.Context)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dispositionBytes, err := json.Marshal(disposition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.db.Exec(`INSERT INTO perfeng_control.integration_requests(principal,issuer,request_id,attempt_issuer,attempt_id,context,disposition,run_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, "legacy", previous.Data.Context.Request.Issuer, previous.Data.Context.Request.ID, previous.Data.Context.Attempt.Issuer, previous.Data.Context.Attempt.ID, contextBytes, dispositionBytes, legacy.Run.ID); err != nil {
+		t.Fatal(err)
+	}
 	if err := r.Migrate(testContext); err != nil {
 		t.Fatal(err)
 	}
@@ -82,6 +98,9 @@ func TestIntegrationUpgradeConcurrentReplayAndScopedRead(t *testing.T) {
 	}
 	if got, err := r.Get(testContext, "legacy", legacy.Run.ID); err != nil || !reflect.DeepEqual(got, legacy.Run) {
 		t.Fatal("upgrade changed native Run", err)
+	}
+	if got, err := r.GetIntegration(testContext, "legacy", previous.Data.Context.Request); err != nil || got.Native != nil {
+		t.Fatal("upgrade inferred historical binding", err)
 	}
 	message := integrationRequest(t, r, "concurrent")
 	request := testRequest(t)

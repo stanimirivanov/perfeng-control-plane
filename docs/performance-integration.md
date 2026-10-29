@@ -148,7 +148,8 @@ RUNNING through REPORTING to RUNNING, CANCELLING to CANCELLING, COMPLETED to
 COMPLETED, INVALID/INFRASTRUCTURE_FAILURE/TEST_FAILURE to FAILED, and ABORTED to
 CANCELLED. Completion does not assert a passing performance verdict.
 
-Apply migration 0019 and its runtime grants before enabling bindings. Unsupported
+Apply migrations 0019 and 0020 and the existing table-level runtime grants before
+deploying current integration readers or enabling bindings. Unsupported
 durable storage fails composition rather than falling back to memory. Existing
 configurations without bindings retain their behavior. Disable bindings before
 binary rollback and keep retained ledgers. No requests or event digests are deleted.

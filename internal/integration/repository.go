@@ -35,11 +35,31 @@ type Review func(context.Context, string, contract.IntegrationContext,
 	func(context.Context, string, string, string) (baseline.Record, error),
 ) (run.Request, run.ExecutionTarget, error)
 
+// ResolvedReview returns owned native authority for atomic capture. It has Review's
+// no-external-I/O contract and must use exactly one supplied locked baseline read
+// for a non-nil Baseline, or none for SLO-only selection. Returned baseline content
+// must equal that locked snapshot. It performs no historical reconstruction.
+type ResolvedReview func(context.Context, string, contract.IntegrationContext,
+	func(context.Context, string, string, string) (baseline.Record, error),
+) (AdmissionResolution, error)
+
 // Record owns its disposition and optional current Run snapshot. The original
 // disposition is immutable even when Run advances; rejection has no Run.
 type Record struct {
 	Disposition contract.IntegrationMessage
 	Run         *run.Run
+	// Native is nil for legacy/unbound or rejected admission. Non-nil evidence
+	// has an explicit nullable Baseline and survives replay without re-review.
+	Native *contract.AnalysisNativeBinding
+}
+
+// NativeRepository adds atomic binding capture without changing legacy writers.
+// Apply the expanded schema before use. Inputs require the same authenticated
+// scope/wire validation as Repository; uncertain commits require identical retry.
+type NativeRepository interface {
+	// AdmitIntegrationResolved captures only new accepted work; replay returns
+	// original evidence (possibly absent) without review or historical backfill.
+	AdmitIntegrationResolved(context.Context, string, string, contract.IntegrationMessage, ResolvedReview) (Record, error)
 }
 
 // Repository retains identities indefinitely until an explicit retirement

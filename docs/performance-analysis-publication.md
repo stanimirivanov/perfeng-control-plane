@@ -60,10 +60,8 @@ construction; it changes no admission response, HTTP route, database or worker.
 Successful decoding proves no authentication, historical association or approval.
 The existing integration message union stays closed and rejects this new family.
 
-Next, capture native run/test/resource identities and the exact approved baseline
-artifact atomically with accepted admission under existing approval locks. Preserve
-legacy admissions without fabricating a historical mapping from current registry
-state. Then build one immutable publication association using retained evidence,
+Atomic native capture is available through the additive repository method below;
+runtime callback adoption remains separate. Next build one immutable publication association using retained evidence,
 verified analysis/policy bytes and admitted baseline checks. Define durable replay,
 conflict, retention and authenticated delivery before enabling consumption.
 
@@ -78,3 +76,19 @@ Revert this codec before its consumers merge without changing persisted state.
 Run focused contract/integrationcontract and architecture tests, formatting/lint,
 `make docs-check` and `make validate`. Heavy race/full/live suites remain CI work
 on a constrained contributor host. See [ADR-0016](decisions/0016-pin-analysis-publication-contract.md).
+
+## Atomic native capture
+
+After migration 0020, `AdmitIntegrationResolved` captures native values with new
+accepted admission. Its configured ResolvedReview uses exactly one scoped locked
+baseline read for baseline-backed review and none for SLO-only. Returned baseline
+bytes must match that locked snapshot and its approved pin. Invalid capture rolls
+back Run, request and event writes. Replays return stored evidence without review,
+including after baseline retirement; scoped `GetIntegration` includes `Record.Native`.
+Nil Native means legacy/rejected absence; Native with nil Baseline means an explicit
+SLO-only binding. Legacy writers stay valid and are never backfilled on retry.
+Guards reject binding/parent mutation, augmentation, bound deletion and truncation.
+Deploy the migration before the binary; retain it on rollback. CHECK validation
+scans the request table under ACCESS EXCLUSIVE without a heap rewrite or backfill.
+No new grants/routes or runtime callback activation occur. See
+[ADR-0018](decisions/0018-retain-native-bindings-with-integration-admission.md).

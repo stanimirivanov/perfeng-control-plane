@@ -34,10 +34,10 @@ func (r *Repository) GetIntegration(ctx context.Context, principal string, ident
 }
 
 func readIntegration(ctx context.Context, db integrationQuery, principal string, identity contract.CatalogIdentity) (integration.Record, error) {
-	var disposition, snapshot []byte
-	err := db.QueryRowContext(ctx, `SELECT i.disposition,r.snapshot FROM perfeng_control.integration_requests i
+	var disposition, snapshot, native []byte
+	err := db.QueryRowContext(ctx, `SELECT i.disposition,r.snapshot,i.native_binding FROM perfeng_control.integration_requests i
 		LEFT JOIN perfeng_control.runs r ON r.principal=i.principal AND r.run_id=i.run_id
-		WHERE i.principal=$1 AND i.issuer=$2 AND i.request_id=$3`, principal, identity.Issuer, identity.ID).Scan(&disposition, &snapshot)
+		WHERE i.principal=$1 AND i.issuer=$2 AND i.request_id=$3`, principal, identity.Issuer, identity.ID).Scan(&disposition, &snapshot, &native)
 	if err != nil {
 		return integration.Record{}, storageError(err)
 	}
@@ -52,6 +52,11 @@ func readIntegration(ctx context.Context, db integrationQuery, principal string,
 		}
 		result.Run = &current
 	}
+	result.Native, err = restoreIntegrationNative(native, result)
+	if err != nil {
+		return integration.Record{}, err
+	}
+
 	return result, nil
 }
 
@@ -60,6 +65,12 @@ func readIntegration(ctx context.Context, db integrationQuery, principal string,
 // its disposition and delivery digest. Review is in-process and must honor the
 // integration.Review no-external-I/O contract. Native create bindings are untouched.
 func (r *Repository) AdmitIntegration(ctx context.Context, principal, provider string, message contract.IntegrationMessage, review integration.Review) (integration.Record, error) {
+	return r.admitIntegration(ctx, principal, provider, message, review, nil)
+}
+
+func (r *Repository) admitIntegration(ctx context.Context, principal, provider string, message contract.IntegrationMessage, review integration.Review,
+	capture func(integration.Record) (contract.AnalysisNativeBinding, error),
+) (integration.Record, error) {
 	raw, err := json.Marshal(message)
 	if err != nil || len(raw) > contract.IntegrationMaximumBytes || review == nil ||
 		message.Type != "dev.perfeng.integration.requested.v1" || !message.ValidContext() ||
@@ -118,8 +129,23 @@ func (r *Repository) AdmitIntegration(ctx context.Context, principal, provider s
 		if result.Run != nil {
 			runID = result.Run.ID
 		}
-		_, err = tx.ExecContext(ctx, `INSERT INTO perfeng_control.integration_requests(principal,issuer,request_id,attempt_issuer,attempt_id,context,disposition,run_id)
-			VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, principal, claims.Request.Issuer, claims.Request.ID, claims.Attempt.Issuer, claims.Attempt.ID, contextBytes, responseBytes, runID)
+		var native any
+		if capture != nil && result.Run != nil {
+			binding, err := capture(result)
+			if err != nil {
+				return integration.Record{}, err
+			}
+			encoded, err := json.Marshal(binding)
+			if err != nil {
+				return integration.Record{}, run.ErrUnavailable
+			}
+			if _, err := restoreIntegrationNative(encoded, result); err != nil {
+				return integration.Record{}, err
+			}
+			result.Native, native = &binding, encoded
+		}
+		_, err = tx.ExecContext(ctx, `INSERT INTO perfeng_control.integration_requests(principal,issuer,request_id,attempt_issuer,attempt_id,context,disposition,run_id,native_binding)
+			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, principal, claims.Request.Issuer, claims.Request.ID, claims.Attempt.Issuer, claims.Attempt.ID, contextBytes, responseBytes, runID, native)
 		var pg *pgconn.PgError
 		if errors.As(err, &pg) && pg.Code == "23505" {
 			return integration.Record{}, run.ErrConflict
