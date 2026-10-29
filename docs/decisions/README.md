@@ -100,3 +100,4 @@ How will assumptions and consequences be verified?
 | [0016](0016-pin-analysis-publication-contract.md) | Pin the analysis publication contract | Proposed |
 | [0017](0017-return-owned-native-admission-resolution.md) | Return owned native admission resolution | Proposed |
 | [0018](0018-retain-native-bindings-with-integration-admission.md) | Retain native bindings with integration admission | Proposed |
+| [0019](0019-compose-native-capture-for-authenticated-admission.md) | Compose native capture for authenticated admission | Proposed |

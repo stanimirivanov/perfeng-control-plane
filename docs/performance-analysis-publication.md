@@ -60,8 +60,8 @@ construction; it changes no admission response, HTTP route, database or worker.
 Successful decoding proves no authentication, historical association or approval.
 The existing integration message union stays closed and rejects this new family.
 
-Atomic native capture is available through the additive repository method below;
-runtime callback adoption remains separate. Next build one immutable publication association using retained evidence,
+Atomic native capture is composed for enabled reviewed integration configurations.
+Next build one immutable publication association using retained evidence,
 verified analysis/policy bytes and admitted baseline checks. Define durable replay,
 conflict, retention and authenticated delivery before enabling consumption.
 
@@ -90,5 +90,23 @@ SLO-only binding. Legacy writers stay valid and are never backfilled on retry.
 Guards reject binding/parent mutation, augmentation, bound deletion and truncation.
 Deploy the migration before the binary; retain it on rollback. CHECK validation
 scans the request table under ACCESS EXCLUSIVE without a heap rewrite or backfill.
-No new grants/routes or runtime callback activation occur. See
+No new grants/routes are added. See
 [ADR-0018](decisions/0018-retain-native-bindings-with-integration-admission.md).
+
+## Runtime composition
+
+Enabled reviewed integration configurations call ResolveIntegrationAdmission and
+AdmitIntegrationResolved. The target and native evidence come from one review;
+the supplied transaction reader keeps baseline approval locked through capture.
+Missing native resolver/storage capability fails startup, with no fallback to
+unbound admission. Disabled integration configurations keep their prior behavior.
+
+Direct HTTP adapter callers choose exactly one of Review or ResolvedReview;
+the latter requires NativeRepository. Auth, permissions and principal checks run
+before either mode. GET/cancellation use the original store, and public responses
+remain the closed integration/v1 messages without native metadata. SHA-256 source
+requests still receive the retained unsupported_revision rejection.
+Apply 0020 before deployment. Old requests remain unbound; rollback preserves
+retained bindings while old writers create unbound requests. No publication/fetch
+or Argus consumption is enabled. See
+[ADR-0019](decisions/0019-compose-native-capture-for-authenticated-admission.md).
