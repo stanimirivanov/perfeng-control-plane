@@ -103,3 +103,4 @@ How will assumptions and consequences be verified?
 | [0019](0019-compose-native-capture-for-authenticated-admission.md) | Compose native capture for authenticated admission | Proposed |
 | [0020](0020-build-publications-from-retained-analysis-evidence.md) | Build publications from retained analysis evidence | Proposed |
 | [0021](0021-retain-analysis-publications-atomically.md) | Retain analysis publications atomically | Proposed |
+| [0022](0022-return-reviewed-analysis-verification-inputs.md) | Return reviewed analysis verification inputs | Proposed |

@@ -37,7 +37,10 @@ func TestIntegrationAdmissionResolutionPreservesOwnedReviewedValues(t *testing.T
 			}
 			resolved, err := registry.ResolveIntegrationAdmission(context.Background(), "alice", claims, read)
 			if err != nil || resolved.Request != current.Request || resolved.Target != run.ExecutionTargetKubernetes ||
-				resolved.Workload != entry.Workload || !reflect.DeepEqual(resolved.Baseline, &record) || reads != 1 {
+				resolved.Workload != entry.Workload || !reflect.DeepEqual(resolved.Baseline, &record) || reads != 1 ||
+				resolved.Verification == nil || resolved.Verification.Validate(resolved.Request) != nil ||
+				string(resolved.Verification.PolicyBytes) != string(entry.PolicyBytes) ||
+				!resolved.Verification.Producer.Equal(entry.ReportProducer) || resolved.Verification.ContractsVersion != entry.ContractsVersion {
 				t.Fatal("lost reviewed authority", err)
 			}
 			retained, err := json.Marshal(resolved.Baseline)
@@ -48,8 +51,11 @@ func TestIntegrationAdmissionResolutionPreservesOwnedReviewedValues(t *testing.T
 			*resolved.Baseline.Dataset.Seed = 999
 			*resolved.Baseline.Qualification.SampleCount = 999
 			*resolved.Baseline.Qualification.MaximumCV = 999
+			resolved.Verification.PolicyBytes[0] = '!'
+			resolved.Verification.Producer.Image = "latest"
 			again, err := registry.ResolveIntegrationAdmission(context.Background(), "alice", claims, read)
-			if err != nil || !reflect.DeepEqual(again.Baseline, &record) || reads != 2 {
+			if err != nil || !reflect.DeepEqual(again.Baseline, &record) || reads != 2 || again.Verification == nil ||
+				string(again.Verification.PolicyBytes) != string(entry.PolicyBytes) || !again.Verification.Producer.Equal(entry.ReportProducer) {
 				t.Fatal("returned baseline aliases review authority", err)
 			}
 		})
@@ -123,11 +129,38 @@ func TestIntegrationAdmissionResolutionSupportsSLOOnlyWithoutBaselineRead(t *tes
 		return baseline.Record{}, run.ErrUnavailable
 	})
 	current.Request.Policy.SHA256 = claims.Policy.SHA256
-	if err != nil || resolved.Baseline != nil || resolved.Request != current.Request || resolved.Workload != entry.Workload {
+	if err != nil || resolved.Baseline != nil || resolved.Request != current.Request || resolved.Workload != entry.Workload ||
+		resolved.Verification == nil || resolved.Verification.Validate(resolved.Request) != nil || string(resolved.Verification.PolicyBytes) != string(encoded) {
 		t.Fatal("SLO-only resolution lost native values", err)
 	}
 	legacy, err := registry.ResolveIntegration(context.Background(), "alice", claims, nil)
 	if err != nil || legacy != resolved.Request {
 		t.Fatal("legacy request resolver changed", err)
+	}
+}
+
+func TestIntegrationAdmissionVerificationUsesSelectedEntry(t *testing.T) {
+	entry, _, claims, record := integrationEntry(t)
+	other := entry
+	other.Principals = []string{"bob"}
+	other.ContractsVersion, other.ReportProducer.Version = "0.22.0", "2.0.0"
+	registry := integrationRegistry(t, entry, other)
+	for _, selected := range []ReportPolicyEntry{entry, other} {
+		principal := selected.Principals[0]
+		claims.Principal.ID = principal
+		reads := 0
+		resolved, err := registry.ResolveIntegrationAdmission(context.Background(), principal, claims,
+			func(_ context.Context, owner, id, version string) (baseline.Record, error) {
+				reads++
+				if owner != principal || id != record.ID || version != record.Version {
+					t.Fatal("unscoped verification review")
+				}
+
+				return record.Clone(), nil
+			})
+		if err != nil || reads != 1 || resolved.Verification == nil || resolved.Verification.ContractsVersion != selected.ContractsVersion ||
+			!resolved.Verification.Producer.Equal(selected.ReportProducer) {
+			t.Fatal("verification inferred from another entry or global version", err)
+		}
 	}
 }
