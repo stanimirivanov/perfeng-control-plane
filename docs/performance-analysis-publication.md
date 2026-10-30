@@ -244,3 +244,33 @@ Runtime orchestration must select stable event identity/time and prepare evidenc
 before calling; fetch and delivery transport remain separate work. Revert callable
 composition while retaining historical records. See
 [ADR-0024](decisions/0024-materialize-historical-analysis-publications.md).
+
+## Scoped publication evidence preparation
+
+`app.PrepareAnalysisPublication` accepts authenticated/configured namespaces,
+scoped request, stable event identity/time and canonical registered report/candidate
+IDs. It derives native Run from scoped retained admission and requires historical
+Verification before resolving references. Callers supply no URI, native Run ID or
+producer/policy authority. Wrong scope, substituted IDs/Run, invalid formats and
+reports over 1 MiB fail before object I/O. Historical cancellation does not erase
+valid evidence or grant new execution authority.
+
+Compose with the existing configured `objectstore.Reader` or S3 access reader:
+approved bucket, canonical Run prefix, response metadata, bounded bytes, SHA-256
+and response-body closure stay in that shared boundary. Preparation independently
+checks returned length/hash and owns the exact output bytes. It reads one report;
+the candidate is only a registered normalized-result reference. No object listing,
+candidate fetch, policy lookup, transaction or publication write occurs.
+
+Missing records/objects are not-found, invalid reference/location or corrupt bytes
+are invalid publication evidence, backend failures are unavailable, and cancellation
+stays classified. Errors return zero prepared input and no private storage details.
+Prepared output still requires the materializer's report schema/provenance/outcome
+and transaction-history verification; fetching alone grants no publication authority.
+
+Preparation is for NEW materialization. Future orchestration must first handle
+retained replay through the ledger/materializer and bypass preparation/object reads
+on that path. Scheduling, stable event selection, runtime activation and authenticated
+delivery remain separate. No migration or deployment configuration changes occur;
+revert this callable boundary without changing stored evidence. See
+[ADR-0025](decisions/0025-prepare-scoped-publication-evidence.md).
