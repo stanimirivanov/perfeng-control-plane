@@ -109,3 +109,4 @@ How will assumptions and consequences be verified?
 | [0025](0025-prepare-scoped-publication-evidence.md) | Prepare scoped publication evidence | Proposed |
 | [0026](0026-compose-replay-first-publication-workflow.md) | Compose replay-first publication workflow | Proposed |
 | [0027](0027-expose-scoped-analysis-publication-reads.md) | Expose scoped analysis publication reads | Proposed |
+| [0028](0028-resolve-scoped-admission-by-native-run.md) | Resolve scoped admission by native Run | Proposed |
