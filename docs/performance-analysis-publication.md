@@ -371,3 +371,24 @@ is provided. Nil verified reader supports replay only. This adapter does not act
 runtime composition or implement durable identity allocation; those remain separate
 slices. No migration or protocol change is required for this callable composition.
 See [ADR-0030](decisions/0030-compose-scoped-reporting-publication.md).
+
+## Durable event reservations
+
+`integration.PublicationEventStore.ReserveAnalysisPublicationEvent` supplies durable
+event identity/time for the later reporting resolver. PostgreSQL retains one event
+per scoped request and exact registered report/candidate IDs under the existing
+request lock. Identical concurrent retries/reopen recover original values; changed
+evidence conflicts, while unknown/provider/principal namespace mismatches are hidden.
+New allocation requires reviewed native history and registered native artifacts.
+
+An already verified publication returns its original event/time without creating a
+reservation or inferring its candidate association. Conflicting report/reservation
+history fails closed. Allocation uses database time after locking and an opaque
+random ID. An uncertain commit requires identical retry; no external I/O occurs in
+the transaction. The reservation itself never authorizes publication or sets a verdict.
+
+Apply migration 0023 and trusted runtime SELECT/INSERT grants before consumption;
+it adds an empty immutable table without rewriting/backfilling historical data.
+Runtime resolver adaptation and activation remain separate. Preserve reservations
+and publications on binary rollback; repair forward rather than reassign identity.
+See [ADR-0031](decisions/0031-retain-publication-event-reservations.md).
