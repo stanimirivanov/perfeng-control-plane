@@ -2,7 +2,7 @@
   "openapi": "3.1.1",
   "info": {
     "title": "Performance integration",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "security": [
     {
@@ -473,6 +473,262 @@
                   "minimum": 1
                 },
                 "description": "Seconds before retry; preserve request identity and immutable context."
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integration/v1/requests/{requestId}/analysis": {
+      "parameters": [
+        {
+          "name": "requestId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "\\S"
+          }
+        },
+        {
+          "name": "issuer",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 512
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getPerformanceAnalysis",
+        "description": "Requires authenticated principal and existing request-read permission. Returns retained immutable analysis; never materializes, executes or fetches artifact bytes. Request identity is scoped by issuer and principal, never by native Run ID.",
+        "responses": {
+          "200": {
+            "description": "AnalysisPublication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisPublication"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "const": "invalid_request"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "const": "unauthenticated"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "Bearer"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "const": "forbidden"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown, invisible or not yet published",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "const": "unknown_request"
+                        },
+                        "message": {
+                          "const": "Not Found"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "const": "rate_limited"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Seconds before retrying the same scoped read."
+              },
+              "Cache-Control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "const": "unavailable"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Seconds before retrying the same scoped read."
+              },
+              "Cache-Control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
               }
             }
           }
@@ -2613,6 +2869,524 @@
               }
             },
             "additionalProperties": false
+          }
+        }
+      },
+      "AnalysisPublication": {
+        "type": "object",
+        "required": [
+          "specversion",
+          "id",
+          "source",
+          "type",
+          "time",
+          "datacontenttype",
+          "dataschema",
+          "data"
+        ],
+        "properties": {
+          "specversion": {
+            "type": "string",
+            "enum": [
+              "1.0"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "a string at most 256 character(s) long",
+            "title": "maxLength(256)",
+            "minLength": 1,
+            "pattern": "\\S",
+            "maxLength": 256
+          },
+          "source": {
+            "type": "string",
+            "format": "uri",
+            "description": "a string at most 512 character(s) long",
+            "title": "maxLength(512)",
+            "maxLength": 512
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "dev.perfeng.integration.analysis-published.v1"
+            ]
+          },
+          "time": {
+            "$ref": "#/components/schemas/AnalysisPublication/$defs/timestamp"
+          },
+          "datacontenttype": {
+            "type": "string",
+            "enum": [
+              "application/json"
+            ]
+          },
+          "dataschema": {
+            "type": "string",
+            "enum": [
+              "https://perfeng.dev/schemas/performance-analysis/v1/performance-analysis.schema.json"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "context",
+              "run",
+              "native",
+              "artifact"
+            ],
+            "properties": {
+              "context": {
+                "$ref": "#/components/schemas/AnalysisPublication/$defs/IntegrationRequestContext"
+              },
+              "run": {
+                "$ref": "#/components/schemas/AnalysisPublication/$defs/IntegrationIdentity"
+              },
+              "native": {
+                "type": "object",
+                "required": [
+                  "runId",
+                  "testId",
+                  "workload",
+                  "policy",
+                  "baseline"
+                ],
+                "properties": {
+                  "runId": {
+                    "type": "string",
+                    "description": "Reference to the run metadata",
+                    "pattern": "^perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$"
+                  },
+                  "testId": {
+                    "$ref": "#/components/schemas/AnalysisPublication/$defs/id"
+                  },
+                  "workload": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "version",
+                      "sha256"
+                    ],
+                    "properties": {
+                      "id": {
+                        "$ref": "#/components/schemas/AnalysisPublication/$defs/id"
+                      },
+                      "version": {
+                        "$ref": "#/components/schemas/AnalysisPublication/$defs/version"
+                      },
+                      "sha256": {
+                        "$ref": "#/components/schemas/AnalysisPublication/$defs/sha256"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "policy": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "version",
+                      "sha256"
+                    ],
+                    "properties": {
+                      "id": {
+                        "$ref": "#/components/schemas/AnalysisPublication/$defs/id"
+                      },
+                      "version": {
+                        "$ref": "#/components/schemas/AnalysisPublication/$defs/version"
+                      },
+                      "sha256": {
+                        "$ref": "#/components/schemas/AnalysisPublication/$defs/sha256"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "baseline": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "identity",
+                          "artifact"
+                        ],
+                        "properties": {
+                          "identity": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "version",
+                              "sha256"
+                            ],
+                            "properties": {
+                              "id": {
+                                "$ref": "#/components/schemas/AnalysisPublication/$defs/id"
+                              },
+                              "version": {
+                                "$ref": "#/components/schemas/AnalysisPublication/$defs/version"
+                              },
+                              "sha256": {
+                                "$ref": "#/components/schemas/AnalysisPublication/$defs/sha256"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "artifact": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "runId",
+                              "kind",
+                              "uri",
+                              "sha256",
+                              "sizeBytes",
+                              "mediaType",
+                              "format"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "runId": {
+                                "type": "string",
+                                "description": "Reference to the run metadata",
+                                "pattern": "^perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "normalized"
+                                ]
+                              },
+                              "uri": {
+                                "type": "string",
+                                "format": "uri",
+                                "description": "a string matching the pattern ^(s3|https):\\/\\/[^\\s?#]+$",
+                                "pattern": "^(s3|https):\\/\\/[^\\s?#]+$"
+                              },
+                              "sha256": {
+                                "$ref": "#/components/schemas/AnalysisPublication/$defs/sha256"
+                              },
+                              "sizeBytes": {
+                                "type": "integer",
+                                "description": "a non-negative number",
+                                "title": "greaterThanOrEqualTo(0)",
+                                "minimum": 0
+                              },
+                              "mediaType": {
+                                "type": "string",
+                                "enum": [
+                                  "application/json"
+                                ]
+                              },
+                              "format": {
+                                "type": "string",
+                                "enum": [
+                                  "normalized-result/v1"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "artifact": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "runId",
+                  "kind",
+                  "uri",
+                  "sha256",
+                  "sizeBytes",
+                  "mediaType",
+                  "format"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "runId": {
+                    "type": "string",
+                    "description": "Reference to the run metadata",
+                    "pattern": "^perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "analysis"
+                    ]
+                  },
+                  "uri": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "a string matching the pattern ^(s3|https):\\/\\/[^\\s?#]+$",
+                    "pattern": "^(s3|https):\\/\\/[^\\s?#]+$"
+                  },
+                  "sha256": {
+                    "$ref": "#/components/schemas/AnalysisPublication/$defs/sha256"
+                  },
+                  "sizeBytes": {
+                    "type": "integer",
+                    "description": "a number between 1 and 1048576",
+                    "title": "between(1, 1048576)",
+                    "minimum": 1,
+                    "maximum": 1048576
+                  },
+                  "mediaType": {
+                    "type": "string",
+                    "enum": [
+                      "application/json"
+                    ]
+                  },
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "analysis-result/v1"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false,
+        "$defs": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "a string matching the pattern ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$"
+          },
+          "IntegrationRequestContext": {
+            "type": "object",
+            "required": [
+              "request",
+              "attempt",
+              "principal",
+              "requestedAt",
+              "deadline",
+              "service",
+              "capability",
+              "deployment",
+              "environment",
+              "workload",
+              "profile",
+              "policy",
+              "baseline",
+              "evidence",
+              "candidate"
+            ],
+            "properties": {
+              "request": {
+                "$ref": "#/components/schemas/AnalysisPublication/$defs/IntegrationIdentity"
+              },
+              "attempt": {
+                "$ref": "#/components/schemas/AnalysisPublication/$defs/IntegrationIdentity"
+              },
+              "principal": {
+                "$ref": "#/components/schemas/AnalysisPublication/$defs/IntegrationIdentity"
+              },
+              "requestedAt": {
+                "$ref": "#/components/schemas/AnalysisPublication/$defs/timestamp"
+              },
+              "deadline": {
+                "$ref": "#/components/schemas/AnalysisPublication/$defs/timestamp"
+              },
+              "service": {
+                "$ref": "#/components/schemas/AnalysisPublication/$defs/IntegrationReference"
+              },
+              "capability": {
+                "$ref": "#/components/schemas/AnalysisPublication/$defs/IntegrationReference"
+              },
+              "deployment": {
+                "$ref": "#/components/schemas/AnalysisPublication/$defs/IntegrationReference"
+              },
+              "environment": {
+                "$ref": "#/components/schemas/AnalysisPublication/$defs/IntegrationReference"
+              },
+              "workload": {
+                "$ref": "#/components/schemas/AnalysisPublication/$defs/IntegrationReference"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/AnalysisPublication/$defs/IntegrationReference"
+              },
+              "policy": {
+                "$ref": "#/components/schemas/AnalysisPublication/$defs/IntegrationReference"
+              },
+              "baseline": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/AnalysisPublication/$defs/IntegrationReference"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AnalysisPublication/$defs/IntegrationReference"
+                },
+                "description": "an array of at most 32 item(s)",
+                "title": "maxItems(32)",
+                "maxItems": 32
+              },
+              "candidate": {
+                "type": "object",
+                "required": [
+                  "source",
+                  "imageDigest"
+                ],
+                "properties": {
+                  "source": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha1"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{40}$",
+                            "pattern": "^[0-9a-f]{40}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "algorithm",
+                          "digest"
+                        ],
+                        "properties": {
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "git-sha256"
+                            ]
+                          },
+                          "digest": {
+                            "type": "string",
+                            "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                            "pattern": "^[0-9a-f]{64}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "imageDigest": {
+                    "type": "string",
+                    "description": "a string matching the pattern ^sha256:[0-9a-f]{64}$",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationIdentity": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              }
+            },
+            "additionalProperties": false
+          },
+          "IntegrationReference": {
+            "type": "object",
+            "required": [
+              "issuer",
+              "id",
+              "revision",
+              "sha256"
+            ],
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "a string at most 512 character(s) long",
+                "title": "maxLength(512)",
+                "maxLength": 512
+              },
+              "id": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "revision": {
+                "type": "string",
+                "description": "a string matching the pattern \\S",
+                "title": "maxLength(256)",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "\\S"
+              },
+              "sha256": {
+                "type": "string",
+                "description": "a string matching the pattern ^[0-9a-f]{64}$",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "id": {
+            "type": "string",
+            "description": "a string matching the pattern ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+            "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+          },
+          "version": {
+            "type": "string",
+            "description": "a string matching the pattern ^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+          },
+          "sha256": {
+            "type": "string",
+            "description": "a string matching the pattern ^[a-f0-9]{64}$",
+            "pattern": "^[a-f0-9]{64}$"
           }
         }
       }

@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-- Pin performance-analysis/v1 from contracts bundle 0.25.0 without runtime activation.
+- Pin performance-analysis/v1 from bundle 0.25.0 and its read API from 0.26.0.
 - The offline codec validates owned claims, never admission or artifact authority.
 - Capture native bindings and reviewed verification durably before publication.
 
@@ -301,3 +301,35 @@ This is callable composition only: artifact/event selection, operator/runtime en
 point, scheduling and authenticated delivery remain separate. No migration or
 deployment setting is added; revert this coordinator without altering retained data.
 See [ADR-0026](decisions/0026-compose-replay-first-publication-workflow.md).
+
+## Authenticated HTTP reads
+
+Enabled reviewed integration exposes
+`GET /integration/v1/requests/{requestId}/analysis?issuer=<request-issuer>`.
+Percent-encode the opaque request ID and issuer once. Existing bearer ReadRun
+permission is required; create permission alone grants no read. Authenticate and
+authorize before lookup, require exactly one issuer query with no extra parameters,
+and reject bodies/unsupported methods. Routing uses the escaped path, preserving
+encoded /analysis inside an ordinary lifecycle request ID.
+
+The adapter reads only principal/request-scoped original publication bytes and
+validates the separate closed family, configured provider/principal namespaces and
+full requested identity. Successful bytes are written unchanged as application/json.
+It never invokes admission, current review, materialization, artifact fetch or writes.
+All responses use Cache-Control: no-store. Unknown, invisible and unpublished requests
+share 404/unknown_request/"Not Found" with identical body/headers. Missing credentials
+return 401 with Bearer challenge; missing permission returns 403. Storage/timeouts or
+corrupt/mis-scoped retained evidence return redacted 503 with Retry-After: 1.
+
+`NewAPIHandler` requires the read capability for enabled integration; missing custom
+storage capability fails startup. Disabled integration behavior stays unchanged.
+Direct adapter users compose `NewAnalysisReadHandler` separately from lifecycle
+handling and inject the offline analysis codec. Reads require the existing migrated
+ledger/history tables through 0022; no new migration, token grant or configuration
+is added. The API component pin advances to 1.1.0 at contracts commit
+5bbeceec61f0ddd8922f27ceb6d4968cbdfef3ac while payload/native/catalog pins remain intact.
+
+This exposes retained evidence only. Automatic materialization/event selection and
+Argus polling/persistence remain separate; 404 is not a terminal or performance
+verdict. Roll back read consumption/binary while preserving retained publications.
+See [ADR-0027](decisions/0027-expose-scoped-analysis-publication-reads.md).
