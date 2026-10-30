@@ -486,3 +486,26 @@ Process records use fixed messages and the stable fields `component`, `phase`
 and, for failures, `error_class`. Returned error text is never logged. Known
 configuration, dependency, runtime and resource-shutdown sentinels receive fixed
 classifications; all other errors become `unknown`.
+
+## Integration analysis publication
+
+`PERFENG_INTEGRATION_ANALYSIS_PUBLICATION_ENABLED=true` opts reporting into
+request-linked analysis publication before fenced Run completion. Unset or `false`
+preserves existing behavior; malformed boolean values fail configuration parsing.
+Enabling requires the reviewed registry's integration provider/principal namespaces,
+native admission/history/publication/event storage capabilities and the configured
+verified artifact reader. No current registry lookup reconstructs publication authority.
+
+Apply migrations through 0023 and the documented trusted runtime SELECT/INSERT
+grant on `integration_publication_events` before enabling. Application startup
+validates composition only; it neither applies migrations nor probes database grants.
+No storage, Kubernetes or object operations occur during composition.
+
+Durable reservation supplies stable event/time across retries/restarts. Publication
+and completion recovery reuse retained evidence without allocating identity or reading
+objects again. Publication failures can delay completion under the existing reporting
+attempt timeout; cancellation and lease/revision checks retain priority. Native-only
+and unsupported historical admissions remain nonparticipating. This switch adds no
+terminal-history scan/backfill or external delivery loop. Disable it or roll back the
+binary to revert; preserve artifacts, reservations and publications for later recovery.
+See [ADR-0032](decisions/0032-enable-durable-reporting-publication.md).

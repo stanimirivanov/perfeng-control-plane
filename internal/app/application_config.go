@@ -20,6 +20,7 @@ type ApplicationConfig struct {
 	KubernetesExecutorTemplates    KubernetesExecutorTemplateConfig
 	Reconciliation                 ReconciliationConfig
 	NativeWorkerAcquisitionEnabled bool
+	AnalysisPublicationEnabled     bool
 }
 
 // Validate checks every startup policy and their worker/reconciliation relationship.
@@ -98,6 +99,10 @@ func loadApplicationConfig(lookup lookupEnvironment) (ApplicationConfig, error) 
 		return ApplicationConfig{}, err
 	}
 
+	analysisPublicationEnabled, err := optionalBoolean(lookup, analysisPublicationVariable)
+	if err != nil {
+		return ApplicationConfig{}, err
+	}
 	config := ApplicationConfig{
 		Authentication:                 authentication,
 		Database:                       database,
@@ -110,6 +115,7 @@ func loadApplicationConfig(lookup lookupEnvironment) (ApplicationConfig, error) 
 		KubernetesExecutorTemplates:    executorTemplates,
 		Reconciliation:                 reconciliation,
 		NativeWorkerAcquisitionEnabled: nativeWorkerAcquisitionEnabled,
+		AnalysisPublicationEnabled:     analysisPublicationEnabled,
 	}
 	if config.Validate() != nil {
 		return ApplicationConfig{}, configurationError("application policy")

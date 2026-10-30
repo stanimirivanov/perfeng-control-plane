@@ -72,6 +72,10 @@ func NewApplicationRuntime(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	publisher, err := composeReportingPublisher(config.AnalysisPublicationEnabled, resources.Database, resources.ArtifactStorage, resources.Registry)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
 	reconciliationWorker, err := NewReconciliationWorker(
 		ReconciliationDependencies{
 			Store:       resources.Database,
@@ -79,6 +83,7 @@ func NewApplicationRuntime(
 			Controllers: controllers,
 			Collectors:  collectors,
 			Executors:   executors,
+			Publisher:   publisher,
 		},
 		reporter.Report,
 		config.Worker,

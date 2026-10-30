@@ -212,8 +212,9 @@ lock time for table size. No index or privilege changes are needed. Each capture
 adds up to 1 MiB policy bytes plus base64/provenance and TOAST/WAL overhead; the local
 encoded snapshot bound is 2 MiB. Keep schema and evidence on application rollback;
 old writers remain valid with NULL evidence. Do not reconstruct historical approval.
-The callable materializer below consumes this evidence; runtime activation and
-authenticated delivery remain follow-ups.
+The callable materializer below consumes this evidence. Reporting activation is
+[explicitly configured](runtime-configuration.md#integration-analysis-publication);
+external delivery remains separate.
 See [ADR-0023](decisions/0023-retain-reviewed-analysis-verification.md).
 
 ## Callable historical materialization
@@ -270,8 +271,9 @@ and transaction-history verification; fetching alone grants no publication autho
 
 Preparation is for NEW materialization. The callable coordinator below first handles
 retained replay through the ledger/materializer and bypasses preparation/object reads
-on that path. Scheduling, stable event selection, runtime activation and authenticated
-delivery remain separate. No migration or deployment configuration changes occur;
+on that path. Reporting supplies durable event selection through the
+[opt-in runtime](runtime-configuration.md#integration-analysis-publication);
+external delivery remains separate. This preparation layer adds no configuration;
 revert this callable boundary without changing stored evidence. See
 [ADR-0025](decisions/0025-prepare-scoped-publication-evidence.md).
 
@@ -297,9 +299,9 @@ frozen authority and transactional recheck. Readiness absence, cancellation and
 backend failure remain classified/redacted with nil output. Retry uncertain commits
 with identical stable identities; do not select new event/time on each attempt.
 
-This is callable composition only: artifact/event selection, operator/runtime entry
-point, scheduling and authenticated delivery remain separate. No migration or
-deployment setting is added; revert this coordinator without altering retained data.
+This coordinator is callable composition; the reporting adapter/runtime below
+supplies registered evidence and durable identity selection. It adds no migration
+or deployment setting; revert the coordinator without altering retained data.
 See [ADR-0026](decisions/0026-compose-replay-first-publication-workflow.md).
 
 ## Authenticated HTTP reads
@@ -329,8 +331,8 @@ ledger/history tables through 0022; no new migration, token grant or configurati
 is added. The API component pin advances to 1.1.0 at contracts commit
 5bbeceec61f0ddd8922f27ceb6d4968cbdfef3ac while payload/native/catalog pins remain intact.
 
-This exposes retained evidence only. Automatic materialization/event selection and
-Argus polling/persistence remain separate; 404 is not a terminal or performance
+This exposes retained evidence only. Reporting materialization is separately opted
+in; Argus polling/persistence remains separate. A 404 is not a terminal or performance
 verdict. Roll back read consumption/binary while preserving retained publications.
 See [ADR-0027](decisions/0027-expose-scoped-analysis-publication-reads.md).
 
@@ -346,8 +348,8 @@ The read has the existing operation timeout and preserves cancellation/errors.
 Returned records own their evidence and include current Run state plus original
 disposition/native/verification snapshots. Missing legacy or custom-review evidence
 stays nil; no registry lookup or backfill occurs. This capability grants no
-publication authority and activates no worker. Stable event selection, reporting
-composition and publication recovery remain separate. No migration is needed.
+publication authority and activates no worker. The reporting composition below
+consumes it with durable event selection and retained replay. No migration is needed.
 See [ADR-0028](decisions/0028-resolve-scoped-admission-by-native-run.md).
 
 ## Scoped reporting publisher
@@ -368,8 +370,9 @@ For new publication the injected trusted `PublicationEventResolver` must retain 
 same event/time across concurrent retries/restarts for the scoped request/evidence,
 rejecting changed reservations. Its input has empty event/time; no ephemeral default
 is provided. Nil verified reader supports replay only. This adapter does not activate
-runtime composition or implement durable identity allocation; those remain separate
-slices. No migration or protocol change is required for this callable composition.
+runtime composition or implement durable identity allocation itself; use the
+[opt-in durable composition](runtime-configuration.md#integration-analysis-publication).
+No migration or protocol change is required for this callable adapter.
 See [ADR-0030](decisions/0030-compose-scoped-reporting-publication.md).
 
 ## Durable event reservations
@@ -389,6 +392,7 @@ the transaction. The reservation itself never authorizes publication or sets a v
 
 Apply migration 0023 and trusted runtime SELECT/INSERT grants before consumption;
 it adds an empty immutable table without rewriting/backfilling historical data.
-Runtime resolver adaptation and activation remain separate. Preserve reservations
-and publications on binary rollback; repair forward rather than reassign identity.
+`NewDurableReportingPublisher` adapts this store for the
+[opt-in runtime](runtime-configuration.md#integration-analysis-publication).
+Preserve reservations/publications on rollback; repair forward rather than reassign identity.
 See [ADR-0031](decisions/0031-retain-publication-event-reservations.md).
