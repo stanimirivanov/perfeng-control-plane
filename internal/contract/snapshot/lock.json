@@ -74,7 +74,7 @@
     "examples/performance-catalog/pages.json": "f07a6d6f1b8a3ba02692acd615f636d0300fcf9fe7f434f4bb12f185bebd1e30",
     "examples/performance-catalog/empty.json": "88ddd468009e239061897dbc39ac30525c45e9f8e0f163ec6b0fcdedecefb97c",
     "schemas/performance-integration/v1/performance-integration.schema.json": "75eb03ae3f14c39291fe76285dcced92593157bd1c75f3f337a6ef2f66526960",
-    "api/performance-integration/v1/openapi.json": "719b9b68cffd0aef9dc5ec5e059917a4df19614c047f22fcfb370a03a9a45d1a",
+    "api/performance-integration/v1/openapi.json": "0bdafe32dec51a51b42a512d5a3947356aa26a5c958768ec8cab68327d466556",
     "examples/performance-integration/completed.json": "d997ae6d99e194e1fbcbe58b4844903929e6c8af5ca19483cc116c42b2c59c94",
     "examples/performance-integration/cancelled.json": "ecfb16adaac162f1670fdf4a457232b5bbc11d18884c85c4ee9791e59e0b0ab3",
     "examples/performance-integration/rejected.json": "54894e1efe999ccb38e8a1e620cd66a36eb67f9bbc19474ea6dca970f31bbec2",
@@ -98,9 +98,9 @@
       "examples/performance-integration/cancelled.json",
       "examples/performance-integration/rejected.json"
     ],
-    "commit": "041273947703542f7fe22eab838c176df5517974",
-    "bundleVersion": "0.24.0",
-    "apiVersion": "1.0.0"
+    "commit": "5bbeceec61f0ddd8922f27ceb6d4968cbdfef3ac",
+    "bundleVersion": "0.26.0",
+    "apiVersion": "1.1.0"
   },
   "performanceAnalysis": {
     "files": [

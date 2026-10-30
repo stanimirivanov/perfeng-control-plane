@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -46,10 +47,21 @@ func (integrationAuthStub) Authenticate(context.Context, string) (httpapi.Identi
 
 type integrationRuntimeStore struct {
 	*memory.Repository
-	disposition contract.IntegrationMessage
-	reviewed    bool
-	resolved    integration.AdmissionResolution
-	reviewError error
+	disposition   contract.IntegrationMessage
+	reviewed      bool
+	resolved      integration.AdmissionResolution
+	reviewError   error
+	analysis      []byte
+	analysisReads int
+}
+
+func (s *integrationRuntimeStore) GetAnalysisPublication(context.Context, string, contract.CatalogIdentity) ([]byte, error) {
+	s.analysisReads++
+	if s.analysis == nil {
+		return nil, run.ErrNotFound
+	}
+
+	return s.analysis, nil
 }
 
 func (s *integrationRuntimeStore) AdmitIntegration(context.Context, string, string, contract.IntegrationMessage, integration.Review) (integration.Record, error) {
@@ -111,6 +123,15 @@ func TestIntegrationRuntimeCompositionRequiresDurabilityAndConnectsReview(t *tes
 	if _, err := NewAPIHandler(legacyStore, integrationAuthStub{}, source); !errors.Is(err, ErrInvalidConfiguration) {
 		t.Fatal("enabled integration accepted legacy-only storage", err)
 	}
+	type nativeAdmission interface{ integration.NativeRepository }
+	withoutRead := struct {
+		httpapi.Repository
+		legacyAdmission
+		nativeAdmission
+	}{store, store, store}
+	if _, err := NewAPIHandler(withoutRead, integrationAuthStub{}, source); !errors.Is(err, ErrInvalidConfiguration) {
+		t.Fatal("enabled integration accepted missing analysis read capability", err)
+	}
 	legacySource := struct {
 		RunApprover
 		integrationNamespaces
@@ -154,5 +175,43 @@ func TestIntegrationRuntimeCompositionRequiresDurabilityAndConnectsReview(t *tes
 	source.enabled = false
 	if _, err := NewAPIHandler(memory.New(nil), integrationAuthStub{}, source); err != nil {
 		t.Fatal("legacy composition changed", err)
+	}
+}
+
+func TestAnalysisReadRuntimeRoutesWithoutReviewOrOpaqueIDCollision(t *testing.T) {
+	raw, err := contract.Files.ReadFile("snapshot/examples/performance-analysis/published.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	message, err := integrationcontract.DecodeAnalysisPublication(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	message.Data.Context.Principal.ID = "alice"
+	raw, err = integrationcontract.EncodeAnalysisPublication(message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &integrationRuntimeStore{Repository: memory.New(nil), analysis: raw}
+	source := integrationApproverStub{provider: message.Source, principalIssuer: message.Data.Context.Principal.Issuer, enabled: true}
+	handler, err := NewAPIHandler(store, integrationAuthStub{}, source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := "/integration/v1/requests/" + url.PathEscape(message.Data.Context.Request.ID) + "/analysis?issuer=" + url.QueryEscape(message.Data.Context.Request.Issuer)
+	r := httptest.NewRequest("GET", path, nil)
+	r.Header.Set("Authorization", "Bearer test")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+	if w.Code != 200 || w.Body.String() != string(raw) || store.analysisReads != 1 || store.reviewed {
+		t.Fatal("read routing triggered review or changed bytes", w.Code)
+	}
+	// Encoded /analysis belongs to the opaque lifecycle ID, not the route suffix.
+	r = httptest.NewRequest("GET", "/integration/v1/requests/request%2Fanalysis?issuer="+url.QueryEscape(message.Data.Context.Request.Issuer), nil)
+	r.Header.Set("Authorization", "Bearer test")
+	w = httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+	if w.Code != 404 || store.analysisReads != 1 || store.reviewed {
+		t.Fatal("opaque lifecycle ID misrouted to analysis")
 	}
 }

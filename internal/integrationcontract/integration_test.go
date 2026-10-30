@@ -57,7 +57,7 @@ func TestIntegrationComponentProvenance(t *testing.T) {
 	var lock struct {
 		PerformanceIntegration struct{ Commit, BundleVersion, APIVersion string }
 	}
-	if json.Unmarshal(raw, &lock) != nil || lock.PerformanceIntegration.Commit != "041273947703542f7fe22eab838c176df5517974" || lock.PerformanceIntegration.BundleVersion != "0.24.0" || lock.PerformanceIntegration.APIVersion != "1.0.0" {
+	if json.Unmarshal(raw, &lock) != nil || lock.PerformanceIntegration.Commit != "5bbeceec61f0ddd8922f27ceb6d4968cbdfef3ac" || lock.PerformanceIntegration.BundleVersion != "0.26.0" || lock.PerformanceIntegration.APIVersion != "1.1.0" {
 		t.Fatal("unexpected integration provenance")
 	}
 }

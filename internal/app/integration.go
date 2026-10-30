@@ -48,9 +48,21 @@ func composeIntegration(api http.Handler, repository httpapi.Repository, authent
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	reader, ok := repository.(httpapi.AnalysisReadStore)
+	if !ok {
+		return nil, ErrInvalidConfiguration
+	}
+	analysis, err := httpapi.NewAnalysisReadHandler(reader, authenticator.Authenticate, httpapi.AnalysisReadOptions{Provider: provider, PrincipalIssuer: principalIssuer, Decode: integrationcontract.DecodeAnalysisPublication})
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/integration/") {
+			if strings.HasSuffix(r.URL.EscapedPath(), "/analysis") {
+				analysis.ServeHTTP(w, r)
+				return
+			}
 			handler.ServeHTTP(w, r)
 		} else {
 			api.ServeHTTP(w, r)

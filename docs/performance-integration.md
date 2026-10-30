@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-- The provider pins integration API 1.0.0 from contracts bundle 0.24.0.
+- The provider pins integration API 1.1.0 from contracts bundle 0.26.0.
 - `internal/integrationcontract` validates wire messages; it grants no authority.
 - Reviewed bindings enable durable admission, reads, cancellation and recovery.
 
@@ -10,10 +10,14 @@
 
 The schema, OpenAPI document and completed/cancelled/rejected exchanges under
 `internal/contract/snapshot` come from perfeng-contracts commit
-`041273947703542f7fe22eab838c176df5517974`. The component-specific lock records
+`5bbeceec61f0ddd8922f27ceb6d4968cbdfef3ac`. The component-specific lock records
 their checksums without replacing existing catalog or native contract pins.
 The published HTTP namespace is `/integration/v1/requests`; native API generations
 remain unchanged. Cancellation and deadline recovery use the same durable mapping.
+
+The additive [analysis read endpoint](performance-analysis-publication.md#authenticated-http-reads)
+returns the separate performance-analysis/v1 family. Existing lifecycle payloads
+and operations are unchanged; the analysis data pin remains bundle 0.25.0.
 
 `integrationcontract.DecodeIntegrationMessage` accepts at most 64 KiB of
 unique-key UTF-8 JSON. It rejects unknown fields, unsupported message variants,
