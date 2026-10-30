@@ -23,6 +23,8 @@ type ReconciliationDependencies struct {
 	Controllers KubernetesControllers
 	Collectors  ArtifactCollectors
 	Executors   KubernetesExecutors
+	// Publisher is optional; nil preserves reporting without integration publication.
+	Publisher reconcile.ReportPublisher
 }
 
 // NewReconciliationWorker composes every active lifecycle stage and its router
@@ -87,11 +89,7 @@ func NewReconciliationWorker(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
-	reporting, err := reconcile.NewReportingReconciler(
-		dependencies.Store,
-		dependencies.Executors.Reporting,
-		reconciliationConfig.Reporting,
-	)
+	reporting, err := newReportingStage(dependencies, reconciliationConfig.Reporting)
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
@@ -131,4 +129,12 @@ func NewReconciliationWorker(
 	}
 
 	return runtime, nil
+}
+
+func newReportingStage(dependencies ReconciliationDependencies, config reconcile.ReportingConfig) (*reconcile.ReportingReconciler, error) {
+	if dependencies.Publisher != nil {
+		return reconcile.NewPublishingReportingReconciler(dependencies.Store, dependencies.Executors.Reporting, dependencies.Publisher, config)
+	}
+
+	return reconcile.NewReportingReconciler(dependencies.Store, dependencies.Executors.Reporting, config)
 }

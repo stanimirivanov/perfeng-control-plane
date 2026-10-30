@@ -381,7 +381,8 @@ publication discovery without accepting candidate locations.
 
 `NewPublishingReportingReconciler` explicitly adds a trusted `ReportPublisher`
 between successful report registration and fenced completion. The existing
-`NewReportingReconciler` keeps its behavior. No runtime composition opts in yet.
+`NewReportingReconciler` keeps its behavior. Application composition opts in only
+through `PERFENG_INTEGRATION_ANALYSIS_PUBLICATION_ENABLED=true` (default false).
 The gate receives the worker principal, owned Run and selected registered
 candidate/report references. It must independently establish publication authority
 from retained admission and configured namespaces, and return nil for
