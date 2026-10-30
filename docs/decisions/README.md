@@ -112,3 +112,4 @@ How will assumptions and consequences be verified?
 | [0028](0028-resolve-scoped-admission-by-native-run.md) | Resolve scoped admission by native Run | Proposed |
 | [0029](0029-gate-reporting-completion-on-publication.md) | Gate reporting completion on opt-in publication | Proposed |
 | [0030](0030-compose-scoped-reporting-publication.md) | Compose scoped reporting publication | Proposed |
+| [0031](0031-retain-publication-event-reservations.md) | Retain publication event reservations | Proposed |
