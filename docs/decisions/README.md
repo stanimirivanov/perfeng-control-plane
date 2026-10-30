@@ -106,3 +106,4 @@ How will assumptions and consequences be verified?
 | [0022](0022-return-reviewed-analysis-verification-inputs.md) | Return reviewed analysis verification inputs | Proposed |
 | [0023](0023-retain-reviewed-analysis-verification.md) | Retain reviewed analysis verification | Proposed |
 | [0024](0024-materialize-historical-analysis-publications.md) | Materialize historical analysis publications | Proposed |
+| [0025](0025-prepare-scoped-publication-evidence.md) | Prepare scoped publication evidence | Proposed |
