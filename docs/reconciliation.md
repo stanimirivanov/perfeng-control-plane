@@ -377,6 +377,29 @@ metadata claiming the same artifact ID is rejected.
 The S3 storage adapter supplies deterministic report-output
 publication discovery without accepting candidate locations.
 
+### Report publication completion gate
+
+`NewPublishingReportingReconciler` explicitly adds a trusted `ReportPublisher`
+between successful report registration and fenced completion. The existing
+`NewReportingReconciler` keeps its behavior. No runtime composition opts in yet.
+The gate receives the worker principal, owned Run and selected registered
+candidate/report references. It must independently establish publication authority
+from retained admission and configured namespaces, and return nil for
+nonparticipating Runs. It cannot infer public request identity from a native ID.
+
+Recovered reports also pass through publication. Failures return operational
+errors without advancing the Run or changing its verdict. Retry uses registered
+evidence without regenerating/re-registering the report. Publishers must use
+stable identities and retained replay after uncertain publication or completion;
+external work is not exactly-once. The existing attempt deadline bounds publication
+and cancellation is checked before/after it. Completion retains the same lease and
+revision checks, so concurrent cancellation/revision changes retain priority.
+
+No transaction spans publication. Enabling the later composition can delay
+completion during publication outages; use an appropriate reporting timeout.
+No migration, protocol or permission changes accompany this callable gate.
+See [ADR-0029](decisions/0029-gate-reporting-completion-on-publication.md).
+
 ## Provisioning reconciliation
 
 `ProvisioningReconciler` accepts PROVISIONING and CANCELLING claims. It first loads
