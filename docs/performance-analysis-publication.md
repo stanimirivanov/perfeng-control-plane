@@ -333,3 +333,19 @@ This exposes retained evidence only. Automatic materialization/event selection a
 Argus polling/persistence remain separate; 404 is not a terminal or performance
 verdict. Roll back read consumption/binary while preserving retained publications.
 See [ADR-0027](decisions/0027-expose-scoped-analysis-publication-reads.md).
+
+## Native Run admission lookup
+
+`integration.RunAdmissionReader.GetIntegrationForRun` locates the original request
+from a native Run ID and independently established provider/principal issuer/ID.
+PostgreSQL uses the existing unique principal/Run association and shared request
+restoration, with a visibility recheck after identity discovery. Unknown,
+native-only, unassociated and invisible Runs all return NotFound with zero output.
+The read has the existing operation timeout and preserves cancellation/errors.
+
+Returned records own their evidence and include current Run state plus original
+disposition/native/verification snapshots. Missing legacy or custom-review evidence
+stays nil; no registry lookup or backfill occurs. This capability grants no
+publication authority and activates no worker. Stable event selection, reporting
+composition and publication recovery remain separate. No migration is needed.
+See [ADR-0028](decisions/0028-resolve-scoped-admission-by-native-run.md).
