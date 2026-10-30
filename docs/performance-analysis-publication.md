@@ -268,9 +268,36 @@ stays classified. Errors return zero prepared input and no private storage detai
 Prepared output still requires the materializer's report schema/provenance/outcome
 and transaction-history verification; fetching alone grants no publication authority.
 
-Preparation is for NEW materialization. Future orchestration must first handle
-retained replay through the ledger/materializer and bypass preparation/object reads
+Preparation is for NEW materialization. The callable coordinator below first handles
+retained replay through the ledger/materializer and bypasses preparation/object reads
 on that path. Scheduling, stable event selection, runtime activation and authenticated
 delivery remain separate. No migration or deployment configuration changes occur;
 revert this callable boundary without changing stored evidence. See
 [ADR-0025](decisions/0025-prepare-scoped-publication-evidence.md).
+
+## Replay-first publication workflow
+
+`app.PublishRegisteredAnalysis` joins preparation and materialization with the same
+authenticated/configured scope, scoped request, stable event/time and report ID.
+It checks the scoped ledger first. Retained closed claims must match independent
+scope and requested report ID; their metadata supplies the native report reference.
+The materializer then owns exact event/time/report replay checks and returns original
+owned bytes. Candidate ID and object reader may be absent on this path, including
+after uncertain commit, with historical verification absent or object access unavailable.
+No separate admission/artifact lookup, object read or new retain occurs in this layer.
+
+Replay intentionally uses two scoped publication reads: metadata discovery followed
+by the existing materializer's canonical verification. This keeps replay logic in
+one place without a cache or another store implementation. Changed event/time/report
+conflicts and scope substitution is forbidden; failures never trigger preparation.
+
+Only ledger not-found enters preparation. New publication requires the configured
+verified reader and registered candidate ID, then uses the existing materializer's
+frozen authority and transactional recheck. Readiness absence, cancellation and
+backend failure remain classified/redacted with nil output. Retry uncertain commits
+with identical stable identities; do not select new event/time on each attempt.
+
+This is callable composition only: artifact/event selection, operator/runtime entry
+point, scheduling and authenticated delivery remain separate. No migration or
+deployment setting is added; revert this coordinator without altering retained data.
+See [ADR-0026](decisions/0026-compose-replay-first-publication-workflow.md).
