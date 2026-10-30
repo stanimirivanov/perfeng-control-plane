@@ -349,3 +349,25 @@ stays nil; no registry lookup or backfill occurs. This capability grants no
 publication authority and activates no worker. Stable event selection, reporting
 composition and publication recovery remain separate. No migration is needed.
 See [ADR-0028](decisions/0028-resolve-scoped-admission-by-native-run.md).
+
+## Scoped reporting publisher
+
+`app.NewReportingPublisher` constructs the callable reporting gate adapter over
+native admission lookup and the replay-first publication workflow. Configure the
+provider/principal namespaces independently; the worker principal and native Run
+resolve original retained request authority. Selected report/candidate IDs pass to
+existing preparation and transaction verification; no public identity or historical
+review is reconstructed from Run metadata or the current registry.
+
+Native-only and unsupported legacy/custom history skip publication. Associated
+scope/native request substitutions fail closed. Retained publication is checked
+before missing-verification checks: replay recovers original event/time and needs
+neither object access nor event allocation, including after uncertain writes.
+
+For new publication the injected trusted `PublicationEventResolver` must retain the
+same event/time across concurrent retries/restarts for the scoped request/evidence,
+rejecting changed reservations. Its input has empty event/time; no ephemeral default
+is provided. Nil verified reader supports replay only. This adapter does not activate
+runtime composition or implement durable identity allocation; those remain separate
+slices. No migration or protocol change is required for this callable composition.
+See [ADR-0030](decisions/0030-compose-scoped-reporting-publication.md).
