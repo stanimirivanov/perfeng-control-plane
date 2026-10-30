@@ -33,6 +33,20 @@ type ReportExecutor interface {
 	Report(context.Context, string, run.Run, ReportingInput) (run.Artifact, error)
 }
 
+// ReportPublisher retains request-linked evidence after report registration and
+// before completion. It must independently establish publication authority from
+// retained admission and configured namespaces; Run metadata is not authority.
+// Calls may repeat after uncertain publication or lifecycle commits. Implementations
+// must use stable identities and idempotent retained replay, and return nil for
+// nonparticipating Runs. Failures leave completion retryable, never set a verdict.
+type ReportPublisher interface {
+	// PublishReport receives an owned Run, authenticated worker principal and
+	// validated registered candidate/report references. Honor the attempt context;
+	// no database transaction is held. Completion still uses the original lease
+	// and revision fence. Return classified safe errors.
+	PublishReport(context.Context, string, run.Run, ReportingInput, run.Artifact) error
+}
+
 // ReportingStore discovers and registers evidence while applying lifecycle
 // changes through the current claim.
 type ReportingStore interface {
@@ -67,9 +81,10 @@ func (config ReportingConfig) Validate() error {
 // ReportingReconciler recovers normalized evidence and persists a validated
 // analysis report before completing the Run.
 type ReportingReconciler struct {
-	store    ReportingStore
-	executor ReportExecutor
-	config   ReportingConfig
+	store     ReportingStore
+	executor  ReportExecutor
+	publisher ReportPublisher
+	config    ReportingConfig
 }
 
 var _ worker.Reconciler = (*ReportingReconciler)(nil)
@@ -85,6 +100,28 @@ func NewReportingReconciler(
 	}
 
 	return &ReportingReconciler{store: store, executor: executor, config: config}, nil
+}
+
+// NewPublishingReportingReconciler opts into publication before fenced Run
+// completion. Existing NewReportingReconciler callers retain their behavior.
+// A missing publisher is invalid; publication activation/configuration belongs to
+// application composition, not to the reporting executor or artifact registry.
+func NewPublishingReportingReconciler(
+	store ReportingStore,
+	executor ReportExecutor,
+	publisher ReportPublisher,
+	config ReportingConfig,
+) (*ReportingReconciler, error) {
+	if publisher == nil {
+		return nil, run.ErrValidation
+	}
+	reconciler, err := NewReportingReconciler(store, executor, config)
+	if err != nil {
+		return nil, err
+	}
+	reconciler.publisher = publisher
+
+	return reconciler, nil
 }
 
 // Reconcile generates a report only when no report reference is already
@@ -129,6 +166,18 @@ func (reconciler *ReportingReconciler) Reconcile(
 			return worker.Result{}, err
 		}
 		if err = reconciler.store.RegisterArtifact(ctx, claim.Lease.Principal, output); err != nil {
+			return worker.Result{}, err
+		}
+		report = &output
+	}
+	if reconciler.publisher != nil {
+		if err := ctx.Err(); err != nil {
+			return worker.Result{}, err
+		}
+		if err := reconciler.publisher.PublishReport(ctx, claim.Lease.Principal, claim.Run.Clone(), input, *report); err != nil {
+			return worker.Result{}, err
+		}
+		if err := ctx.Err(); err != nil {
 			return worker.Result{}, err
 		}
 	}
