@@ -85,7 +85,7 @@ func TestNativeBaselineAcquisitionGateRemainsClosed(t *testing.T) {
 	if err := repository.Migrate(testContext); err != nil {
 		t.Fatal(err)
 	}
-	workerID := "windows-laptop-01"
+	workerID := "linux-workstation-01"
 	observedAt := recordV2WorkerForTest(t, repository, workerID)
 	if _, err := repository.EligibleNativeWorkerV2(testContext, workerID, 2*time.Minute); !errors.Is(err, run.ErrNotFound) {
 		t.Fatalf("closed v2 gate exposed worker eligibility: %v", err)
@@ -113,7 +113,7 @@ func TestNativeBaselineAcquisitionFencesCapacityAndExpiry(t *testing.T) {
 		t.Fatal(err)
 	}
 	allowV2AcquisitionInDisposableTest(t, repository)
-	workerID := "windows-laptop-01"
+	workerID := "linux-workstation-01"
 	authorizeV2WorkerForTest(t, repository, workerID)
 	observation, err := repository.EligibleNativeWorkerV2(testContext, workerID, 2*time.Minute)
 	if err != nil || observation.Presence.ProtocolVersion != 2 {
@@ -156,7 +156,7 @@ func TestNativeBaselineAcquisitionFencesCapacityAndExpiry(t *testing.T) {
 	if err != nil || acquired {
 		t.Fatalf("occupied worker acquired a second Run: acquired=%t, err=%v", acquired, err)
 	}
-	otherWorker := "windows-laptop-02"
+	otherWorker := "linux-workstation-02"
 	authorizeV2WorkerForTest(t, repository, otherWorker)
 	otherObservation, err := repository.EligibleNativeWorkerV2(testContext, otherWorker, 2*time.Minute)
 	if err != nil {
@@ -192,7 +192,7 @@ func TestNativeBaselineAcquisitionRejectsStaleSelection(t *testing.T) {
 		t.Fatal(err)
 	}
 	allowV2AcquisitionInDisposableTest(t, repository)
-	workerID := "windows-laptop-01"
+	workerID := "linux-workstation-01"
 	authorizeV2WorkerForTest(t, repository, workerID)
 	observation, err := repository.EligibleNativeWorkerV2(testContext, workerID, 2*time.Minute)
 	if err != nil {

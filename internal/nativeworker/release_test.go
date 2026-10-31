@@ -45,8 +45,8 @@ func TestReleaserValidatesAndDelegatesAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := validReleaseRequest()
-	if err = releaser.Release(context.Background(), "windows-laptop-01", request); err != nil ||
-		store.workerID != "windows-laptop-01" || store.request != request {
+	if err = releaser.Release(context.Background(), "linux-workstation-01", request); err != nil ||
+		store.workerID != "linux-workstation-01" || store.request != request {
 		t.Fatalf("worker = %q, request = %#v, error = %v", store.workerID, store.request, err)
 	}
 
@@ -62,7 +62,7 @@ func TestReleaserValidatesAndDelegatesAuthority(t *testing.T) {
 			invalid := validReleaseRequest()
 			mutate(&invalid)
 			if err := releaser.Release(
-				context.Background(), "windows-laptop-01", invalid,
+				context.Background(), "linux-workstation-01", invalid,
 			); !errors.Is(err, run.ErrValidation) {
 				t.Fatalf("error = %v", err)
 			}

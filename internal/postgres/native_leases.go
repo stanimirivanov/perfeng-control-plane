@@ -42,7 +42,7 @@ func (r *Repository) NativeCandidates(
 		FROM perfeng_control.runs AS r
 		LEFT JOIN perfeng_control.native_execution_leases AS l
 			ON l.run_id=r.run_id
-		WHERE r.execution_target='NATIVE_WINDOWS'
+		WHERE r.execution_target='NATIVE_LINUX'
 		AND r.snapshot->>'state'='CREATED'
 		AND (
 			l.run_id IS NULL

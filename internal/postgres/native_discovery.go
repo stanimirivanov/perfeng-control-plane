@@ -115,7 +115,7 @@ func scanNativeDiscovery(rows *sql.Rows) (nativeworker.Discovery, error) {
 		return discovery, nil
 	}
 	if !availability.Valid || !attemptID.Valid || !leaseID.Valid || !expiry.Valid ||
-		!target.Valid || run.ExecutionTarget(target.String) != run.ExecutionTargetNativeWindows {
+		!target.Valid || run.ExecutionTarget(target.String) != run.ExecutionTargetNativeLinux {
 		return nativeworker.Discovery{}, errors.New("inconsistent stored native worker slot")
 	}
 	slotExpiry := expiry.Time.UTC()

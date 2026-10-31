@@ -374,7 +374,7 @@ func (registry *ReportPolicyRegistry) ApproveRun(
 	if _, approved := entry.candidates[request.Candidate.Image]; !approved {
 		return "", run.ErrForbidden
 	}
-	if entry.executionTarget == run.ExecutionTargetNativeWindows && entry.nativeBaseline == nil {
+	if entry.executionTarget == run.ExecutionTargetNativeLinux && entry.nativeBaseline == nil {
 		return "", run.ErrForbidden
 	}
 
@@ -503,7 +503,7 @@ func classifyExecution(
 			return "", false
 		}
 		if producer.Artifact.Kind != "oci-image" {
-			return run.ExecutionTargetNativeWindows, template == nil
+			return run.ExecutionTargetNativeLinux, template == nil
 		}
 		image = producer.Artifact.Image
 	}
@@ -516,7 +516,7 @@ func validNativeBaseline(target run.ExecutionTarget, entry ReportPolicyEntry) bo
 	if entry.NativeBaseline == nil {
 		return true
 	}
-	return target == run.ExecutionTargetNativeWindows &&
+	return target == run.ExecutionTargetNativeLinux &&
 		entry.ContractsVersion == nativeworker.BaselineContractsVersion &&
 		entry.RawProducer.Name == "playwright" &&
 		entry.RawProducer.Artifact != nil &&

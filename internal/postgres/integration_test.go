@@ -140,7 +140,7 @@ func TestNativeWorkerPresencePersistence(t *testing.T) {
 	firstObservedAt, err := first.RecordNativeWorkerV2Presence(
 		testContext,
 		httpapi.NativeWorkerPresenceRecord{
-			WorkerID: "windows-laptop-01", ObservedDocument: presence,
+			WorkerID: "linux-workstation-01", ObservedDocument: presence,
 			Availability: "AVAILABLE", Qualified: true, AuthorizedToAcquire: true,
 		},
 	)
@@ -150,7 +150,7 @@ func TestNativeWorkerPresencePersistence(t *testing.T) {
 	secondObservedAt, err := second.RecordNativeWorkerV2Presence(
 		testContext,
 		httpapi.NativeWorkerPresenceRecord{
-			WorkerID: "windows-laptop-01", ObservedDocument: presence,
+			WorkerID: "linux-workstation-01", ObservedDocument: presence,
 			Availability: "AVAILABLE", Qualified: false, AuthorizedToAcquire: true,
 		},
 	)
@@ -162,7 +162,7 @@ func TestNativeWorkerPresencePersistence(t *testing.T) {
 	err = second.db.QueryRow(`
 		SELECT count(*),bool_and(qualified)
 		FROM perfeng_control.native_worker_presence_v2
-		WHERE worker_id='windows-laptop-01'`).Scan(&count, &qualified)
+		WHERE worker_id='linux-workstation-01'`).Scan(&count, &qualified)
 	if err != nil || count != 1 || qualified {
 		t.Fatal("unexpected native worker presence state", count, qualified, err)
 	}
@@ -192,7 +192,7 @@ func TestPostgresIntegration(t *testing.T) {
 		t.Fatal("original acceptance replay changed")
 	}
 	if _, err := other.Accept(
-		testContext, "alice", "request-key-00000001", request, run.ExecutionTargetNativeWindows,
+		testContext, "alice", "request-key-00000001", request, run.ExecutionTargetNativeLinux,
 	); !errors.Is(err, run.ErrConflict) {
 		t.Fatal("execution target changed on replay", err)
 	}

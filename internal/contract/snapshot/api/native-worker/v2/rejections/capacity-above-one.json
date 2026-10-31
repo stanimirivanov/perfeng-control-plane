@@ -7,7 +7,7 @@
     "capabilities": {
       "capacity": 2,
       "tool": "playwright",
-      "operatingSystem": "windows",
+      "operatingSystem": "linux",
       "architecture": "x64",
       "browsers": ["chromium"],
       "runnerContract": 2,
@@ -16,7 +16,7 @@
       "diagnosticModes": ["baseline"]
     },
     "qualificationEvidence": {
-      "environmentId": "windows-mainstream",
+      "environmentId": "linux-mainstream",
       "environmentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "runner": {
         "kind": "source-checkout",

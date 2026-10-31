@@ -293,7 +293,7 @@ func TestNativeWithdrawalFencesAcquisitionUsingEarlierObservation(t *testing.T) 
 	if err := repository.Migrate(testContext); err != nil {
 		t.Fatal(err)
 	}
-	workerID := "windows-laptop-01"
+	workerID := "linux-workstation-01"
 	observedAt := authorizeV2WorkerForTest(t, repository, workerID)
 	accepted := acceptNativeRun(t, repository, "alice", "discovery-withdrawal-0001")
 	candidate := candidateByID(t, repository, accepted.Run.ID)
@@ -342,7 +342,7 @@ func TestNativeDiscoveryRejectsInvalidIdentityAndCancellation(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(testContext)
 	cancel()
-	if _, err := repository.DiscoverNativeBaselineAttempt(ctx, "windows-laptop-01"); !errors.Is(err, context.Canceled) {
+	if _, err := repository.DiscoverNativeBaselineAttempt(ctx, "linux-workstation-01"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled discovery: %v", err)
 	}
 }
@@ -352,7 +352,7 @@ func TestNativeDiscoveryWaitsForAcquisitionCommit(t *testing.T) {
 	if err := repository.Migrate(testContext); err != nil {
 		t.Fatal(err)
 	}
-	workerID := "windows-laptop-01"
+	workerID := "linux-workstation-01"
 	observedAt := authorizeV2WorkerForTest(t, repository, workerID)
 	accepted := acceptNativeRun(t, repository, "alice", "discovery-acquisition-race-0001")
 	candidate := candidateByID(t, repository, accepted.Run.ID)

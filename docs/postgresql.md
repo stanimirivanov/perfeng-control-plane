@@ -533,3 +533,18 @@ failure mapping, lease expiry and upgrade from the artifact-registration schema.
 
 References: [PostgreSQL locking](https://www.postgresql.org/docs/17/explicit-locking.html)
 and [pgx database/sql adapter](https://pkg.go.dev/github.com/jackc/pgx/v5/stdlib).
+
+## Linux native execution migration
+
+Migration `0024_native_linux_execution.sql` expands the execution-target check
+constraint to admit `NATIVE_LINUX` while retaining `NATIVE_WINDOWS` rows unchanged.
+It takes an ALTER TABLE lock and validates the existing table in the migration
+transaction; there is no backfill or identity rewrite. Apply during an approved
+maintenance window, after draining native work. All native writers must move to
+the Linux-capable release together before new acquisition is enabled. Old
+binaries do not understand Linux targets, so application rollback after Linux
+admissions requires stopping admissions and reviewed forward recovery; a Git
+revert is not a data migration. Historical Windows Runs remain readable and are
+never candidates for Linux lease acquisition. Requalification and new reviewed
+profile/baseline identities are required before activation. Live upgrade and
+replay checks belong to the disposable PostgreSQL CI gate.

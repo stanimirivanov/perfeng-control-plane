@@ -75,7 +75,7 @@ func (capabilities Capabilities) validForRunnerContract(version int) bool {
 	}
 
 	return capabilities.Capacity == 1 && capabilities.Tool == "playwright" &&
-		capabilities.OperatingSystem == "windows" &&
+		capabilities.OperatingSystem == "linux" &&
 		(capabilities.Architecture == "x64" || capabilities.Architecture == "arm64") &&
 		capabilities.RunnerContract == version &&
 		validSet(capabilities.Browsers, 1, 4, validBrowser) &&

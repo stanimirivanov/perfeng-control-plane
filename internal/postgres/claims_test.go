@@ -56,7 +56,7 @@ func TestClaimRunsSelectsOnlyKubernetesExecutionTarget(t *testing.T) {
 		"alice",
 		"request-key-native-target",
 		request,
-		run.ExecutionTargetNativeWindows,
+		run.ExecutionTargetNativeLinux,
 	)
 	if err != nil {
 		t.Fatal(err)

@@ -34,7 +34,7 @@ Each entry binds exact policy bytes to:
 - for native execution, one assignment template containing the reviewed HTTPS
   target, browser, diagnostic mode and bounded artifact slots;
 - optionally, for a v2 baseline browser Run, a reviewed measurement recipe
-  template with qualified Windows-host evidence and rendering settings;
+  template with qualified Linux-host evidence and rendering settings;
 - one digest-pinned report producer;
 - one or more digest-pinned candidate images; and
 - one or more authorized principals.
@@ -80,7 +80,7 @@ It additionally requires the request's candidate image digest to appear in the
 entry's allowlist and returns the server-owned execution target. A validated
 OCI producer with a reviewed Job template selects `KUBERNETES`; a validated
 source-checkout or release-archive producer without a Job template selects
-`NATIVE_WINDOWS`. Admission persists that decision outside the caller-controlled
+`NATIVE_LINUX`. Admission persists that decision outside the caller-controlled
 Run snapshot. The candidate Git
 SHA remains part of the validated immutable Run request, but this registry does
 not claim to attest the relationship between that revision and the published
@@ -89,19 +89,19 @@ validation failure.
 
 A native entry using the Native Worker v2 baseline contract and a Playwright
 source checkout declares `nativeBaseline`. Construction validates the
-cache/reuse and iteration policy, qualified host profile
+explicit `hostOperatingSystem: "linux"`, cache/reuse and iteration policy, qualified host profile
 ID/version/fingerprint/evidence digest, browser viewport and scale, and the two
 artifact limits and its HTTPS target URL.
 `ResolveNativeBaselinePlan` then combines that template with the immutable Run,
 workload and producer identities to form the complete Native Worker v2 baseline
 recipe: Chromium, search journey, baseline mode, and ordered measurements/v2
 and raw-result/v2 slots. The Run's environment ID identifies the SUT; the
-recipe's qualified host profile identifies the Windows execution environment.
+recipe's qualified host profile identifies the Linux execution environment.
 These are deliberately different identities. The result is an isolated copy,
 validated against the pinned v2 lease contract in tests.
 
 V2 baseline selection compares that reviewed plan with a contract-validated
-worker report. It requires runner contract 2, Windows/Playwright capacity one,
+worker report. It requires runner contract 2, Linux/Playwright capacity one,
 the browser, baseline mode, execution transport and both artifact kinds. The
 reported qualification evidence must identify the reviewed host profile and
 evidence digest and the exact runner artifact revision and lockfile. A missing
@@ -109,7 +109,7 @@ v2 registry entry is skipped; a registry failure is returned. Selection is
 advisory and does not establish freshness, worker authorization, Run ownership
 or lease capacity. The v2 storage transaction rechecks these under locks. The
 v2 HTTP lease route is present, but acquisition is disabled by default through
-the explicit startup switch until the Windows worker is verified.
+the explicit startup switch until the Linux worker is verified.
 
 Plan resolution itself does not persist or issue a lease. The native lease
 acquirer reads persisted eligibility inputs, resolves plans before opening a
@@ -204,3 +204,7 @@ Production composition must still define how the bundle is signed or otherwise
 attested, mounted, refreshed and audited. Replacing the registry requires
 constructing a new validated instance; partially mutating a live registry is not
 supported.
+
+Old native templates without the explicit Linux host declaration are rejected.
+Requalify the actual host and review new profile/evidence identities before
+adding that declaration; never relabel a Windows profile or baseline.

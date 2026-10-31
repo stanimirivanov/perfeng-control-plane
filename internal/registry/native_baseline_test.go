@@ -15,13 +15,14 @@ import (
 
 func nativeBaselineTemplate() *nativeworker.BaselineTemplate {
 	return &nativeworker.BaselineTemplate{
-		BaseURL: "https://sut.perfeng.invalid/search",
+		HostOperatingSystem: "linux",
+		BaseURL:             "https://sut.perfeng.invalid/search",
 		Scenario: nativeworker.BaselineScenario{
 			CacheProfile: "cold", PageReuse: "per-iteration",
 			WarmupIterations: 1, MeasurementIterations: 5,
 		},
 		HostProfile: nativeworker.QualifiedHostProfile{
-			ProfileID: "windows-mainstream", ProfileVersion: "1.0.0",
+			ProfileID: "linux-mainstream", ProfileVersion: "1.0.0",
 			Fingerprint: strings.Repeat("9", 64), EvidenceSHA256: strings.Repeat("a", 64),
 		},
 		BrowserSettings: nativeworker.BaselineBrowserSettings{
@@ -60,7 +61,7 @@ func TestRegistryResolvesReviewedNativeBaselineWithoutV1Fallback(t *testing.T) {
 	if plan.Assignment.CatalogueTestID != current.Request.TestSuite ||
 		plan.Assignment.WorkloadID != "browser-smoke" ||
 		plan.Assignment.Target.EnvironmentID != current.Request.Environment.ID ||
-		plan.Assignment.Recipe.Environment.ProfileID != "windows-mainstream" ||
+		plan.Assignment.Recipe.Environment.ProfileID != "linux-mainstream" ||
 		plan.Assignment.Recipe.Environment.EvidenceSHA256 != strings.Repeat("a", 64) ||
 		plan.Assignment.Recipe.Scenario.MeasurementIterations != 5 ||
 		plan.Assignment.ExecutionArtifact.Revision != wantRunnerRevision {

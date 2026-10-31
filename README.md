@@ -152,7 +152,7 @@ The [repository working agreement](AGENTS.md),
 and [code of conduct](CODE_OF_CONDUCT.md) define the rest of the contributor
 harness. Cross-repository sequencing remains in the centralized
 [perfeng roadmap](https://github.com/stanimirivanov/perfeng-environment/blob/main/docs/roadmap/milestones.md).
-From this repository in PowerShell or a shell:
+From this repository in Bash or a shell:
 
 ~~~sh
 make bootstrap
@@ -210,7 +210,7 @@ composition with an exact-fixture approval stub.
 adapter; production composition must populate it from reviewed, attested entries.
 Approval also selects the server-owned execution target from producer provenance:
 reviewed OCI Job execution is `KUBERNETES`, while reviewed source checkouts and
-release archives are `NATIVE_WINDOWS`. The repository persists this decision
+release archives are `NATIVE_LINUX`. The repository persists this decision
 outside the public Run snapshot, and the Kubernetes reconciler claims only its
 own target.
 
@@ -391,7 +391,7 @@ The registry resolves a complete, reviewed v2 baseline recipe from an optional
 presence, acquisition and lease-scoped HTTP operations use the v2 persistence
 path. The v1 HTTP routes return 404. Acquisition is disabled by default and
 requires explicit `PERFENG_NATIVE_WORKER_ACQUISITION_ENABLED=true` after the
-Playwright worker is updated and a representative Windows run is verified.
+Playwright worker is updated and a representative Linux run is verified.
 Disabling acquisition does not prevent an already-issued lease from being
 released or completed by its authenticated worker.
 

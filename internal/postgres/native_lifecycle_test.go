@@ -110,7 +110,7 @@ func TestNativeV2LeaseMutationsRejectWrongAuthorityAndProtocol(t *testing.T) {
 		workerID string
 		change   func(*nativeworker.RenewalRequest, *nativeworker.ReleaseRequest)
 	}{
-		{"worker", "windows-laptop-02", func(*nativeworker.RenewalRequest, *nativeworker.ReleaseRequest) {}},
+		{"worker", "linux-workstation-02", func(*nativeworker.RenewalRequest, *nativeworker.ReleaseRequest) {}},
 		{"attempt", fixture.workerID, func(r *nativeworker.RenewalRequest, s *nativeworker.ReleaseRequest) {
 			r.AttemptID = "33333333-3333-4333-8333-333333333333"
 			s.AttemptID = r.AttemptID

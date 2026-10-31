@@ -81,7 +81,7 @@ func TestStaticKeepsWorkerAndUserCredentialAudiencesSeparate(t *testing.T) {
 			Permissions: []string{permissionReadRun},
 		}},
 		NativeWorkers: []nativeWorkerCredentialConfig{{
-			TokenSHA256: tokenDigest("worker-token"), WorkerID: "windows-laptop-01",
+			TokenSHA256: tokenDigest("worker-token"), WorkerID: "linux-workstation-01",
 			AuthorizedToAcquire: true, QualificationEvidence: workerEvidence(t),
 		}},
 	}
@@ -90,7 +90,7 @@ func TestStaticKeepsWorkerAndUserCredentialAudiencesSeparate(t *testing.T) {
 		t.Fatal(err)
 	}
 	identity, err := authenticator.AuthenticateWorker(context.Background(), "worker-token")
-	if err != nil || identity.WorkerID != "windows-laptop-01" ||
+	if err != nil || identity.WorkerID != "linux-workstation-01" ||
 		!identity.AuthorizedToAcquire || len(identity.QualificationEvidence) == 0 {
 		t.Fatalf("AuthenticateWorker() = %#v, %v", identity, err)
 	}
@@ -154,11 +154,11 @@ func TestStaticSupportsWorkerIdentityPreservingTokenRotation(t *testing.T) {
 		}},
 		NativeWorkers: []nativeWorkerCredentialConfig{
 			{
-				TokenSHA256: tokenDigest("old-worker-token"), WorkerID: "windows-laptop-01",
+				TokenSHA256: tokenDigest("old-worker-token"), WorkerID: "linux-workstation-01",
 				AuthorizedToAcquire: true, QualificationEvidence: evidence,
 			},
 			{
-				TokenSHA256: tokenDigest("new-worker-token"), WorkerID: "windows-laptop-01",
+				TokenSHA256: tokenDigest("new-worker-token"), WorkerID: "linux-workstation-01",
 				AuthorizedToAcquire: true, QualificationEvidence: evidence,
 			},
 		},
@@ -266,7 +266,7 @@ func TestLoadStaticRejectsMalformedConfiguration(t *testing.T) {
 			SchemaVersion: 1,
 			Credentials:   []credentialConfig{valid},
 			NativeWorkers: []nativeWorkerCredentialConfig{{
-				TokenSHA256: valid.TokenSHA256, WorkerID: "windows-laptop-01",
+				TokenSHA256: valid.TokenSHA256, WorkerID: "linux-workstation-01",
 				QualificationEvidence: workerEvidence(t),
 			}},
 		})},
@@ -274,7 +274,7 @@ func TestLoadStaticRejectsMalformedConfiguration(t *testing.T) {
 			SchemaVersion: 1,
 			Credentials:   []credentialConfig{valid},
 			NativeWorkers: []nativeWorkerCredentialConfig{{
-				TokenSHA256: tokenDigest("worker"), WorkerID: "windows-laptop-01",
+				TokenSHA256: tokenDigest("worker"), WorkerID: "linux-workstation-01",
 				QualificationEvidence: json.RawMessage(`{"environmentId":"unreviewed"}`),
 			}},
 		})},

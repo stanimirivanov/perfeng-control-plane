@@ -165,7 +165,7 @@ func (r *Repository) lockNativeRenewalScopeVersion(
 	if current.ID == "" {
 		return nativeRenewalScope{}, nativeworker.ErrLeaseGone
 	}
-	if current.ID != runID || target != run.ExecutionTargetNativeWindows {
+	if current.ID != runID || target != run.ExecutionTargetNativeLinux {
 		return nativeRenewalScope{}, errors.New("invalid stored native execution target")
 	}
 	stored, err := lockedNativeLease(ctx, tx, runID, protocolVersion)

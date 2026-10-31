@@ -22,7 +22,7 @@ func TestNativeWorkerReleaseBindsAuthenticatedAuthority(t *testing.T) {
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -42,7 +42,7 @@ func TestNativeWorkerReleaseBindsAuthenticatedAuthority(t *testing.T) {
 
 	response := serveNativeRelease(t, handler, nativeReleaseFixture(t), nativeLeaseCapability)
 	if response.Code != http.StatusNoContent || response.Body.Len() != 0 ||
-		calledWorker != "windows-laptop-01" ||
+		calledWorker != "linux-workstation-01" ||
 		calledRequest.LeaseID != nativeLeaseFixture(t).LeaseID ||
 		calledRequest.AttemptID != nativeLeaseFixture(t).AttemptID ||
 		calledRequest.ExpectedRunRevision != 5 ||
@@ -69,7 +69,7 @@ func TestNativeWorkerReleaseRejectsMissingOrInvalidAuthorityBeforeRelease(t *tes
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -117,7 +117,7 @@ func TestNativeWorkerReleaseRequiresCurrentWorkerAuthorization(t *testing.T) {
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", QualificationEvidence: evidence,
+				WorkerID: "linux-workstation-01", QualificationEvidence: evidence,
 			}, nil
 		},
 		noNativeLease,
@@ -147,7 +147,7 @@ func TestNativeWorkerReleaseRejectsInvalidRequestBeforeRelease(t *testing.T) {
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -191,7 +191,7 @@ func TestNativeWorkerReleaseMapsAuthorityAndConcurrencyFailures(t *testing.T) {
 	_, evidence := nativePresenceFixture(t)
 	identity := func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{
-			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+			WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 			QualificationEvidence: evidence,
 		}, nil
 	}

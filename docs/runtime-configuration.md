@@ -69,10 +69,10 @@ has this shape:
   "nativeWorkers": [
     {
       "tokenSha256": "<64 lowercase hexadecimal characters>",
-      "workerId": "windows-laptop-01",
+      "workerId": "linux-workstation-01",
       "authorizedToAcquire": true,
       "qualificationEvidence": {
-        "environmentId": "windows-mainstream",
+        "environmentId": "linux-mainstream",
         "environmentSha256": "<reviewed SHA-256>",
         "runner": {
           "kind": "source-checkout",
@@ -113,7 +113,7 @@ reviewed credential policy and the explicit
 `PERFENG_NATIVE_WORKER_ACQUISITION_ENABLED=true` startup switch. The switch
 defaults to false; unset or `false` does not authorize new work. Apply
 migrations through 0016 before enabling acquisition. Keep the switch false
-until the v2 Playwright worker and a representative Windows run are verified.
+until the v2 Playwright worker and a representative Linux run are verified.
 Existing lease-scoped operations remain available when the switch is turned off.
 
 `POST /native-worker/v2/leases` accepts the pinned protocol version and a
@@ -225,7 +225,7 @@ the existing endpoint is used and HTTP-derived grants continue to fail closed
 with `503`. An explicit native-upload endpoint is always HTTPS, even when
 `PERFENG_S3_ALLOW_HTTP=true`; it cannot contain credentials, paths, queries or
 fragments. The deployment must route its signed host and port to the same
-bucket and objects and arrange TLS trust on the Windows worker. A reachable
+bucket and objects and arrange TLS trust on the Linux worker. A reachable
 endpoint is not proven by startup validation or offline tests.
 
 Credentials are not part of this configuration value. `NewArtifactStorage`
@@ -292,7 +292,7 @@ A v2 Playwright source-checkout entry includes a `nativeBaseline` template:
     "measurementIterations": 5
   },
   "hostProfile": {
-    "profileId": "windows-mainstream",
+    "profileId": "linux-mainstream",
     "profileVersion": "1.0.0",
     "fingerprint": "<reviewed SHA-256>",
     "evidenceSha256": "<reviewed SHA-256>"

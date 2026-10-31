@@ -2,7 +2,7 @@
   "openapi": "3.1.1",
   "info": {
     "title": "Performance Engineering Native Worker API",
-    "version": "2.2.0",
+    "version": "2.3.0",
     "description": "Authenticated outbound-pull protocol for qualified native workers. Worker identity is derived only from the bearer credential. Lease capabilities are transported only in headers. Presigned upload URLs and their signed headers are returned only in upload-grant response bodies. All authorization material must be redacted and must not be persisted as evidence."
   },
   "servers": [{"url": "https://control.perfeng.invalid"}],
@@ -242,7 +242,7 @@
         "properties": {
           "capacity": {"const": 1, "description": "Native Worker API v2 permits one active browser measurement lease."},
           "tool": {"const": "playwright"},
-          "operatingSystem": {"const": "windows"},
+          "operatingSystem": {"enum": ["windows", "linux"]},
           "architecture": {"enum": ["x64", "arm64"]},
           "browsers": {"type": "array", "minItems": 1, "maxItems": 1, "uniqueItems": true, "items": {"const": "chromium"}},
           "runnerContract": {"const": 2},

@@ -24,7 +24,7 @@ type BaselineScenario struct {
 	MeasurementIterations int    `json:"measurementIterations"`
 }
 
-// QualifiedHostProfile is reviewed Windows-host evidence, distinct from the
+// QualifiedHostProfile is reviewed Linux-host evidence, distinct from the
 // Run's SUT environment reference and target URL.
 type QualifiedHostProfile struct {
 	ProfileID      string `json:"profileId"`
@@ -49,6 +49,8 @@ type BaselineBrowserSettings struct {
 // BaselineTemplate contains only reviewed v2 inputs that cannot be derived
 // from the immutable Run, workload or raw-producer identity.
 type BaselineTemplate struct {
+	// HostOperatingSystem requires explicit review before admitting a new host platform.
+	HostOperatingSystem      string                  `json:"hostOperatingSystem"`
 	BaseURL                  string                  `json:"baseUrl"`
 	Scenario                 BaselineScenario        `json:"scenario"`
 	HostProfile              QualifiedHostProfile    `json:"hostProfile"`
@@ -89,7 +91,7 @@ type BaselinePlan struct {
 
 // Validate checks every reviewed input before the template enters a registry.
 func (template BaselineTemplate) Validate() error {
-	if !validBaseURL(template.BaseURL) || !template.Scenario.valid() ||
+	if template.HostOperatingSystem != "linux" || !validBaseURL(template.BaseURL) || !template.Scenario.valid() ||
 		!template.HostProfile.valid() || !template.BrowserSettings.valid() ||
 		!validBaselineArtifactSize(template.MeasurementsMaximumBytes) ||
 		!validBaselineArtifactSize(template.ManifestMaximumBytes) {

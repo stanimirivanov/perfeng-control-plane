@@ -9,7 +9,7 @@
       "warmupIterations": 1, "measurementIterations": 5
     },
     "environment": {
-      "profileId": "windows-mainstream", "profileVersion": "1.0.0",
+      "profileId": "linux-mainstream", "profileVersion": "1.0.0",
       "fingerprint": "9999999999999999999999999999999999999999999999999999999999999999",
       "evidenceSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },

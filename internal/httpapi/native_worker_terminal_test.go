@@ -28,7 +28,7 @@ func TestNativeWorkerTerminalBindsAuthenticatedAuthority(t *testing.T) {
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -65,7 +65,7 @@ func TestNativeWorkerTerminalBindsAuthenticatedAuthority(t *testing.T) {
 		ManifestArtifactID: "33333333-3333-4333-8333-333333333333",
 		Capability:         nativeLeaseCapability,
 	}
-	if response.Code != http.StatusOK || calledWorker != "windows-laptop-01" ||
+	if response.Code != http.StatusOK || calledWorker != "linux-workstation-01" ||
 		!reflect.DeepEqual(calledRequest, wantRequest) {
 		t.Fatalf(
 			"status = %d, worker = %q, request = %#v",
@@ -97,7 +97,7 @@ func TestNativeWorkerTerminalBindsFailedClassification(t *testing.T) {
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -141,7 +141,7 @@ func TestNativeWorkerTerminalRejectsInvalidAuthorityAndInput(t *testing.T) {
 	called := false
 	authenticate := func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{
-			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+			WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 			QualificationEvidence: evidence,
 		}, nil
 	}
@@ -223,7 +223,7 @@ func TestNativeWorkerTerminalRequiresAuthorization(t *testing.T) {
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", QualificationEvidence: evidence,
+				WorkerID: "linux-workstation-01", QualificationEvidence: evidence,
 			}, nil
 		},
 		noNativeLease,
@@ -266,7 +266,7 @@ func TestNativeWorkerTerminalMapsFailures(t *testing.T) {
 	invalid.Disposition = "UNKNOWN"
 	identity := func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{
-			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+			WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 			QualificationEvidence: evidence,
 		}, nil
 	}

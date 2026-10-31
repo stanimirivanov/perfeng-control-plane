@@ -24,7 +24,7 @@ func TestNativeWorkerUploadGrantBindsAuthenticatedAuthority(t *testing.T) {
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -47,7 +47,7 @@ func TestNativeWorkerUploadGrantBindsAuthenticatedAuthority(t *testing.T) {
 	}
 
 	response := serveNativeUploadGrant(t, handler, nativeUploadRequestFixture(t), nativeLeaseCapability)
-	if response.Code != http.StatusCreated || calledWorker != "windows-laptop-01" ||
+	if response.Code != http.StatusCreated || calledWorker != "linux-workstation-01" ||
 		calledRequest.LeaseID != want.LeaseID || calledRequest.AttemptID != want.AttemptID ||
 		calledRequest.ExpectedRunRevision != 5 || calledRequest.Slot != want.Slot ||
 		calledRequest.Size != 4096 || calledRequest.SHA256 != want.SHA256 ||
@@ -80,7 +80,7 @@ func TestNativeWorkerUploadGrantRejectsMissingOrInvalidAuthority(t *testing.T) {
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -128,7 +128,7 @@ func TestNativeWorkerUploadGrantRequiresCurrentWorkerAuthorization(t *testing.T)
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", QualificationEvidence: evidence,
+				WorkerID: "linux-workstation-01", QualificationEvidence: evidence,
 			}, nil
 		},
 		noNativeLease,
@@ -158,7 +158,7 @@ func TestNativeWorkerUploadGrantRejectsInvalidRequestBeforeReservation(t *testin
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -206,7 +206,7 @@ func TestNativeWorkerUploadGrantMapsAuthorityAndDependencyFailures(t *testing.T)
 	unencodable.ExpiresAt = time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)
 	identity := func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{
-			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+			WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 			QualificationEvidence: evidence,
 		}, nil
 	}

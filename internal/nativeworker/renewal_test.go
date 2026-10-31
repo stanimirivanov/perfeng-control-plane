@@ -52,9 +52,9 @@ func TestRenewerValidatesAndDelegatesServerPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := validRenewalRequest()
-	renewal, err := renewer.Renew(context.Background(), "windows-laptop-01", request)
+	renewal, err := renewer.Renew(context.Background(), "linux-workstation-01", request)
 	if err != nil || renewal.LeaseID != request.LeaseID ||
-		store.workerID != "windows-laptop-01" || store.request != request ||
+		store.workerID != "linux-workstation-01" || store.request != request ||
 		store.ttl != 2*time.Minute || store.cancellationGrace != 30*time.Second {
 		t.Fatalf("renewal lease = %q, worker = %q, ttl = %s, grace = %s, error = %v",
 			renewal.LeaseID, store.workerID, store.ttl, store.cancellationGrace, err)
@@ -71,7 +71,7 @@ func TestRenewerValidatesAndDelegatesServerPolicy(t *testing.T) {
 			invalid := validRenewalRequest()
 			mutate(&invalid)
 			if _, err := renewer.Renew(
-				context.Background(), "windows-laptop-01", invalid,
+				context.Background(), "linux-workstation-01", invalid,
 			); !errors.Is(err, run.ErrValidation) {
 				t.Fatalf("error = %v", err)
 			}

@@ -24,7 +24,7 @@ func TestNativeWorkerArtifactRegistrationBindsAuthenticatedAuthority(t *testing.
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -52,7 +52,7 @@ func TestNativeWorkerArtifactRegistrationBindsAuthenticatedAuthority(t *testing.
 		nativeArtifactRegistrationFixture(t),
 		nativeLeaseCapability,
 	)
-	if response.Code != http.StatusCreated || calledWorker != "windows-laptop-01" ||
+	if response.Code != http.StatusCreated || calledWorker != "linux-workstation-01" ||
 		calledRequest.LeaseID != "11111111-1111-4111-8111-111111111111" ||
 		calledRequest.AttemptID != want.AttemptID || calledRequest.ExpectedRunRevision != 5 ||
 		calledRequest.GrantID != "44444444-4444-4444-8444-444444444444" ||
@@ -85,7 +85,7 @@ func TestNativeWorkerArtifactRegistrationRejectsMissingOrInvalidAuthority(t *tes
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -143,7 +143,7 @@ func TestNativeWorkerArtifactRegistrationRequiresAuthorization(t *testing.T) {
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", QualificationEvidence: evidence,
+				WorkerID: "linux-workstation-01", QualificationEvidence: evidence,
 			}, nil
 		},
 		noNativeLease,
@@ -182,7 +182,7 @@ func TestNativeWorkerArtifactRegistrationRejectsInvalidRequest(t *testing.T) {
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -252,7 +252,7 @@ func TestNativeWorkerArtifactRegistrationMapsFailures(t *testing.T) {
 	unencodable.RegisteredAt = time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)
 	identity := func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{
-			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+			WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 			QualificationEvidence: evidence,
 		}, nil
 	}

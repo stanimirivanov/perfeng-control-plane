@@ -12,7 +12,7 @@
   remain distinct secret-safe failures.
 - Native upload authorization signs only one server-selected PUT key, content
   type and full-object checksum and returns no reusable storage credentials.
-- A separate HTTPS signing origin can serve Windows workers while reads and
+- A separate HTTPS signing origin can serve Linux workers while reads and
   registration verification remain on the internal S3 endpoint.
 - Storage authentication and endpoint policy come from trusted runtime
   configuration, not artifact documents.

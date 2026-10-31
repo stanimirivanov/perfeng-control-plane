@@ -426,7 +426,7 @@ func TestReportPolicyRegistryRoutesNativeEntriesAwayFromKubernetes(t *testing.T)
 			if err != nil {
 				t.Fatalf("ApproveRun() error = %v", err)
 			}
-			if target != run.ExecutionTargetNativeWindows {
+			if target != run.ExecutionTargetNativeLinux {
 				t.Fatalf("target = %q", target)
 			}
 			current.State = run.StateValidating
