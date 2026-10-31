@@ -73,13 +73,15 @@ type ExecutionTarget string
 const (
 	// ExecutionTargetKubernetes is reconciled through an approved Kubernetes Job.
 	ExecutionTargetKubernetes ExecutionTarget = "KUBERNETES"
-	// ExecutionTargetNativeWindows is leased to an approved native Windows worker.
-	ExecutionTargetNativeWindows ExecutionTarget = "NATIVE_WINDOWS"
+	// ExecutionTargetNativeLinux is leased to an approved native Linux worker.
+	ExecutionTargetNativeLinux ExecutionTarget = "NATIVE_LINUX"
+	// ExecutionTargetLegacyWindows is retained for reading historical Runs only.
+	ExecutionTargetLegacyWindows ExecutionTarget = "NATIVE_WINDOWS"
 )
 
 // Valid reports whether target is a supported server-owned execution target.
 func (target ExecutionTarget) Valid() bool {
-	return target == ExecutionTargetKubernetes || target == ExecutionTargetNativeWindows
+	return target == ExecutionTargetKubernetes || target == ExecutionTargetNativeLinux || target == ExecutionTargetLegacyWindows
 }
 
 // FailureCode identifies the safe failure category persisted with a failed Run.

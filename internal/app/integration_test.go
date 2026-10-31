@@ -82,7 +82,7 @@ func (s *integrationRuntimeStore) AdmitIntegrationResolved(ctx context.Context, 
 		return integration.Record{}, err
 	}
 	s.resolved = resolved
-	if resolved.Target != run.ExecutionTargetNativeWindows {
+	if resolved.Target != run.ExecutionTargetNativeLinux {
 		return integration.Record{}, run.ErrValidation
 	}
 	response := s.disposition
@@ -110,7 +110,7 @@ func TestIntegrationRuntimeCompositionRequiresDurabilityAndConnectsReview(t *tes
 	}
 	message := messages[0]
 	message.Data.Context.Principal.ID = "alice"
-	source := integrationApproverStub{provider: messages[1].Source, principalIssuer: message.Data.Context.Principal.Issuer, enabled: true, target: run.ExecutionTargetNativeWindows}
+	source := integrationApproverStub{provider: messages[1].Source, principalIssuer: message.Data.Context.Principal.Issuer, enabled: true, target: run.ExecutionTargetNativeLinux}
 	if _, err := NewAPIHandler(memory.New(nil), integrationAuthStub{}, source); !errors.Is(err, ErrInvalidConfiguration) {
 		t.Fatal("enabled integration accepted memory fallback", err)
 	}

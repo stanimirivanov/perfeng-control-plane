@@ -22,7 +22,7 @@ func (registry *ReportPolicyRegistry) ResolveNativeBaselinePlan(
 		return nativeworker.BaselinePlan{}, run.ErrValidation
 	}
 	entry, exists := registry.lookup(principal, current.Request)
-	if !exists || entry.executionTarget != run.ExecutionTargetNativeWindows ||
+	if !exists || entry.executionTarget != run.ExecutionTargetNativeLinux ||
 		entry.nativeBaseline == nil || entry.rawProducer.Artifact == nil {
 		return nativeworker.BaselinePlan{}, run.ErrForbidden
 	}

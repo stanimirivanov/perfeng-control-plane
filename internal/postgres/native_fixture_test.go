@@ -16,7 +16,7 @@ import (
 func acceptNativeRun(t *testing.T, repository *Repository, principal, key string) run.Accepted {
 	t.Helper()
 	accepted, err := repository.Accept(
-		testContext, principal, key, testRequest(t), run.ExecutionTargetNativeWindows,
+		testContext, principal, key, testRequest(t), run.ExecutionTargetNativeLinux,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -102,7 +102,7 @@ func newNativeV2LeaseFixture(t *testing.T) nativeV2LeaseFixture {
 	if err := repository.Migrate(testContext); err != nil {
 		t.Fatal(err)
 	}
-	workerID := "windows-laptop-01"
+	workerID := "linux-workstation-01"
 	presence, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/presence.json")
 	if err != nil {
 		t.Fatal(err)

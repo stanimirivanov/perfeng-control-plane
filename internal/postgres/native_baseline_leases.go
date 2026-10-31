@@ -98,7 +98,7 @@ func (r *Repository) AcquireNativeBaselineLease(
 		return nativeworker.BaselineLease{}, false, err
 	}
 	if now.Sub(observedAt) >= presenceMaximumAge || principal != candidate.Principal ||
-		target != run.ExecutionTargetNativeWindows || current.State != run.StateCreated ||
+		target != run.ExecutionTargetNativeLinux || current.State != run.StateCreated ||
 		current.Revision != candidate.Run.Revision || current.Request != candidate.Run.Request ||
 		!baselinePlanMatchesRun(plan, current) {
 		return nativeworker.BaselineLease{}, false, nil

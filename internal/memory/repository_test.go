@@ -63,7 +63,7 @@ func TestReplayScopeExpiryAndIsolation(t *testing.T) {
 		t.Fatal("replay not original")
 	}
 	if _, err := m.Accept(
-		ctx, "alice", key, request(t), run.ExecutionTargetNativeWindows,
+		ctx, "alice", key, request(t), run.ExecutionTargetNativeLinux,
 	); !errors.Is(err, run.ErrConflict) {
 		t.Fatal("execution target changed on replay", err)
 	}

@@ -14,13 +14,14 @@ import (
 
 func baselineTemplateFixture() BaselineTemplate {
 	return BaselineTemplate{
-		BaseURL: "https://sut.perfeng.invalid/search",
+		HostOperatingSystem: "linux",
+		BaseURL:             "https://sut.perfeng.invalid/search",
 		Scenario: BaselineScenario{
 			CacheProfile: "cold", PageReuse: "per-iteration",
 			WarmupIterations: 1, MeasurementIterations: 5,
 		},
 		HostProfile: QualifiedHostProfile{
-			ProfileID: "windows-mainstream", ProfileVersion: "1.0.0",
+			ProfileID: "linux-mainstream", ProfileVersion: "1.0.0",
 			Fingerprint: strings.Repeat("9", 64), EvidenceSHA256: strings.Repeat("a", 64),
 		},
 		BrowserSettings: BaselineBrowserSettings{
@@ -54,7 +55,7 @@ func TestBaselineTemplateResolvesContractValidPlan(t *testing.T) {
 		t.Fatal(err)
 	}
 	if plan.Assignment.Target.EnvironmentID != "local-demo" ||
-		plan.Assignment.Recipe.Environment.ProfileID != "windows-mainstream" ||
+		plan.Assignment.Recipe.Environment.ProfileID != "linux-mainstream" ||
 		plan.Assignment.Recipe.Environment.EvidenceSHA256 != strings.Repeat("a", 64) ||
 		plan.Assignment.Recipe.WorkloadVersion != workload.Version ||
 		plan.Assignment.Recipe.WorkloadSHA256 != workload.SHA256 ||
@@ -99,6 +100,8 @@ func TestBaselineTemplateRejectsUnreviewedInputs(t *testing.T) {
 		name   string
 		mutate func(*BaselineTemplate)
 	}{
+		{"missing Linux review", func(value *BaselineTemplate) { value.HostOperatingSystem = "" }},
+		{"Windows review", func(value *BaselineTemplate) { value.HostOperatingSystem = "windows" }},
 		{"cache reuse", func(value *BaselineTemplate) { value.Scenario.PageReuse = "per-run" }},
 		{"iterations", func(value *BaselineTemplate) { value.Scenario.MeasurementIterations = 0 }},
 		{"profile", func(value *BaselineTemplate) { value.HostProfile.ProfileID = "" }},

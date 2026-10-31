@@ -103,11 +103,11 @@ func TestUploadGrantReserverValidatesAndDelegatesPolicy(t *testing.T) {
 	request := validUploadRequest()
 	reservation, err := reserver.Reserve(
 		context.Background(),
-		"windows-laptop-01",
+		"linux-workstation-01",
 		request,
 	)
 	if err != nil || reservation != store.reservation ||
-		store.workerID != "windows-laptop-01" || store.request != request ||
+		store.workerID != "linux-workstation-01" || store.request != request ||
 		store.ttl != 2*time.Minute {
 		t.Fatalf("reservation = %#v, worker = %q, ttl = %s, error = %v",
 			reservation, store.workerID, store.ttl, err)
@@ -128,7 +128,7 @@ func TestUploadGrantReserverValidatesAndDelegatesPolicy(t *testing.T) {
 			invalid := validUploadRequest()
 			mutate(&invalid)
 			if _, err := reserver.Reserve(
-				context.Background(), "windows-laptop-01", invalid,
+				context.Background(), "linux-workstation-01", invalid,
 			); !errors.Is(err, run.ErrValidation) {
 				t.Fatalf("error = %v", err)
 			}
@@ -197,7 +197,7 @@ func TestUploadGrantIssuerReservesBeforeSigning(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	grant, err := issuer.Issue(context.Background(), "windows-laptop-01", validUploadRequest())
+	grant, err := issuer.Issue(context.Background(), "linux-workstation-01", validUploadRequest())
 	if err != nil || !grant.Valid() || signer.reservation != reservation ||
 		grant.GrantID != reservation.GrantID || grant.UploadURL != signer.authorization.URL ||
 		grant.ExpiresAt != signer.authorization.ExpiresAt {
@@ -228,7 +228,7 @@ func TestUploadGrantIssuerRetainsReservationWhenSigningFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err = issuer.Issue(
-		context.Background(), "windows-laptop-01", validUploadRequest(),
+		context.Background(), "linux-workstation-01", validUploadRequest(),
 	); !errors.Is(err, signingErr) || signer.reservation != reservation || store.request.LeaseID == "" {
 		t.Fatalf("signed reservation = %#v, store request = %#v, error = %v",
 			signer.reservation, store.request, err)
@@ -238,7 +238,7 @@ func TestUploadGrantIssuerRetainsReservationWhenSigningFails(t *testing.T) {
 	signer.authorization = validUploadAuthorization()
 	signer.authorization.URL = "http://objects.invalid/secret?signature=secret"
 	if _, err = issuer.Issue(
-		context.Background(), "windows-laptop-01", validUploadRequest(),
+		context.Background(), "linux-workstation-01", validUploadRequest(),
 	); err == nil || strings.Contains(err.Error(), signer.authorization.URL) {
 		t.Fatalf("unsafe invalid-authorization error = %v", err)
 	}

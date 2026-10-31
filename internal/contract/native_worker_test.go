@@ -9,7 +9,7 @@ import (
 func TestNativeWorkerV2SnapshotInventory(t *testing.T) {
 	openapi := decodeContractValue(t, "snapshot/api/native-worker/v2/openapi.json")
 	info, ok := openapi["info"].(map[string]any)
-	if !ok || info["version"] != "2.2.0" {
+	if !ok || info["version"] != "2.3.0" {
 		t.Fatal("unexpected Native Worker v2 API version")
 	}
 	paths, ok := openapi["paths"].(map[string]any)

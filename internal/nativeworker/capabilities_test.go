@@ -35,3 +35,21 @@ func TestParseV2PresenceValidatesContractAndCanonicalEvidence(t *testing.T) {
 		})
 	}
 }
+
+func TestWindowsCapabilitiesCannotExecute(t *testing.T) {
+	document, err := contract.Files.ReadFile("snapshot/api/native-worker/v2/examples/presence.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	presence, err := ParseV2Presence(document, len(document))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !presence.Capabilities.validForRunnerContract(2) {
+		t.Fatal("Linux capabilities rejected")
+	}
+	presence.Capabilities.OperatingSystem = "windows"
+	if presence.Capabilities.validForRunnerContract(2) {
+		t.Fatal("retired Windows capabilities accepted for execution")
+	}
+}

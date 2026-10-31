@@ -133,7 +133,7 @@ func TestNativeWorkerPresenceAuthenticatesQualifiesAndPersists(t *testing.T) {
 		string,
 	) (WorkerIdentity, error) {
 		return WorkerIdentity{
-			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+			WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 			QualificationEvidence: evidence,
 		}, nil
 	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration, noNativeTerminal)
@@ -159,7 +159,7 @@ func TestNativeWorkerPresenceAuthenticatesQualifiesAndPersists(t *testing.T) {
 	}
 	var status workerPresenceStatus
 	if json.Unmarshal(response.Body.Bytes(), &status) != nil ||
-		status.WorkerID != "windows-laptop-01" || status.ServerTime != observedAt ||
+		status.WorkerID != "linux-workstation-01" || status.ServerTime != observedAt ||
 		status.NextHeartbeat != nativeWorkerHeartbeat || status.Availability != "AVAILABLE" ||
 		status.Qualification.Status != "QUALIFIED" || len(status.Qualification.Reasons) != 0 ||
 		status.Qualification.ValidUntil == nil ||
@@ -167,7 +167,7 @@ func TestNativeWorkerPresenceAuthenticatesQualifiesAndPersists(t *testing.T) {
 		!status.AuthorizedToAcquire {
 		t.Fatalf("presence status = %#v", status)
 	}
-	if store.record.WorkerID != "windows-laptop-01" || !store.record.Qualified ||
+	if store.record.WorkerID != "linux-workstation-01" || !store.record.Qualified ||
 		!store.record.AuthorizedToAcquire || store.record.Availability != "AVAILABLE" ||
 		string(store.record.ObservedDocument) != string(document) {
 		t.Fatalf("presence record = %#v", store.record)
@@ -190,7 +190,7 @@ func TestNativeWorkerPresenceRejectsRetiredVersion(t *testing.T) {
 	store := &nativePresenceStoreStub{at: time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)}
 	handler, err := NewNativeWorkerHandler(store, func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{
-			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+			WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 			QualificationEvidence: evidence,
 		}, nil
 	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant,
@@ -229,7 +229,7 @@ func TestNativeWorkerPresenceRejectsRetiredVersion(t *testing.T) {
 	}
 	unqualified, err := NewNativeWorkerHandler(store, func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{
-			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+			WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 			QualificationEvidence: unapprovedEvidence,
 		}, nil
 	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant,
@@ -279,7 +279,7 @@ func TestNativeWorkerPresenceKeepsQualificationAndAuthorizationDistinct(t *testi
 		string,
 	) (WorkerIdentity, error) {
 		return WorkerIdentity{
-			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+			WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 			QualificationEvidence: unapprovedEvidence,
 		}, nil
 	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration, noNativeTerminal)
@@ -347,7 +347,7 @@ func TestNativeWorkerPresenceRejectsInvalidTrustBoundaries(t *testing.T) {
 	}
 	store := &nativePresenceStoreStub{}
 	handler, err := NewNativeWorkerHandler(store, func(context.Context, string) (WorkerIdentity, error) {
-		return WorkerIdentity{WorkerID: "windows-laptop-01", QualificationEvidence: evidence}, nil
+		return WorkerIdentity{WorkerID: "linux-workstation-01", QualificationEvidence: evidence}, nil
 	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
@@ -366,7 +366,7 @@ func TestNativeWorkerPresenceClassifiesUnavailableStorage(t *testing.T) {
 	document, evidence := nativePresenceFixture(t)
 	store := &nativePresenceStoreStub{err: run.ErrUnavailable}
 	handler, err := NewNativeWorkerHandler(store, func(context.Context, string) (WorkerIdentity, error) {
-		return WorkerIdentity{WorkerID: "windows-laptop-01", QualificationEvidence: evidence}, nil
+		return WorkerIdentity{WorkerID: "linux-workstation-01", QualificationEvidence: evidence}, nil
 	}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant, noNativeArtifactRegistration, noNativeTerminal)
 	if err != nil {
 		t.Fatal(err)
@@ -395,7 +395,7 @@ func TestNativeWorkerAcquireReturnsCapabilityOnlyInHeader(t *testing.T) {
 			}
 
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -412,7 +412,7 @@ func TestNativeWorkerAcquireReturnsCapabilityOnlyInHeader(t *testing.T) {
 	}
 
 	response := serveNativeAcquire(t, handler, nativeAcquireFixture(t))
-	if response.Code != http.StatusOK || calledWorker != "windows-laptop-01" ||
+	if response.Code != http.StatusOK || calledWorker != "linux-workstation-01" ||
 		response.Header().Get("X-Perfeng-Lease") != capability {
 		t.Fatalf("status = %d, worker = %q, headers = %v", response.Code, calledWorker, response.Header())
 	}
@@ -441,7 +441,7 @@ func TestNativeWorkerAcquireReturnsBoundedNoWorkResponse(t *testing.T) {
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -469,7 +469,7 @@ func TestNativeWorkerAcquireEnforcesAuthorizationBeforeScheduling(t *testing.T) 
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", QualificationEvidence: evidence,
+				WorkerID: "linux-workstation-01", QualificationEvidence: evidence,
 			}, nil
 		},
 		func(context.Context, string) (nativeworker.BaselineLease, bool, error) {
@@ -497,7 +497,7 @@ func TestNativeWorkerAcquireRejectsInvalidRequestsBeforeScheduling(t *testing.T)
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -537,7 +537,7 @@ func TestNativeWorkerAcquireRejectsFailuresAndInvalidLeases(t *testing.T) {
 	unencodable.Capability = strings.Repeat("s", 64)
 	identity := func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{
-			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+			WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 			QualificationEvidence: evidence,
 		}, nil
 	}

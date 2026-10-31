@@ -49,7 +49,7 @@ func TestNativeAcquisitionMigrationPreservesPresence(t *testing.T) {
 		t.Fatal(err)
 	}
 	record := httpapi.NativeWorkerPresenceRecord{
-		WorkerID: "windows-laptop-01", ObservedDocument: document,
+		WorkerID: "linux-workstation-01", ObservedDocument: document,
 		Availability: "AVAILABLE", Qualified: true,
 	}
 	before, err := repository.RecordNativeWorkerV2Presence(testContext, record)

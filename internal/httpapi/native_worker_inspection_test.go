@@ -39,7 +39,7 @@ func inspectionHandler(t *testing.T, store *inspectionStoreStub, authorized bool
 		store,
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToUseLease: authorized,
+				WorkerID: "linux-workstation-01", AuthorizedToUseLease: authorized,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -83,7 +83,7 @@ func TestNativeWorkerInspectionBindsPrincipalAndReturnsClosedSnapshots(t *testin
 			store := &inspectionStoreStub{result: expected}
 			response := serveInspection(inspectionHandler(t, store, true), http.MethodPost, request, true)
 			if response.Code != http.StatusOK || store.calls != 1 ||
-				store.workerID != "windows-laptop-01" ||
+				store.workerID != "linux-workstation-01" ||
 				store.request.RunID != expected.RunID || store.request.AttemptID != expected.AttemptID {
 				t.Fatalf("status=%d, store=%#v", response.Code, store)
 			}

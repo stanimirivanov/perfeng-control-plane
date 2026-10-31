@@ -66,7 +66,7 @@ func (stub nativeV2AuthenticatorStub) AuthenticateWorker(
 	context.Context, string,
 ) (httpapi.WorkerIdentity, error) {
 	return httpapi.WorkerIdentity{
-		WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+		WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 		QualificationEvidence: stub.evidence,
 	}, nil
 }

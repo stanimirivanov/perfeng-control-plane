@@ -23,7 +23,7 @@ func TestNativeWorkerRenewBindsAuthenticatedAuthorityAndReturnsCancellation(t *t
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -45,7 +45,7 @@ func TestNativeWorkerRenewBindsAuthenticatedAuthorityAndReturnsCancellation(t *t
 	}
 
 	response := serveNativeRenew(t, handler, nativeRenewFixture(t), nativeLeaseCapability)
-	if response.Code != http.StatusOK || calledWorker != "windows-laptop-01" ||
+	if response.Code != http.StatusOK || calledWorker != "linux-workstation-01" ||
 		calledRequest.LeaseID != want.LeaseID || calledRequest.AttemptID != want.AttemptID ||
 		calledRequest.ExpectedRunRevision != 4 || calledRequest.Phase != nativeworker.PhaseRunning ||
 		calledRequest.Capability != nativeLeaseCapability {
@@ -76,7 +76,7 @@ func TestNativeWorkerRenewRejectsMissingOrInvalidAuthorityBeforeRenewal(t *testi
 	called := false
 	authenticated := func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{
-			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+			WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 			QualificationEvidence: evidence,
 		}, nil
 	}
@@ -126,7 +126,7 @@ func TestNativeWorkerRenewRequiresCurrentWorkerAuthorization(t *testing.T) {
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", QualificationEvidence: evidence,
+				WorkerID: "linux-workstation-01", QualificationEvidence: evidence,
 			}, nil
 		},
 		noNativeLease,
@@ -156,7 +156,7 @@ func TestNativeWorkerRenewRejectsInvalidRequestBeforeRenewal(t *testing.T) {
 		&nativePresenceStoreStub{},
 		func(context.Context, string) (WorkerIdentity, error) {
 			return WorkerIdentity{
-				WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+				WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 				QualificationEvidence: evidence,
 			}, nil
 		},
@@ -198,7 +198,7 @@ func TestNativeWorkerRenewMapsAuthorityAndConcurrencyFailures(t *testing.T) {
 	_, evidence := nativePresenceFixture(t)
 	identity := func(context.Context, string) (WorkerIdentity, error) {
 		return WorkerIdentity{
-			WorkerID: "windows-laptop-01", AuthorizedToAcquire: true,
+			WorkerID: "linux-workstation-01", AuthorizedToAcquire: true,
 			QualificationEvidence: evidence,
 		}, nil
 	}

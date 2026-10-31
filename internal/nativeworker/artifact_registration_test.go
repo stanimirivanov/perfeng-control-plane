@@ -93,7 +93,7 @@ func TestArtifactRegistrarVerifiesBeforeFencedRegistration(t *testing.T) {
 			actual ArtifactRegistrationRequest,
 		) (ArtifactCandidate, error) {
 			steps = append(steps, "prepare")
-			if workerID != "windows-laptop-01" || actual != request {
+			if workerID != "linux-workstation-01" || actual != request {
 				t.Fatal("prepare received different authority")
 			}
 			return candidate, nil
@@ -105,7 +105,7 @@ func TestArtifactRegistrarVerifiesBeforeFencedRegistration(t *testing.T) {
 			verified VerifiedArtifact,
 		) (ArtifactReference, error) {
 			steps = append(steps, "accept")
-			if workerID != "windows-laptop-01" || actual != request ||
+			if workerID != "linux-workstation-01" || actual != request ||
 				verified.Candidate != candidate || verified.URI != reference.URI {
 				t.Fatal("accept received different verified evidence")
 			}
@@ -129,7 +129,7 @@ func TestArtifactRegistrarVerifiesBeforeFencedRegistration(t *testing.T) {
 
 	actual, err := registrar.Register(
 		context.Background(),
-		"windows-laptop-01",
+		"linux-workstation-01",
 		request,
 	)
 	if err != nil || actual != reference || strings.Join(steps, ",") != "prepare,verify,accept" {
@@ -170,7 +170,7 @@ func TestArtifactRegistrarRejectsChangedVerification(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err = registrar.Register(
-		context.Background(), "windows-laptop-01", request,
+		context.Background(), "linux-workstation-01", request,
 	); err == nil || called {
 		t.Fatalf("changed verification error = %v; accepted = %t", err, called)
 	}
@@ -247,7 +247,7 @@ func TestNewArtifactRegistrarRejectsMissingDependencies(t *testing.T) {
 	}
 	var registrar *ArtifactRegistrar
 	if _, err := registrar.Register(
-		context.Background(), "windows-laptop-01", request,
+		context.Background(), "linux-workstation-01", request,
 	); !errors.Is(err, run.ErrValidation) {
 		t.Fatal(err)
 	}

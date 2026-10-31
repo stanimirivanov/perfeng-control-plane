@@ -34,7 +34,7 @@ func discoveryHandler(t *testing.T, store *discoveryStoreStub, authorized bool) 
 	_, evidence := nativePresenceFixture(t)
 	handler, err := NewNativeWorkerHandler(store,
 		func(context.Context, string) (WorkerIdentity, error) {
-			return WorkerIdentity{WorkerID: "windows-laptop-01", AuthorizedToUseLease: authorized,
+			return WorkerIdentity{WorkerID: "linux-workstation-01", AuthorizedToUseLease: authorized,
 				QualificationEvidence: evidence}, nil
 		}, noNativeLease, noNativeRenewal, noNativeRelease, noNativeUploadGrant,
 		noNativeArtifactRegistration, noNativeTerminal)
@@ -66,7 +66,7 @@ func TestNativeWorkerDiscoveryReturnsOnlyPrincipalScopedSnapshots(t *testing.T) 
 			store := &discoveryStoreStub{result: expected}
 			response := serveDiscovery(discoveryHandler(t, store, true), http.MethodPost,
 				nativeWorkerDiscoverPath, `{"protocolVersion":2}`, true)
-			if response.Code != http.StatusOK || store.calls != 1 || store.workerID != "windows-laptop-01" {
+			if response.Code != http.StatusOK || store.calls != 1 || store.workerID != "linux-workstation-01" {
 				t.Fatalf("status=%d calls=%d", response.Code, store.calls)
 			}
 			decoder := json.NewDecoder(response.Body)

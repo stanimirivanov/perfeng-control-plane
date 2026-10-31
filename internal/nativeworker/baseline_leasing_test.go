@@ -74,7 +74,7 @@ func baselinePresenceFixture(t *testing.T) PresenceObservation {
 	}
 
 	return PresenceObservation{
-		WorkerID: "windows-laptop-01", ObservedAt: time.Now().UTC(), Presence: presence,
+		WorkerID: "linux-workstation-01", ObservedAt: time.Now().UTC(), Presence: presence,
 	}
 }
 
@@ -104,7 +104,7 @@ func TestBaselineAcquirerSkipsIncompatibleAndContendedCandidates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lease, acquired, err := acquirer.Acquire(context.Background(), "windows-laptop-01")
+	lease, acquired, err := acquirer.Acquire(context.Background(), "linux-workstation-01")
 	if err != nil || !acquired || lease.LeaseID != "selected-lease" {
 		t.Fatalf("acquisition = (%#v, %t, %v)", lease, acquired, err)
 	}
@@ -122,14 +122,14 @@ func TestBaselineAcquirerKeepsAbsenceDistinctFromFailures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, acquired, err := acquirer.Acquire(context.Background(), "windows-laptop-01"); err != nil || acquired {
+	if _, acquired, err := acquirer.Acquire(context.Background(), "linux-workstation-01"); err != nil || acquired {
 		t.Fatalf("missing worker = (%t, %v)", acquired, err)
 	}
 	failure := errors.New("candidate read failed")
 	store.presenceErr = nil
 	store.observation = baselinePresenceFixture(t)
 	store.candidateErr = failure
-	if _, _, err := acquirer.Acquire(context.Background(), "windows-laptop-01"); !errors.Is(err, failure) {
+	if _, _, err := acquirer.Acquire(context.Background(), "linux-workstation-01"); !errors.Is(err, failure) {
 		t.Fatalf("storage failure = %v", err)
 	}
 }

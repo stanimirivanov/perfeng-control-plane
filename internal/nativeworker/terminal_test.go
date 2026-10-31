@@ -48,8 +48,8 @@ func TestTerminalReporterValidatesAndDelegates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := reporter.Report(context.Background(), "windows-laptop-01", request)
-	if err != nil || result != store.result || store.workerID != "windows-laptop-01" ||
+	result, err := reporter.Report(context.Background(), "linux-workstation-01", request)
+	if err != nil || result != store.result || store.workerID != "linux-workstation-01" ||
 		!reflect.DeepEqual(store.request, request) {
 		t.Fatalf("result = %#v, worker = %q, request = %#v, error = %v",
 			result, store.workerID, store.request, err)
@@ -77,7 +77,7 @@ func TestTerminalReporterValidatesAndDelegates(t *testing.T) {
 			invalid := request
 			mutate(&invalid)
 			if _, err := reporter.Report(
-				context.Background(), "windows-laptop-01", invalid,
+				context.Background(), "linux-workstation-01", invalid,
 			); !errors.Is(err, run.ErrValidation) {
 				t.Fatalf("error = %v", err)
 			}

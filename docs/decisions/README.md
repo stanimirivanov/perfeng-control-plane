@@ -114,3 +114,5 @@ How will assumptions and consequences be verified?
 | [0030](0030-compose-scoped-reporting-publication.md) | Compose scoped reporting publication | Proposed |
 | [0031](0031-retain-publication-event-reservations.md) | Retain publication event reservations | Proposed |
 | [0032](0032-enable-durable-reporting-publication.md) | Enable durable reporting publication explicitly | Proposed |
+
+| [0033](0033-support-linux-hosts.md) | Support Linux development and native browser hosts | Proposed |
