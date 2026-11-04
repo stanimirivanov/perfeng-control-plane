@@ -1,0 +1,20 @@
+{
+  "apiVersion": "argus.dev/functional-api-execution-bindings/v1",
+  "groups": [
+    {
+      "groupKey": "control-plane-api",
+      "testRepository": {
+        "provider": "github",
+        "host": "github.com",
+        "providerRepositoryId": "1354503944",
+        "owner": "stanimirivanov",
+        "name": "perfeng-control-plane"
+      },
+      "testRevision": {
+        "algorithm": "git-sha1",
+        "digest": "7f88541fcc20edf0349fba41008f7e49e8ae8fb0"
+      },
+      "adapter": "generic-http"
+    }
+  ]
+}

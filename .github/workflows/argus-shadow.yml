@@ -1,0 +1,102 @@
+name: Argus functional API shadow
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  functional-shadow:
+    if: github.event.pull_request.merged && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres@sha256:3b0cda93be7c8dba2ed484d19393d93845dc3dafb88973e248ba8e6d99d784e1
+        env:
+          POSTGRES_USER: argus
+          POSTGRES_PASSWORD: disposable
+          POSTGRES_DB: argus
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U argus -d argus"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          path: trusted
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: stanimirivanov/argus
+          ref: 28367a3fe3e91b8808ac9ecc01b0d2ea715f8169
+          path: argus
+          persist-credentials: false
+        continue-on-error: true
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: trusted/go.mod
+          cache: false
+      - name: Allocate isolated shadow paths
+        run: |
+          mkdir -m 700 "$RUNNER_TEMP/shadow-private" "$RUNNER_TEMP/shadow-bin"
+          mkdir "$RUNNER_TEMP/shadow-evidence"
+      - name: Build the pinned Argus producer and runner
+        working-directory: argus
+        continue-on-error: true
+        run: >-
+          go build -mod=readonly -o "$RUNNER_TEMP/shadow-bin/"
+          ./cmd/migrate ./cmd/catalog ./cmd/control-plane ./cmd/select
+          ./cmd/plan-functional-api ./cmd/run-functional-api
+      - name: Select from the reviewed PR comparison
+        continue-on-error: true
+        env:
+          ARGUS_DATABASE_URL: postgresql://argus:disposable@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/argus?sslmode=disable
+          ARGUS_GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          python3 trusted/tools/argus-shadow/shadow.py select
+          --event "$GITHUB_EVENT_PATH" --delivery "github-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          --bin "$RUNNER_TEMP/shadow-bin" --private "$RUNNER_TEMP/shadow-private"
+          --output "$RUNNER_TEMP/shadow-evidence" --subject "$GITHUB_WORKSPACE/subject"
+      - name: Stop the disposable selection database
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: docker stop "$POSTGRES_CONTAINER" >/dev/null
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: subject
+          persist-credentials: false
+      - name: Build the trusted pilot adapter
+        working-directory: trusted
+        run: go build -mod=readonly -o "$RUNNER_TEMP/shadow-bin/adapter" ./tools/argus-adapter
+      - name: Warm the reviewed checkout test dependencies
+        working-directory: subject
+        continue-on-error: true
+        run: |
+          go mod download
+          go test -mod=readonly -run '^$' ./internal/httpapi
+      - name: Observe selected and full-control attempts
+        run: >-
+          python3 trusted/tools/argus-shadow/shadow.py observe
+          --event "$GITHUB_EVENT_PATH" --delivery "github-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          --bin "$RUNNER_TEMP/shadow-bin" --private "$RUNNER_TEMP/shadow-private"
+          --output "$RUNNER_TEMP/shadow-evidence" --subject "$GITHUB_WORKSPACE/subject"
+      - name: Retain scoped shadow observations
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: argus-functional-shadow-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/shadow-evidence/*.json
+          if-no-files-found: warn
+          retention-days: 14

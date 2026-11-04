@@ -24,4 +24,26 @@ A valid result exits zero even when a native test fails, times out or crashes.
 Argus can interpret the per-test outcome. Malformed, foreign or stale requests
 exit nonzero without result JSON. Native output stays within the process and
 the adapter reports fixed failure codes. Keep execution commands and toolchain
-selection under CI owner control when composing the later shadow workflow.
+selection under CI owner control.
+
+## CI shadow pilot
+
+The Argus functional API shadow workflow runs after a same-repository pull
+request merges to main. It uses the trusted merge checkout for orchestration
+and the adapter, the reviewed pull request head for native tests, and the
+catalog at the pull request base. It replays the reviewed comparison into a
+disposable Argus instance. The execution binding carries the pilot identity
+and is copied with the exact reviewed head as its test revision for each run.
+
+GitHub retains a run-scoped artifact for 14 days. The observation records the
+pull request, base and head, delivery ID, manifest digest when available, and
+the elapsed wall time of each attempt. A valid manifest yields a plan and
+separate selected and full-suite attempt evidence. An empty selection records
+an explicit empty status. A missing or rejected manifest or invalid normalized
+full-suite attempt triggers a direct full pilot run with separately labeled
+fallback results. Argus can conservatively select the whole pilot.
+
+The shadow job is informational. The required validation workflow continues
+to govern merges. Run `make argus-shadow-check` to exercise evidence
+correlation and fallback locally, and `make argus-adapter-check` for the native
+adapter contract.
