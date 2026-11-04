@@ -76,3 +76,8 @@ New sensors MUST be actionable, deterministic at their stated tier, tested on
 failure behavior, and invoked by an aggregate command. They MUST NOT depend on
 ambient unpinned tools, silently rewrite expected behavior, or turn an
 unavailable integration into a passing result.
+
+## Argus pilot adapter
+
+Run `make argus-adapter-check` to verify the protocol and native inventory.
+See the [functional API adapter guide](argus-functional-api-adapter.md).

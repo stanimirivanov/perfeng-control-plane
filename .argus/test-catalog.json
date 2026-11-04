@@ -1,0 +1,84 @@
+{
+  "apiVersion": "argus.dev/repository-descriptor/v1",
+  "repository": {
+    "provider": "github",
+    "host": "github.com",
+    "providerRepositoryId": "1354503944",
+    "owner": "stanimirivanov",
+    "name": "perfeng-control-plane"
+  },
+  "capabilities": [
+    {
+      "key": "run-lifecycle",
+      "name": "Create, read and cancel a run"
+    },
+    {
+      "key": "run-authentication",
+      "name": "Enforce run API authorization"
+    },
+    {
+      "key": "baseline-lifecycle",
+      "name": "Administer a baseline"
+    },
+    {
+      "key": "integration-admission",
+      "name": "Validate integration admission"
+    }
+  ],
+  "components": [
+    {
+      "key": "control-plane-http",
+      "root": "internal/httpapi",
+      "capabilities": [
+        "run-lifecycle",
+        "run-authentication",
+        "baseline-lifecycle",
+        "integration-admission"
+      ]
+    }
+  ],
+  "testSuites": [
+    {
+      "key": "control-plane-api",
+      "repository": {
+        "provider": "github",
+        "host": "github.com",
+        "providerRepositoryId": "1354503944",
+        "owner": "stanimirivanov",
+        "name": "perfeng-control-plane"
+      },
+      "family": "functional-api",
+      "adapter": "generic-http",
+      "tests": [
+        {
+          "key": "run-lifecycle",
+          "name": "Create, read and cancel a run",
+          "capabilities": [
+            "run-lifecycle"
+          ]
+        },
+        {
+          "key": "run-authentication",
+          "name": "Enforce run API authorization",
+          "capabilities": [
+            "run-authentication"
+          ]
+        },
+        {
+          "key": "baseline-lifecycle",
+          "name": "Administer a baseline",
+          "capabilities": [
+            "baseline-lifecycle"
+          ]
+        },
+        {
+          "key": "integration-admission",
+          "name": "Validate integration admission",
+          "capabilities": [
+            "integration-admission"
+          ]
+        }
+      ]
+    }
+  ]
+}

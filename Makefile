@@ -36,7 +36,7 @@ TOOL_LICENSE_EXCEPTIONS := \
 IMAGE ?= perfeng-control-plane:local-check
 VCS_REF ?= unknown
 
-.PHONY: help bootstrap doctor build binaries fmt fmt-check docs-check architecture-check check test verify race fuzz vuln license supply-chain validate db-validate kubernetes-validate image
+.PHONY: argus-adapter-check help bootstrap doctor build binaries fmt fmt-check docs-check architecture-check check test verify race fuzz vuln license supply-chain validate db-validate kubernetes-validate image
 
 help:
 	@echo perfeng-control-plane engineering command surface
@@ -51,6 +51,7 @@ help:
 	@echo "  make check  Run deterministic static and module checks"
 	@echo "  make test  Run ordinary tests without cached results"
 	@echo "  make verify  Run the fast network-independent development loop"
+	@echo "  make argus-adapter-check  Verify the Argus pilot protocol and native inventory"
 	@echo "  make race  Run the complete race-enabled test suite"
 	@echo "  make fuzz  Run the bounded JSON parser fuzz target"
 	@echo "  make supply-chain  Run vulnerability and license checks"
@@ -135,3 +136,6 @@ kubernetes-validate:
 image:
 	docker build --platform linux/amd64 --build-arg VCS_REF=$(VCS_REF) -t $(IMAGE) .
 	go run ./cmd/verify-image verify $(IMAGE) $(VCS_REF)
+
+argus-adapter-check:
+	go test -count=1 ./tools/argus-adapter

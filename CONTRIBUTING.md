@@ -8,8 +8,8 @@
 - Proceed on documented, reversible assumptions and stop for decisions that
   materially affect behavior, compatibility, persistence, security or external
   state.
-- Prepare requested changes without staging or committing, then print issue
-  content for the repository owner.
+- Create or reuse an issue and use an issue-numbered branch for authorized
+  implementation work.
 - Keep lint findings informational; never add suppression comments merely to
   make the report quiet.
 - Run the exact repository checks and report unavailable checks as not run.
@@ -81,17 +81,14 @@ and work that can safely continue.
 
 - When an issue number is supplied, the contributor MUST follow its scope and
   milestone. A material mismatch follows the escalation rules.
-- When no issue number is supplied, prepare the smallest coherent requested
-  change and print a complete proposed issue in the completion report. The
-  owner creates the issue and then creates or renames the branch so it contains
-  the issue number.
-- Contributors acting for the owner MUST NOT stage, commit, push, create or
-  modify issues, create pull requests, publish images or releases, run database
-  migrations, or change milestones unless explicitly requested.
+- When no issue number is supplied for authorized implementation, create or
+  reuse an issue with the applicable milestone before starting implementation.
+  Create a branch containing its issue number. Follow the ambiguity rules if
+  the scope or milestone needs a decision.
 - Read-only investigation and scoping MAY occur before an issue exists.
-
-Creating or modifying a GitHub record, image, release, cluster or database is an
-externally visible write and requires explicit authority.
+- Staging, committing, pushing, or opening a pull request requires explicit
+  authorization. Publishing releases or images, running database migrations,
+  and changing milestones also require explicit authorization.
 
 ## Milestones and required issue
 
@@ -154,17 +151,16 @@ future configuration MUST NOT be added merely to make a roadmap appear complete.
 
 ## Development workflow
 
-1. Select the workflow defined in [Issue timing](#issue-timing).
-2. Prepare one focused change without staging, committing or pushing for the
-   owner.
-3. Add or update tests with the behavior.
-4. Implement the smallest coherent solution and update documentation.
-5. Format and run the exact repository checks.
-6. Review the diff for secrets, generated churn, contract changes, assumptions,
+1. Create or reuse the issue and check out its issue-numbered branch under
+   [Issue timing](#issue-timing).
+2. Add or update tests with the behavior.
+3. Implement the smallest coherent solution and update documentation.
+4. Format and run the exact repository checks.
+5. Review the diff for secrets, generated churn, contract changes, assumptions,
    migration safety and unrelated edits.
+6. When authorized, stage the scoped changes, commit with `[#N]`, push the
+   issue branch, and open the pull request.
 7. Print the canonical [completion report](#completion-report).
-8. The owner creates or confirms the issue and branch, may adjust the change,
-   commits with `[#N]`, pushes and opens the pull request.
 
 Do not store task-specific issue bodies, PR descriptions or handoff notes in
 the repository.
@@ -379,8 +375,7 @@ Further guidance:
 
 ## Completion report
 
-After every work item, print the repository, exact milestone, proposed issue
-title, complete issue body, assumptions and limitations, verification outcomes
-distinguished as passed/failed/not run, and a suggested `[#N]` commit subject.
-When an issue exists, repeat or amend its content so delivered scope is auditable.
-Printing the report does not publish external records.
+After every work item, report the repository, exact milestone, linked issue,
+assumptions and limitations, and verification outcomes distinguished as passed,
+failed, or not run. Include the pull request when opened. Record the delivered
+scope in the issue or pull request so it is auditable.
