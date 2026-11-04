@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 const revision = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -69,6 +70,9 @@ func TestAdapterCorrelatesFailedTestAndUsesLiteralNativeSelector(t *testing.T) {
 	var observed response
 	if err := json.Unmarshal(output.Bytes(), &observed); err != nil {
 		t.Fatal(err)
+	}
+	if observed.StartedAt.Nanosecond()%int(time.Microsecond) != 0 || observed.CompletedAt.Nanosecond()%int(time.Microsecond) != 0 {
+		t.Fatalf("result timestamps exceed Argus microsecond precision: %s", &output)
 	}
 	if observed.AttemptID != "github-1" || len(observed.Results) != 1 ||
 		observed.Results[0].TestKey != "run-lifecycle" || observed.Results[0].Outcome != "failed" ||

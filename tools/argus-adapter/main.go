@@ -137,7 +137,7 @@ func run(ctx context.Context, input io.Reader, output io.Writer, revision string
 	document := response{
 		APIVersion: "argus.dev/functional-api-adapter-result/v1",
 		AttemptID:  value.AttemptID, Adapter: identity{adapter, version},
-		StartedAt: start.UTC(), Results: make([]result, 0, len(value.Tests)), Artifacts: []struct{}{},
+		StartedAt: start.UTC().Truncate(time.Microsecond), Results: make([]result, 0, len(value.Tests)), Artifacts: []struct{}{},
 	}
 	for _, test := range value.Tests {
 		began := time.Now()
@@ -148,7 +148,7 @@ func run(ctx context.Context, input io.Reader, output io.Writer, revision string
 		}
 		document.Results = append(document.Results, item)
 	}
-	document.CompletedAt = time.Now().UTC()
+	document.CompletedAt = time.Now().UTC().Truncate(time.Microsecond)
 	return json.NewEncoder(output).Encode(document)
 }
 

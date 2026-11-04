@@ -36,7 +36,7 @@ TOOL_LICENSE_EXCEPTIONS := \
 IMAGE ?= perfeng-control-plane:local-check
 VCS_REF ?= unknown
 
-.PHONY: argus-adapter-check help bootstrap doctor build binaries fmt fmt-check docs-check architecture-check check test verify race fuzz vuln license supply-chain validate db-validate kubernetes-validate image
+.PHONY: argus-shadow-check argus-adapter-check help bootstrap doctor build binaries fmt fmt-check docs-check architecture-check check test verify race fuzz vuln license supply-chain validate db-validate kubernetes-validate image
 
 help:
 	@echo perfeng-control-plane engineering command surface
@@ -139,3 +139,6 @@ image:
 
 argus-adapter-check:
 	go test -count=1 ./tools/argus-adapter
+
+argus-shadow-check:
+	python3 -B -m unittest discover -s tools/argus-shadow -v
