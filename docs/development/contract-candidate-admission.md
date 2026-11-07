@@ -43,10 +43,10 @@ Run/native payload. Those boundaries retain their existing validation suites.
 ## C6 rollout boundary
 
 This gate is the C6a prerequisite. C2–C4 source split work must finish review before
-new snapshot bytes are selected. Full C6 must compare every selected byte with its
-immutable source Git blob/archive, preserve independently pinned family ledgers,
-record any path transformation, and run existing API/serving conformance against
-both old and candidate pins. No source attestation is inferred from a locally
+new snapshot bytes are selected. The [source admission gate](contract-source-admission.md)
+compares every selected byte with its immutable source Git blob, preserving
+independently pinned family ledgers and recording path transformations.
+Full C6 must also run existing API/serving conformance against both old and candidate pins. No source attestation is inferred from a locally
 self-consistent checksum ledger. The console's three supplemental files remain
 owned by its consumer admission receipt.
 

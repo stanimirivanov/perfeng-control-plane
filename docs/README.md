@@ -67,7 +67,7 @@ guide or ADR. Surface conflicts through CONTRIBUTING's ambiguity protocol.
 
 ## Contract candidate admission
 
-Use [candidate admission](development/contract-candidate-admission.md) before selecting rebundled Run/native APIs.
+Use [candidate admission](development/contract-candidate-admission.md) before selecting rebundled Run/native APIs. Bind the selected bytes to immutable source objects with [source admission](development/contract-source-admission.md).
 
 ## Keeping the map current
 

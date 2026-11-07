@@ -146,3 +146,7 @@ argus-shadow-check:
 .PHONY: contract-admission
 contract-admission:
 	go run ./tools/contract-admission $(CONTRACT_ADMISSION_ARGS)
+
+.PHONY: contract-source-admission
+contract-source-admission:
+	@go run ./tools/contract-source-admission --source="$(CONTRACT_SOURCE)" $(CONTRACT_SOURCE_ADMISSION_ARGS)
