@@ -23,7 +23,7 @@ func sourceFixture(t *testing.T) (string, string) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"init", "--quiet"}, {"add", "."}, {"-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--quiet", "-m", "source"}} {
-		if output, err := exec.Command("git", append([]string{"-C", source}, args...)...).CombinedOutput(); err != nil {
+		if output, err := exec.Command("git", append([]string{"-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", "-C", source}, args...)...).CombinedOutput(); err != nil {
 			t.Fatalf("git fixture: %v %s", err, output)
 		}
 	}
