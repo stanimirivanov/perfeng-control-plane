@@ -6,6 +6,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"math"
 	"regexp"
 	"slices"
@@ -56,46 +57,21 @@ var nativeWorkerV2Schemas map[string]schema
 var transitions map[string][]string
 
 func init() {
-	var document struct {
-		Components struct {
-			Schemas map[string]schema `json:"schemas"`
-		} `json:"components"`
-	}
-	read := func(path string, target any) {
-		b, err := Files.ReadFile("snapshot/" + path)
-		if err != nil {
-			panic(err)
-		}
-		if err = json.Unmarshal(b, target); err != nil {
-			panic(err)
-		}
-	}
-	read("openapi.json", &document)
-	prepared, err := prepareSchemas(
-		document.Components.Schemas,
-		"CreateRun", "RunId", "CreateBaseline", "BaselineTransition", "ResourceId", "Version",
-	)
+	source, err := fs.Sub(Files, "snapshot")
 	if err != nil {
 		panic(err)
 	}
-	schemas = prepared
-	var nativeWorkerV2Document struct {
-		Components struct {
-			Schemas map[string]schema `json:"schemas"`
-		} `json:"components"`
-	}
-	read("api/native-worker/v2/openapi.json", &nativeWorkerV2Document)
-	nativeWorkerV2Schemas, err = prepareSchemas(
-		nativeWorkerV2Document.Components.Schemas,
-		"WorkerPresence", "PresenceStatus", "AcquireLease", "Lease", "ExecutionRecipe", "LeaseRenewal",
-		"RenewLease", "ReleaseLease", "UploadGrantRequest", "UploadGrant",
-		"RegisterArtifact", "ArtifactReference", "TerminalReport", "TerminalAck",
-		"InspectAttempt", "AttemptInspection", "DiscoverAttempt", "AttemptDiscovery", "Error",
-	)
+	schemas, nativeWorkerV2Schemas, err = loadAPIFamilies(source)
 	if err != nil {
 		panic(err)
 	}
-	read("transitions.json", &transitions)
+	data, err := fs.ReadFile(source, "transitions.json")
+	if err != nil {
+		panic(err)
+	}
+	if err = json.Unmarshal(data, &transitions); err != nil {
+		panic(err)
+	}
 }
 
 func prepareSchemas(source map[string]schema, roots ...string) (map[string]schema, error) {
