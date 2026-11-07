@@ -65,6 +65,10 @@ guides govern the boundary they explicitly document.
 Read only the rows relevant to the change. Do not bulk-load every operational
 guide or ADR. Surface conflicts through CONTRIBUTING's ambiguity protocol.
 
+## Contract candidate admission
+
+Use [candidate admission](development/contract-candidate-admission.md) before selecting rebundled Run/native APIs.
+
 ## Keeping the map current
 
 A change MUST update this page when it adds, renames, moves, or removes a

@@ -142,3 +142,7 @@ argus-adapter-check:
 
 argus-shadow-check:
 	python3 -B -m unittest discover -s tools/argus-shadow -v
+
+.PHONY: contract-admission
+contract-admission:
+	go run ./tools/contract-admission $(CONTRACT_ADMISSION_ARGS)
