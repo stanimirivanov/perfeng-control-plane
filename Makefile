@@ -50,6 +50,7 @@ help:
 	@echo "  make architecture-check  Verify exhaustive production dependency policy"
 	@echo "  make check  Run deterministic static and module checks"
 	@echo "  make test  Run ordinary tests without cached results"
+	@echo "  make contracts-shadow  Compare the embedded snapshot to the signed historical release offline"
 	@echo "  make verify  Run the fast network-independent development loop"
 	@echo "  make argus-adapter-check  Verify the Argus pilot protocol and native inventory"
 	@echo "  make race  Run the complete race-enabled test suite"
@@ -150,3 +151,7 @@ contract-admission:
 .PHONY: contract-source-admission
 contract-source-admission:
 	@go run ./tools/contract-source-admission --source="$(CONTRACT_SOURCE)" $(CONTRACT_SOURCE_ADMISSION_ARGS)
+
+.PHONY: contracts-shadow
+contracts-shadow:
+	@go run ./tools/contract-distribution --assets="$(CONTRACTS_SHADOW_ASSETS)" --bootstrap="$(CONTRACTS_BOOTSTRAP)" --verifier="$(CONTRACTS_VERIFIER)"
