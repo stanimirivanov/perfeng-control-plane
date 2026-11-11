@@ -1,6 +1,6 @@
 module github.com/stanimirivanov/perfeng-control-plane/tools/actionlint
 
-go 1.26.10
+go 1.26.11
 
 tool (
 	github.com/google/go-licenses/v2
