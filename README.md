@@ -126,7 +126,7 @@ dispatch, recovery, artifact collection and analysis integration follow.
 
 ## Development
 
-Use Go 1.26.10 (the tested toolchain, recorded in go.mod), or a reviewed newer Go
+Use Go 1.26.11 (the tested toolchain, recorded in go.mod), or a reviewed newer Go
 toolchain. PostgreSQL uses pgx v5.10.0; the Kubernetes API libraries are aligned
 at v0.37.0; and the S3 adapter uses AWS SDK for Go v2 core v1.46.0,
 config v1.33.3 and service/s3 v1.110.0.
@@ -395,7 +395,7 @@ Playwright worker is updated and a representative Linux run is verified.
 Disabling acquisition does not prevent an already-issued lease from being
 released or completed by its authenticated worker.
 
-Review contract updates explicitly, refresh the snapshot and checksums, and
+Prepare reviewed contract updates with the [signed distribution workflow](docs/development/contract-distribution.md), then
 rerun tests. The current runtime validator implements only the schema features
 reached by CreateRun, CreateBaseline, BaselineTransition and the pinned Native
 Worker operation shapes, not arbitrary JSON Schema. The authenticated

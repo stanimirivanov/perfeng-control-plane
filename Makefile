@@ -155,3 +155,12 @@ contract-source-admission:
 .PHONY: contracts-shadow
 contracts-shadow:
 	@go run ./tools/contract-distribution --assets="$(CONTRACTS_SHADOW_ASSETS)" --bootstrap="$(CONTRACTS_BOOTSTRAP)" --verifier="$(CONTRACTS_VERIFIER)"
+
+.PHONY: contracts-update-check contracts-restore-check
+contracts-update-check:
+	@test -n "$(CONTRACTS_STAGING_TARGET)"
+	@go run ./tools/contract-distribution --assets="$(CONTRACTS_SHADOW_ASSETS)" --bootstrap="$(CONTRACTS_BOOTSTRAP)" --verifier="$(CONTRACTS_VERIFIER)" --target="$(CONTRACTS_STAGING_TARGET)"
+
+contracts-restore-check:
+	@test -n "$(CONTRACTS_STAGING_TARGET)" && test -n "$(CONTRACTS_ROLLBACK_SNAPSHOT)"
+	@go run ./tools/contract-distribution --assets="$(CONTRACTS_SHADOW_ASSETS)" --bootstrap="$(CONTRACTS_BOOTSTRAP)" --verifier="$(CONTRACTS_VERIFIER)" --target="$(CONTRACTS_STAGING_TARGET)" --rollback="$(CONTRACTS_ROLLBACK_SNAPSHOT)"

@@ -73,8 +73,18 @@ func main() {
 	assets := flag.String("assets", "", "directory containing tool/ and history/ release assets")
 	bootstrap := flag.String("bootstrap", "", "trusted environment checkout with its locked dependencies already installed")
 	verifier := flag.String("verifier", "", "trusted verifier executable for the tool restore")
+	target := flag.String("target", "", "prepare a fresh snapshot directory after verifying all signed families")
+	rollback := flag.String("rollback", "", "retained snapshot directory to verify during cold restoration")
 	flag.Parse()
-	if err := shadow(*assets, *bootstrap, *verifier, os.Stdout); err != nil {
+	var err error
+	if *target != "" {
+		err = prepare(*assets, *bootstrap, *verifier, *target, *rollback, os.Stdout)
+	} else if *rollback != "" {
+		err = errors.New("rollback requires a fresh target")
+	} else {
+		err = shadow(*assets, *bootstrap, *verifier, os.Stdout)
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "contracts-shadow:", err)
 		os.Exit(1)
 	}
