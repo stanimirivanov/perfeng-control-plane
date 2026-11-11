@@ -395,7 +395,7 @@ Playwright worker is updated and a representative Linux run is verified.
 Disabling acquisition does not prevent an already-issued lease from being
 released or completed by its authenticated worker.
 
-Review contract updates explicitly, refresh the snapshot and checksums, and
+Prepare reviewed contract updates with the [signed distribution workflow](docs/development/contract-distribution.md), then
 rerun tests. The current runtime validator implements only the schema features
 reached by CreateRun, CreateBaseline, BaselineTransition and the pinned Native
 Worker operation shapes, not arbitrary JSON Schema. The authenticated
