@@ -116,3 +116,4 @@ How will assumptions and consequences be verified?
 | [0032](0032-enable-durable-reporting-publication.md) | Enable durable reporting publication explicitly | Proposed |
 
 | [0033](0033-support-linux-hosts.md) | Support Linux development and native browser hosts | Proposed |
+| [0034](0034-retain-service-ownership-and-grants.md) | Retain immutable service ownership and revocable grants | Proposed |
