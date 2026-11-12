@@ -54,6 +54,8 @@
 | Image build or publication | [README development section](../README.md#development), publish workflow | `make image` |
 | Vulnerability reporting | [SECURITY.md](../SECURITY.md) | Repository owner |
 
+Service ownership and revocable grants: [storage and administration](service-access.md), [ADR-0034](decisions/0034-retain-service-ownership-and-grants.md).
+
 ## Authority
 
 [CONTRIBUTING.md](../CONTRIBUTING.md) is the canonical workflow policy.

@@ -30,6 +30,8 @@ runners do not write these tables directly.
 | reconciliation_leases | Worker ownership tokens, lease expiry and retry availability |
 | kubernetes_executions | Immutable Job UID and specification identity per Run |
 | benchmark_target_reservations | Exclusive active benchmark targets, sealed plans and retained cleanup/release audit |
+| run_services / service_grants | Reviewed immutable Run ownership and exact revocable service/actor rights (0025, no HTTP activation) |
+| service_administrators / service_access_audit | Scoped database operator assignments and atomic append-only binding/grant history |
 | baselines | Principal-owned baseline versions and lifecycle snapshots |
 | native_worker_presence | Last authenticated capability and qualification report per native worker |
 | native_worker_presence_v2 | Latest authenticated v2 capability and qualification report, isolated from v1 scheduling |
@@ -548,3 +550,10 @@ revert is not a data migration. Historical Windows Runs remain readable and are
 never candidates for Linux lease acquisition. Requalification and new reviewed
 profile/baseline identities are required before activation. Live upgrade and
 replay checks belong to the disposable PostgreSQL CI gate.
+
+## Service ownership expansion
+
+Migration 0025 adds reviewed service bindings, revocable grants and scoped
+database administration without changing legacy API reads. See
+[service access](service-access.md) for privilege separation, audit, rollout,
+rollback and live test requirements.
