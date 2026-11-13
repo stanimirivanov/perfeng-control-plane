@@ -5,7 +5,7 @@
 - Issue #356 / M05-PR58c adds fixed-origin HTTPS fetching and strict RS256 JWKS decoding.
 - Explicit root CAs, same issuer host/port, no proxies/redirects/discovery or credentials.
 - Bound the attempt to three seconds, headers to 16 KiB, body to 64 KiB and document to 32 keys.
-- This is not per-kid lookup: refresh/rate/negative-cache policy, real provider qualification and serving remain separate.
+- This fetcher is not per-kid lookup; PR58d adds [bounded cache/refresh](identity-key-cache.md). Real provider qualification and serving remain separate.
 
 ## Trust and transport
 
@@ -49,8 +49,9 @@ avoids treating a long request or suspended process as a freshly obtained key se
 ## Composition and evidence
 
 `FetchIdentityKeys` receives no `kid` and does not implement `IdentitySigningKeys`.
-A later source must provide coalesced/rate-limited refresh, bounded negative
-caching, rotation and snapshot expiry before token lookup can use this transport.
+PR58d provides the separate coalesced/rate-limited cache with bounded snapshot
+absence, atomic retirement and expiry. Its real provider qualification and
+per-issuer serving composition remain separate gates.
 A one-connection transport is not that policy. No production composition, runtime
 configuration, service mode or deployment is introduced; no dependencies added.
 
