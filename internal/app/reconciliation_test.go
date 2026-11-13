@@ -129,7 +129,7 @@ func reconciliationDependencies(t *testing.T) (ReconciliationDependencies, *fake
 	}
 	executors, err := NewKubernetesExecutors(
 		trust,
-		baselines,
+		baselines, nil,
 		controllers,
 		collectors,
 		kubernetesExecutorConfig(),

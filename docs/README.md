@@ -56,6 +56,8 @@
 
 Service ownership and revocable grants: [storage and administration](service-access.md), [ADR-0034](decisions/0034-retain-service-ownership-and-grants.md).
 
+Report-time comparison selection: [retention and activation](report-comparison-retention.md), [ADR-0035](decisions/0035-retain-report-time-comparison-inputs.md).
+
 ## Authority
 
 [CONTRIBUTING.md](../CONTRIBUTING.md) is the canonical workflow policy.

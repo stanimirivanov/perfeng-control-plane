@@ -115,6 +115,12 @@ func (resolver *KubernetesReportJobResolver) ResolveReportJob(
 	}
 
 	template := resolver.config.Template.DeepCopy()
+	if plan.CaptureSHA256 != "" {
+		if template.Spec.Template.Annotations == nil {
+			template.Spec.Template.Annotations = map[string]string{}
+		}
+		template.Spec.Template.Annotations["perfeng.dev/report-inputs-sha256"] = plan.CaptureSHA256
+	}
 	container := jobContainer(template, resolver.config.ContainerName)
 	inputContainer := jobInitContainer(template, resolver.config.InputContainerName)
 	if container == nil || inputContainer == nil {

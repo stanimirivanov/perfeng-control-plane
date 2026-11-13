@@ -32,6 +32,7 @@ runners do not write these tables directly.
 | benchmark_target_reservations | Exclusive active benchmark targets, sealed plans and retained cleanup/release audit |
 | run_services / service_grants | Reviewed immutable Run ownership and exact revocable service/actor rights (0025, no HTTP activation) |
 | service_administrators / service_access_audit | Scoped database operator assignments and atomic append-only binding/grant history |
+| report_comparison_inputs | Immutable enrolled native report-time selections, policy bytes and approval snapshots (0026) |
 | baselines | Principal-owned baseline versions and lifecycle snapshots |
 | native_worker_presence | Last authenticated capability and qualification report per native worker |
 | native_worker_presence_v2 | Latest authenticated v2 capability and qualification report, isolated from v1 scheduling |
@@ -557,3 +558,9 @@ Migration 0025 adds reviewed service bindings, revocable grants and scoped
 database administration without changing legacy API reads. See
 [service access](service-access.md) for privilege separation, audit, rollout,
 rollback and live test requirements.
+
+## Report comparison capture
+
+Migration 0026 expands admission enrollment and immutable reporting inputs.
+See [report-time retention](report-comparison-retention.md) before granting
+worker SELECT/INSERT or enabling the default-off capture flag.

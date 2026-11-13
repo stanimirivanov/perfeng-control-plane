@@ -123,7 +123,7 @@ func (r *Repository) admitIntegration(ctx context.Context, principal, provider s
 		return integration.Record{}, run.ErrConflict
 	}
 	if errors.Is(err, run.ErrNotFound) {
-		result, err = newIntegration(ctx, tx, principal, provider, message, review)
+		result, err = newIntegration(ctx, tx, principal, provider, message, review, r.reportCapture)
 		if err != nil {
 			return integration.Record{}, err
 		}
@@ -179,7 +179,7 @@ func (r *Repository) admitIntegration(ctx context.Context, principal, provider s
 	return result, nil
 }
 
-func newIntegration(ctx context.Context, tx *sql.Tx, principal, provider string, message contract.IntegrationMessage, review integration.Review) (integration.Record, error) {
+func newIntegration(ctx context.Context, tx *sql.Tx, principal, provider string, message contract.IntegrationMessage, review integration.Review, capture bool) (integration.Record, error) {
 	now, err := dbNow(ctx, tx)
 	if err != nil {
 		return integration.Record{}, err
@@ -247,7 +247,11 @@ func newIntegration(ctx context.Context, tx *sql.Tx, principal, provider string,
 	if err != nil {
 		return integration.Record{}, run.ErrUnavailable
 	}
-	inserted, err := tx.ExecContext(ctx, `INSERT INTO perfeng_control.runs(run_id,principal,execution_target,snapshot) SELECT $1,$2,$3,$4 WHERE clock_timestamp() < $5`, id, principal, target, snapshot, deadline)
+	query := "INSERT INTO perfeng_control.runs(run_id,principal,execution_target,snapshot) SELECT $1,$2,$3,$4 WHERE clock_timestamp() < $5"
+	if capture {
+		query = "INSERT INTO perfeng_control.runs(run_id,principal,execution_target,snapshot,report_capture_enrolled) SELECT $1,$2,$3,$4,true WHERE clock_timestamp() < $5"
+	}
+	inserted, err := tx.ExecContext(ctx, query, id, principal, target, snapshot, deadline)
 	if err != nil {
 		return integration.Record{}, storageError(err)
 	}

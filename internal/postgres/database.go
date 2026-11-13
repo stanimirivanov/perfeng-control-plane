@@ -18,7 +18,10 @@ const operationTimeout = 15 * time.Second
 
 // Repository is the bounded PostgreSQL implementation of the control-plane
 // storage interfaces. Opening it does not run migrations.
-type Repository struct{ db *sql.DB }
+type Repository struct {
+	db            *sql.DB
+	reportCapture bool
+}
 
 var _ run.Repository = (*Repository)(nil)
 

@@ -43,3 +43,26 @@ func TestLoadDatabaseConfigRejectsNilEnvironment(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestReportCaptureConfigurationIsExplicitAndDefaultOff(t *testing.T) {
+	values := map[string]string{databaseURLVariable: "postgres://example.invalid/db"}
+	config, err := loadDatabaseConfig(mapLookup(values))
+	if err != nil || config.CaptureReportInputs {
+		t.Fatal("capture default changed", err)
+	}
+	values["PERFENG_REPORT_COMPARISON_CAPTURE_ENABLED"] = "true"
+	config, err = loadDatabaseConfig(mapLookup(values))
+	if err != nil || !config.CaptureReportInputs {
+		t.Fatal("explicit capture missing", err)
+	}
+	values["PERFENG_REPORT_COMPARISON_CAPTURE_ENABLED"] = "maybe"
+	if _, err := loadDatabaseConfig(mapLookup(values)); !errors.Is(err, ErrInvalidConfiguration) {
+		t.Fatal("invalid capture toggle accepted", err)
+	}
+	if plans, err := composeReportInputs(false, nil, nil); err != nil || plans != nil {
+		t.Fatal("disabled capture requires capabilities", err)
+	}
+	if _, err := composeReportInputs(true, nil, nil); !errors.Is(err, ErrInvalidConfiguration) {
+		t.Fatal("enabled capture accepted missing store", err)
+	}
+}
