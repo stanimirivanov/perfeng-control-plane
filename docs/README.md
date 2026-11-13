@@ -23,6 +23,8 @@ Rerun normalization planning and approval: [ADR-0045](decisions/0045-bind-rerun-
 
 Private rerun adapter qualification and its proof limits: [qualification guide](rerun-qualification.md), `make db-validate`.
 
+Accepted named identity and BFF delegation trust (issue #356; implementation follows documentation PR review and merge): [ADR-0046](decisions/0046-select-issuer-and-bff-delegation-trust.md).
+
 ## Route by task
 
 | Task or changed boundary | Read first | Verify or consult |
