@@ -26,6 +26,9 @@ type openDatabase func(context.Context, string) (Database, error)
 
 // NewDatabase opens the configured PostgreSQL repository without running migrations.
 func NewDatabase(ctx context.Context, config DatabaseConfig) (Database, error) {
+	if config.CaptureReportInputs {
+		return newDatabase(ctx, config, openCapturePostgres)
+	}
 	return newDatabase(ctx, config, openPostgres)
 }
 
@@ -54,4 +57,8 @@ func newDatabase(
 
 func openPostgres(ctx context.Context, databaseURL string) (Database, error) {
 	return postgres.Open(ctx, databaseURL)
+}
+
+func openCapturePostgres(ctx context.Context, url string) (Database, error) {
+	return postgres.OpenWithReportCapture(ctx, url)
 }

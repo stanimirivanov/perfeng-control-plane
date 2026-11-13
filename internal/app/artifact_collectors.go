@@ -37,6 +37,7 @@ func NewArtifactCollectors(
 	storage ArtifactStorage,
 	trust ArtifactTrust,
 	baselines baseline.Repository,
+	plans reconcile.ReportPlanResolver,
 	config ArtifactVerificationConfig,
 ) (ArtifactCollectors, error) {
 	if storage == nil || trust == nil || baselines == nil || config.Validate() != nil {
@@ -62,19 +63,24 @@ func NewArtifactCollectors(
 	if err != nil {
 		return ArtifactCollectors{}, ErrInvalidConfiguration
 	}
-	reportApprover, err := reconcile.NewTrustedReportApprover(
-		baselines,
-		trust,
-		policy.VerdictApprover{},
-	)
+	var reportApprover *reconcile.TrustedReportApprover
+	if plans == nil {
+		reportApprover, err = reconcile.NewTrustedReportApprover(baselines, trust, policy.VerdictApprover{})
+	} else {
+		reportApprover, err = reconcile.NewReportPlanApprover(plans, policy.VerdictApprover{})
+	}
 	if err != nil {
 		return ArtifactCollectors{}, ErrInvalidConfiguration
+	}
+	var reportContracts reconcile.ContractsVersionResolver = contracts
+	if captured, ok := plans.(reconcile.ContractsVersionResolver); ok {
+		reportContracts = comparisonContracts{captured: captured, legacy: contracts}
 	}
 	report, err := reconcile.NewVerifiedReportCollector(
 		storage,
 		storage,
 		reportApprover,
-		contracts,
+		reportContracts,
 	)
 	if err != nil {
 		return ArtifactCollectors{}, ErrInvalidConfiguration

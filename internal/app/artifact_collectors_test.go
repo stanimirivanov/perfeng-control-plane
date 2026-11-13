@@ -118,7 +118,7 @@ func TestNewArtifactCollectorsComposesAllVerificationBoundaries(t *testing.T) {
 	collectors, err := NewArtifactCollectors(
 		inertArtifactStorage{},
 		inertArtifactTrust{},
-		inertBaselineRepository{},
+		inertBaselineRepository{}, nil,
 		ArtifactVerificationConfig{ContractsVersion: "0.12.0"},
 	)
 	if err != nil {
@@ -137,16 +137,16 @@ func TestNewArtifactCollectorsRejectsInvalidDependencies(t *testing.T) {
 
 	tests := map[string]func() (ArtifactCollectors, error){
 		"storage": func() (ArtifactCollectors, error) {
-			return NewArtifactCollectors(nil, trust, baselines, config)
+			return NewArtifactCollectors(nil, trust, baselines, nil, config)
 		},
 		"trust": func() (ArtifactCollectors, error) {
-			return NewArtifactCollectors(storage, nil, baselines, config)
+			return NewArtifactCollectors(storage, nil, baselines, nil, config)
 		},
 		"baselines": func() (ArtifactCollectors, error) {
-			return NewArtifactCollectors(storage, trust, nil, config)
+			return NewArtifactCollectors(storage, trust, nil, nil, config)
 		},
 		"configuration": func() (ArtifactCollectors, error) {
-			return NewArtifactCollectors(storage, trust, baselines, ArtifactVerificationConfig{})
+			return NewArtifactCollectors(storage, trust, baselines, nil, ArtifactVerificationConfig{})
 		},
 	}
 	for name, build := range tests {

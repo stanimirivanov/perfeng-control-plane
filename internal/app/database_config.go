@@ -7,7 +7,8 @@ const databaseURLVariable = "PERFENG_DATABASE_URL"
 // DatabaseConfig contains the secret PostgreSQL connection string. Callers
 // must never log or include this value in errors.
 type DatabaseConfig struct {
-	URL string
+	URL                 string
+	CaptureReportInputs bool
 }
 
 // Validate checks the database setting without parsing or exposing its components.
@@ -34,7 +35,11 @@ func loadDatabaseConfig(lookup lookupEnvironment) (DatabaseConfig, error) {
 	if err != nil {
 		return DatabaseConfig{}, err
 	}
-	config := DatabaseConfig{URL: databaseURL}
+	capture, err := optionalBoolean(lookup, "PERFENG_REPORT_COMPARISON_CAPTURE_ENABLED")
+	if err != nil {
+		return DatabaseConfig{}, err
+	}
+	config := DatabaseConfig{URL: databaseURL, CaptureReportInputs: capture}
 	if config.Validate() != nil {
 		return DatabaseConfig{}, configurationError(databaseURLVariable)
 	}

@@ -95,7 +95,11 @@ func (r *Repository) Accept(
 	if err != nil {
 		return run.Accepted{}, err
 	}
-	if _, err = tx.ExecContext(ctx, "INSERT INTO perfeng_control.runs(run_id,principal,execution_target,snapshot) VALUES ($1,$2,$3,$4)", id, principal, target, snapshot); err != nil {
+	query := "INSERT INTO perfeng_control.runs(run_id,principal,execution_target,snapshot) VALUES ($1,$2,$3,$4)"
+	if r.reportCapture {
+		query = "INSERT INTO perfeng_control.runs(run_id,principal,execution_target,snapshot,report_capture_enrolled) VALUES ($1,$2,$3,$4,true)"
+	}
+	if _, err = tx.ExecContext(ctx, query, id, principal, target, snapshot); err != nil {
 		// An extremely rare ID collision rolls back with no key reservation.
 		return run.Accepted{}, storageError(err)
 	}

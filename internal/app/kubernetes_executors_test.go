@@ -85,7 +85,7 @@ func executorDependencies(t *testing.T) (
 	collectors, err := NewArtifactCollectors(
 		inertArtifactStorage{},
 		trust,
-		baselines,
+		baselines, nil,
 		ArtifactVerificationConfig{ContractsVersion: "0.12.0"},
 	)
 	if err != nil {
@@ -105,7 +105,7 @@ func TestNewKubernetesExecutorsComposesStagesWithoutRequests(t *testing.T) {
 
 	executors, err := NewKubernetesExecutors(
 		trust,
-		baselines,
+		baselines, nil,
 		controllers,
 		collectors,
 		kubernetesExecutorConfig(),
@@ -126,40 +126,40 @@ func TestNewKubernetesExecutorsRejectsInvalidDependencies(t *testing.T) {
 	validConfig := kubernetesExecutorConfig()
 	tests := map[string]func() (KubernetesExecutors, error){
 		"trust": func() (KubernetesExecutors, error) {
-			return NewKubernetesExecutors(nil, baselines, controllers, collectors, validConfig)
+			return NewKubernetesExecutors(nil, baselines, nil, controllers, collectors, validConfig)
 		},
 		"baselines": func() (KubernetesExecutors, error) {
-			return NewKubernetesExecutors(trust, nil, controllers, collectors, validConfig)
+			return NewKubernetesExecutors(trust, nil, nil, controllers, collectors, validConfig)
 		},
 		"analysis controller": func() (KubernetesExecutors, error) {
 			invalid := controllers
 			invalid.Analysis = nil
-			return NewKubernetesExecutors(trust, baselines, invalid, collectors, validConfig)
+			return NewKubernetesExecutors(trust, baselines, nil, invalid, collectors, validConfig)
 		},
 		"reporting controller": func() (KubernetesExecutors, error) {
 			invalid := controllers
 			invalid.Reporting = nil
-			return NewKubernetesExecutors(trust, baselines, invalid, collectors, validConfig)
+			return NewKubernetesExecutors(trust, baselines, nil, invalid, collectors, validConfig)
 		},
 		"normalized collector": func() (KubernetesExecutors, error) {
 			invalid := collectors
 			invalid.Normalized = nil
-			return NewKubernetesExecutors(trust, baselines, controllers, invalid, validConfig)
+			return NewKubernetesExecutors(trust, baselines, nil, controllers, invalid, validConfig)
 		},
 		"report collector": func() (KubernetesExecutors, error) {
 			invalid := collectors
 			invalid.Report = nil
-			return NewKubernetesExecutors(trust, baselines, controllers, invalid, validConfig)
+			return NewKubernetesExecutors(trust, baselines, nil, controllers, invalid, validConfig)
 		},
 		"analysis config": func() (KubernetesExecutors, error) {
 			invalid := kubernetesExecutorConfig()
 			invalid.Analysis.Template = nil
-			return NewKubernetesExecutors(trust, baselines, controllers, collectors, invalid)
+			return NewKubernetesExecutors(trust, baselines, nil, controllers, collectors, invalid)
 		},
 		"report config": func() (KubernetesExecutors, error) {
 			invalid := kubernetesExecutorConfig()
 			invalid.Report.PolicyPath = "policy.json"
-			return NewKubernetesExecutors(trust, baselines, controllers, collectors, invalid)
+			return NewKubernetesExecutors(trust, baselines, nil, controllers, collectors, invalid)
 		},
 	}
 	for name, build := range tests {

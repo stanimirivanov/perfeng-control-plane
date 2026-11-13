@@ -509,3 +509,10 @@ and unsupported historical admissions remain nonparticipating. This switch adds 
 terminal-history scan/backfill or external delivery loop. Disable it or roll back the
 binary to revert; preserve artifacts, reservations and publications for later recovery.
 See [ADR-0032](decisions/0032-enable-durable-reporting-publication.md).
+
+## Report comparison capture
+
+`PERFENG_REPORT_COMPARISON_CAPTURE_ENABLED` defaults to false. It enrolls new
+admissions only and shares retained report plans/schema pins with output
+attestation. Apply migration 0026 and worker privileges, then stop legacy workers
+before opt-in. See [retention and rollback](report-comparison-retention.md).

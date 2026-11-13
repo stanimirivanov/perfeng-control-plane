@@ -22,10 +22,14 @@ func NewApplicationRuntime(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	reportPlans, err := composeReportInputs(config.Database.CaptureReportInputs, resources.Database, resources.Registry)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
 	collectors, err := NewArtifactCollectors(
 		resources.ArtifactStorage,
 		resources.Registry,
-		resources.Database,
+		resources.Database, reportPlans,
 		config.ArtifactVerification,
 	)
 	if err != nil {
@@ -33,7 +37,7 @@ func NewApplicationRuntime(
 	}
 	executors, err := NewKubernetesExecutors(
 		resources.Registry,
-		resources.Database,
+		resources.Database, reportPlans,
 		controllers,
 		collectors,
 		resources.ExecutorConfig,

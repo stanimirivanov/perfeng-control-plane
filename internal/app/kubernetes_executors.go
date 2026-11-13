@@ -38,6 +38,7 @@ type KubernetesExecutors struct {
 func NewKubernetesExecutors(
 	trust ExecutionTrust,
 	baselines baseline.Repository,
+	plans reconcile.ReportPlanResolver,
 	controllers KubernetesControllers,
 	collectors ArtifactCollectors,
 	config KubernetesExecutorConfig,
@@ -60,11 +61,13 @@ func NewKubernetesExecutors(
 	if err != nil {
 		return KubernetesExecutors{}, ErrInvalidConfiguration
 	}
-	reportPlans, err := reconcile.NewTrustedReportPlanResolver(baselines, trust)
-	if err != nil {
-		return KubernetesExecutors{}, ErrInvalidConfiguration
+	if plans == nil {
+		plans, err = reconcile.NewTrustedReportPlanResolver(baselines, trust)
+		if err != nil {
+			return KubernetesExecutors{}, ErrInvalidConfiguration
+		}
 	}
-	reportJobs, err := reconcile.NewKubernetesReportJobResolver(reportPlans, config.Report)
+	reportJobs, err := reconcile.NewKubernetesReportJobResolver(plans, config.Report)
 	if err != nil {
 		return KubernetesExecutors{}, ErrInvalidConfiguration
 	}

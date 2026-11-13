@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"slices"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/baseline"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/policy"
@@ -15,17 +16,27 @@ import (
 // policy-selected baseline resolutions. A nil baseline artifact records that
 // the exact approved reference is unavailable and must remain inconclusive.
 type ReportPlan struct {
-	Candidate   run.Artifact
-	PolicyBytes []byte
-	PolicyMode  string
-	Producer    rawresult.Producer
-	Baselines   []policy.BaselineResolution
+	ContractsVersion  string
+	Workload          rawresult.Identity
+	BaselineSnapshots []baseline.Record
+	CaptureSHA256     string
+	Candidate         run.Artifact
+	PolicyBytes       []byte
+	PolicyMode        string
+	Producer          rawresult.Producer
+	Baselines         []policy.BaselineResolution
 }
 
 // Clone returns a report plan without shared mutable policy or baseline data.
 func (plan ReportPlan) Clone() ReportPlan {
+	plan.Producer = plan.Producer.Clone()
 	plan.PolicyBytes = append([]byte(nil), plan.PolicyBytes...)
 	plan.Baselines = cloneBaselineResolutions(plan.Baselines)
+	plan.BaselineSnapshots = slices.Clone(plan.BaselineSnapshots)
+	for i, record := range plan.BaselineSnapshots {
+		plan.BaselineSnapshots[i] = record.Clone()
+		plan.BaselineSnapshots[i].Qualification.Reasons = slices.Clone(record.Qualification.Reasons)
+	}
 
 	return plan
 }
@@ -105,13 +116,14 @@ func (resolver *TrustedReportPlanResolver) ResolveReportPlan(
 		return ReportPlan{}, run.ErrValidation
 	}
 
-	resolutions, err := resolveReportReferences(ctx, resolver.baselines, principal, trust.Baselines)
+	resolutions, snapshots, err := resolveReportReferences(ctx, resolver.baselines, principal, trust.Baselines)
 	if err != nil {
 		return ReportPlan{}, err
 	}
 	plan := ReportPlan{
 		Candidate: input.Candidate, PolicyBytes: trust.PolicyBytes,
 		PolicyMode: trust.PolicyMode, Producer: trust.Producer, Baselines: resolutions,
+		ContractsVersion: trust.ContractsVersion, Workload: trust.Workload, BaselineSnapshots: snapshots,
 	}
 	if plan.Validate(current.ID) != nil {
 		return ReportPlan{}, run.ErrValidation
@@ -133,12 +145,13 @@ func resolveReportReferences(
 	repository baseline.Repository,
 	principal string,
 	selections []baseline.Selection,
-) ([]policy.BaselineResolution, error) {
+) ([]policy.BaselineResolution, []baseline.Record, error) {
 	resolutions := make([]policy.BaselineResolution, 0, len(selections))
+	var snapshots []baseline.Record
 	for _, selection := range selections {
 		record, found, err := repository.ResolveApprovedBaseline(ctx, principal, selection)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		resolution := policy.BaselineResolution{ID: selection.ID, Version: selection.Version}
 		if !found {
@@ -146,14 +159,15 @@ func resolveReportReferences(
 			continue
 		}
 		if !record.MatchesSelection(selection) || !validReportReference(record.Artifact) {
-			return nil, run.ErrValidation
+			return nil, nil, run.ErrValidation
 		}
+		snapshots = append(snapshots, record)
 		artifact := record.Artifact
 		resolution.Artifact = &artifact
 		resolutions = append(resolutions, resolution)
 	}
 
-	return resolutions, nil
+	return resolutions, snapshots, nil
 }
 
 func matchesBaselineResolutions(

@@ -86,7 +86,7 @@ func TestUniformCollectorConstraintCannotBeBypassedBySeparateComposition(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	collectors, err := NewArtifactCollectors(inertArtifactStorage{}, loaded, inertBaselineRepository{},
+	collectors, err := NewArtifactCollectors(inertArtifactStorage{}, loaded, inertBaselineRepository{}, nil,
 		ArtifactVerificationConfig{ContractsVersion: "0.13.0"})
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +108,7 @@ func TestMixedBundleCollectorsVerifyEachEntryAndRejectCrossVersionClaims(t *test
 			for _, changed := range []string{"none", "raw", "normalized", "report", "raw-unknown", "normalized-unknown", "report-unknown"} {
 				t.Run(changed, func(t *testing.T) {
 					storage := newMixedEvidence(t, entry, currents[index], changed)
-					collectors, err := NewArtifactCollectors(storage, loaded, missingMixedBaseline{},
+					collectors, err := NewArtifactCollectors(storage, loaded, missingMixedBaseline{}, nil,
 						ArtifactVerificationConfig{ContractsVersion: RegistryContractsVersion})
 					if err != nil {
 						t.Fatal(err)

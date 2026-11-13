@@ -403,7 +403,7 @@ func (registry *ReportPolicyRegistry) ResolveReportTrust(
 
 	return reconcile.ReportTrust{
 		PolicyBytes: append([]byte(nil), entry.policyBytes...),
-		PolicyMode:  entry.mode, Producer: entry.reportProducer,
+		PolicyMode:  entry.mode, Producer: entry.reportProducer, Workload: entry.workload, ContractsVersion: entry.contractsVersion,
 		Baselines: cloneSelections(entry.baselines),
 	}, nil
 }

@@ -13,14 +13,17 @@ import (
 // ReportTrust contains the immutable policy and provenance selected from
 // trusted registries for one reporting attempt.
 type ReportTrust struct {
-	PolicyBytes []byte
-	PolicyMode  string
-	Producer    rawresult.Producer
-	Baselines   []baseline.Selection
+	ContractsVersion string
+	Workload         rawresult.Identity
+	PolicyBytes      []byte
+	PolicyMode       string
+	Producer         rawresult.Producer
+	Baselines        []baseline.Selection
 }
 
 // Clone returns report trust without shared mutable policy or baseline data.
 func (trust ReportTrust) Clone() ReportTrust {
+	trust.Producer = trust.Producer.Clone()
 	trust.PolicyBytes = append([]byte(nil), trust.PolicyBytes...)
 	trust.Baselines = append([]baseline.Selection(nil), trust.Baselines...)
 	for index := range trust.Baselines {
@@ -83,6 +86,14 @@ func NewTrustedReportApprover(
 		return nil, run.ErrValidation
 	}
 
+	return NewReportPlanApprover(plans, verdicts)
+}
+
+// NewReportPlanApprover shares an explicit (possibly retained) plan boundary with job generation.
+func NewReportPlanApprover(plans ReportPlanResolver, verdicts ReportVerdictApprover) (*TrustedReportApprover, error) {
+	if plans == nil || verdicts == nil {
+		return nil, run.ErrValidation
+	}
 	return &TrustedReportApprover{plans: plans, verdicts: verdicts}, nil
 }
 
