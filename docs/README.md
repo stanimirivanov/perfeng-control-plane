@@ -29,6 +29,8 @@ Named identity admission and current proof limits (issue #356): [admission guide
 
 Explicit-key JWT verification and dependency admission (issue #356): [JWT guide](identity-jwt-verification.md).
 
+Fixed-origin JWKS fetching and key-set proof limits (issue #356): [JWKS guide](identity-jwks-fetch.md).
+
 ## Route by task
 
 | Task or changed boundary | Read first | Verify or consult |
