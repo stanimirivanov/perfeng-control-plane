@@ -56,7 +56,10 @@ receipts, not a real Keycloak/JWKS rotation or shared-service acceptance receipt
 Compose with the [fixed-origin fetcher](identity-jwks-fetch.md) and
 [JWT verifier](identity-jwt-verification.md) only under reviewed per-issuer wiring.
 No runtime configuration or HTTP mode is activated here. Current subject/caller
-policy storage, real pinned issuer conformance and feature-gated serving remain
-separate work under #356. No dependency, database, deployment or public API changes.
+policy storage and
+[private composition](identity-composition.md) now have synthetic integration evidence.
+Real pinned issuer conformance and feature-gated serving remain separate work
+under #356. No dependency, database, deployment or public API changes.
 Run authentication race tests and `make validate`; no SQL/Kubernetes boundary changed.
-Rollback removes this uncomposed cache without changing Static serving or grants.
+Rollback of the cache slice preserves Static serving and grants; the
+[composition guide](identity-composition.md) describes managed shutdown.
