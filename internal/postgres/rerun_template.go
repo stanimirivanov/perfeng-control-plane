@@ -75,7 +75,8 @@ func (r *Repository) retainRerunTemplate(ctx context.Context, principal string, 
 	if err != nil {
 		return nil, run.ErrValidation
 	}
-	if _, err = r.GetRerunExecution(ctx, principal, current); err != nil {
+	accepted, err := r.GetRerunExecution(ctx, principal, current)
+	if err != nil {
 		return nil, err
 	}
 	tx, err := r.begin(ctx)
@@ -94,6 +95,11 @@ func (r *Repository) retainRerunTemplate(ctx context.Context, principal string, 
 	}
 	if stored.Request != current.Request || (claim != nil && stored.Revision != current.Revision) {
 		return nil, run.ErrConflict
+	}
+	if claim != nil {
+		if err = lockRerunValidationEligibility(ctx, tx, accepted); err != nil {
+			return nil, err
+		}
 	}
 	var previous []byte
 	var previousDigest string

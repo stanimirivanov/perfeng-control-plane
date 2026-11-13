@@ -123,3 +123,4 @@ How will assumptions and consequences be verified?
 | [0038](0038-plan-rerun-reports-from-retained-selection.md) | Plan rerun reports from the retained source selection | Proposed |
 | [0039](0039-seal-rerun-dispatch-templates.md) | Seal reusable rerun dispatch templates before side effects | Proposed |
 | [0040](0040-consume-sealed-rerun-validation-and-cleanup.md) | Consume sealed rerun templates for validation and cleanup | Proposed |
+| [0041](0041-recheck-current-rerun-validation-eligibility.md) | Recheck current rerun validation eligibility | Proposed |

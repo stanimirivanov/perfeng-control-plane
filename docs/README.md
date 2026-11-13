@@ -11,6 +11,8 @@
 - Update this map when a canonical guide moves or a recurring task gains a new
   source of truth.
 
+Current rerun validation eligibility is documented in [ADR-0041](decisions/0041-recheck-current-rerun-validation-eligibility.md) and the [persistence guide](rerun-persistence.md#current-validation-eligibility-m05-pr59e).
+
 ## Route by task
 
 | Task or changed boundary | Read first | Verify or consult |
