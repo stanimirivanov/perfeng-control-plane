@@ -5,7 +5,7 @@
 - Issue #356 / M05-PR58a implements post-signature identity admission under accepted ADR 0046.
 - Keep accountable actor and issuer-attested caller separate; return no legacy principal or permissions.
 - Recheck trusted subject/caller policy on every invocation and enforce five-minute credentials with thirty-second skew.
-- PR58b adds [explicit-key JWT verification](identity-jwt-verification.md); network key retrieval, policy storage, HTTP mode and real Keycloak qualification remain separate. Legacy serving is unchanged.
+- Later slices add [explicit-key JWT verification](identity-jwt-verification.md), fixed-origin key retrieval, stored policy and [private composition](identity-composition.md). Real Keycloak qualification and HTTP activation remain separate; legacy serving is unchanged.
 
 ## Boundary and ownership
 
@@ -21,9 +21,9 @@ After profile validation, the required `IdentityPolicy` must check current subje
 enrollment/kind and caller delegation. The requested HUMAN/CI kind comes from the
 trusted client profile; it is not proof that the subject is enrolled in that kind.
 The policy implementation must verify that match and deny missing, disabled or
-incompatible enrollment. No identity-policy decision is cached here. Durable policy
-storage, administration and revocation are subsequent implementation work, not
-provided by a no-op policy or the test doubles in this slice.
+incompatible enrollment. No identity-policy decision is cached here.
+[Durable policy storage](decisions/0047-retain-current-identity-policy.md) now
+implements that check; no-op policies and test doubles do not qualify production trust.
 
 Successful output preserves exact issuer/subject as actor, issuer plus namespaced
 `client:<authorized-client>` as caller, and the admitted actor kind. It contains
@@ -64,8 +64,8 @@ PR58a tests alone do not establish cryptographic verification, token-type correc
 key freshness/rotation, real enrollment revocation or Keycloak compatibility.
 
 PR58b adds a pinned signature adapter with explicit trusted key snapshots.
-Next slices must implement fixed key origins/transport/refresh and current
-enrollment/caller policy, qualify real pinned Keycloak tokens,
+Fixed-origin key retrieval, bounded refresh and current PostgreSQL policy are now
+[composed and tested privately](identity-composition.md). Next qualify real pinned Keycloak tokens,
 and only then compose a feature-gated HTTP identity mode with safe error mapping.
 Full issue #356 acceptance also requires serving tests and real trust receipts;
 public service access/rerun serving remains disabled. No release/library/deployment

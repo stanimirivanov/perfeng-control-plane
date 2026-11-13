@@ -35,6 +35,8 @@ Bounded identity key refresh/cache and proof limits (issue #356): [cache guide](
 
 Current subject enrollment and caller delegation (issue #356): [ADR-0047](decisions/0047-retain-current-identity-policy.md), `make db-validate`.
 
+Managed private identity adapter composition and synthetic full-chain evidence (issue #356): [composition guide](identity-composition.md).
+
 ## Route by task
 
 | Task or changed boundary | Read first | Verify or consult |
