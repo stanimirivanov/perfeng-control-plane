@@ -564,3 +564,9 @@ rollback and live test requirements.
 Migration 0026 expands admission enrollment and immutable reporting inputs.
 See [report-time retention](report-comparison-retention.md) before granting
 worker SELECT/INSERT or enabling the default-off capture flag.
+
+## Attributed rerun foundation
+
+Migration 0027 stages immutable actor/key intent, child service lineage and acceptance
+audit atomically. It does not expose a route or activate execution. See
+[rerun persistence](rerun-persistence.md) for locks, upgrade, namespace and rollback.

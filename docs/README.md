@@ -79,3 +79,5 @@ A change MUST update this page when it adds, renames, moves, or removes a
 canonical document or creates a recurring task without a clear route.
 `make docs-check` validates repository-local links and mechanical documentation
 policy; semantic accuracy remains a review responsibility.
+
+Attributable rerun persistence and activation limits: [rerun storage](rerun-persistence.md), [ADR-0036](decisions/0036-retain-atomic-rerun-acceptance.md).
