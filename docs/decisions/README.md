@@ -129,3 +129,4 @@ How will assumptions and consequences be verified?
 | [0044](0044-bind-rerun-raw-approval-to-sealed-execution.md) | Bind rerun raw approval to sealed execution | Proposed |
 | [0045](0045-bind-rerun-normalization-to-registered-evidence.md) | Bind rerun normalization to registered evidence | Proposed |
 | [0046](0046-select-issuer-and-bff-delegation-trust.md) | Select issuer and BFF delegation trust | Accepted |
+| [0047](0047-retain-current-identity-policy.md) | Retain current identity enrollment and delegation | Proposed |

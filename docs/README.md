@@ -33,6 +33,8 @@ Fixed-origin JWKS fetching and key-set proof limits (issue #356): [JWKS guide](i
 
 Bounded identity key refresh/cache and proof limits (issue #356): [cache guide](identity-key-cache.md).
 
+Current subject enrollment and caller delegation (issue #356): [ADR-0047](decisions/0047-retain-current-identity-policy.md), `make db-validate`.
+
 ## Route by task
 
 | Task or changed boundary | Read first | Verify or consult |
