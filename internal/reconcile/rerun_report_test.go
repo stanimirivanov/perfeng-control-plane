@@ -156,3 +156,18 @@ func TestRerunReportRejectsMissingOrSubstitutedEvidenceWithoutFallback(t *testin
 		t.Fatal("lost cancellation", err)
 	}
 }
+
+func TestRerunEvidenceSchemaUsesAcceptedPinAcrossCollectionStages(t *testing.T) {
+	store, f := frozenRerunReport(t)
+	resolver, err := NewRerunReportPlanResolver(store, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, state := range []run.State{run.StateCollecting, run.StateAnalyzing, run.StateReporting} {
+		f.current.State = state
+		version, err := resolver.ResolveContractsVersion(context.Background(), "child-owner", f.current)
+		if err != nil || version != store.value.Inputs.ContractsVersion || store.legacyCalls != 0 {
+			t.Fatal("collection stage lost accepted schema pin", state, err)
+		}
+	}
+}

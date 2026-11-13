@@ -44,7 +44,11 @@ func NewArtifactCollectors(
 		return ArtifactCollectors{}, ErrInvalidConfiguration
 	}
 
-	contracts := artifactContracts{registry: trust, configured: config.ContractsVersion}
+	var selected reconcile.ContractsVersionResolver = trust
+	if captured, ok := plans.(reconcile.ContractsVersionResolver); ok {
+		selected = comparisonContracts{captured: captured, legacy: trust}
+	}
+	contracts := artifactContracts{registry: selected, configured: config.ContractsVersion}
 	raw, err := reconcile.NewVerifiedRawCollector(
 		storage,
 		storage,
@@ -72,15 +76,11 @@ func NewArtifactCollectors(
 	if err != nil {
 		return ArtifactCollectors{}, ErrInvalidConfiguration
 	}
-	var reportContracts reconcile.ContractsVersionResolver = contracts
-	if captured, ok := plans.(reconcile.ContractsVersionResolver); ok {
-		reportContracts = comparisonContracts{captured: captured, legacy: contracts}
-	}
 	report, err := reconcile.NewVerifiedReportCollector(
 		storage,
 		storage,
 		reportApprover,
-		reportContracts,
+		contracts,
 	)
 	if err != nil {
 		return ArtifactCollectors{}, ErrInvalidConfiguration

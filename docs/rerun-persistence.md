@@ -317,3 +317,31 @@ migration 0028 and the grant/baseline/acceptance/seal rights documented above ar
 required. Rollback code restores private provisioning refusal while retaining
 seals and compatible cancellation workers. Public producers stay disabled until
 raw/normalization trust, identity admission and full live rerun acceptance qualify.
+
+## Retained evidence schema selection: M05-PR59g
+
+Capture-enabled composition now supplies the retained/rerun-aware schema selector
+to raw, normalized and report collectors. Known accepted children use their
+original contracts version in COLLECTING, ANALYZING and REPORTING, independently
+of the registry version observation. Missing or inconsistent known acceptance
+fails unavailable before publication discovery or byte reads; it never authorizes
+ordinary fallback. Ordinary uncaptured history retains its explicit not-found
+registry fallback, and capture-disabled collection keeps its existing selection.
+
+The configured uniform version restriction now wraps the result of either
+selection path. A retained pin cannot bypass it, including in report collection
+where it previously could. A fixed configured version that conflicts with retained
+history refuses collection using the stage's existing invalid-evidence error;
+registry-version mode continues to permit supported per-Run pins. Change deployment
+configuration only after reviewing compatibility, never by changing retained data.
+
+This change chooses the schema used to verify evidence; it does not authorize
+producer claims, transfer evidence or select a normalization runtime. Existing
+manifest, producer, checksum, source/provenance and report checks still apply.
+In particular, raw/normalizer producer trust and normalization runtime binding
+remain separate PR59 gates, as do public identity admission and full live rerun
+acceptance. No public producer is enabled.
+
+No migration, permissions, dependency, schema snapshot, flag or deployment change
+is included. Rollback retains evidence but restores the earlier collector-selection
+gap and report uniform-version bypass; keep public rerun serving disabled.
