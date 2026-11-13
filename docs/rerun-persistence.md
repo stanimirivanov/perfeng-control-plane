@@ -377,3 +377,34 @@ all evidence and restores the old raw approval path, which generally cannot appr
 synthetic child owners. Normalization runtime/producer binding, public admission
 and full live rerun acceptance remain separate PR59 gates; no public producer is
 enabled here.
+
+
+## Source-owned normalization: M05-PR59i
+
+Capture-enabled composition now shares a rerun-aware guard between analysis Job
+planning and normalized-manifest approval. Classify the immutable child association
+and require exact accepted child owner/ID/request. In ANALYZING, each raw manifest
+and source reference must equal its registered child artifact before registry
+review. Missing known evidence is unavailable; substituted references conflict.
+Known failures never authorize ordinary fallback. Ordinary/capture-disabled Runs
+retain their existing paths.
+
+Resolve current normalization under the retained source owner, requiring the
+accepted workload and contracts version to match that entry. Existing candidate,
+format/layout and normalizer producer checks select the plan. Output approval uses
+the same frozen compatibility checks and current producer/source attestation.
+Raw/report/schema capabilities remain intact. Existing object checksums, strict
+parsing, raw provenance, measurement-window checks, deterministic Job attestation
+and lease-fenced lifecycle writes remain mandatory.
+
+Normalizer/profile metadata is currently reviewed, not historically captured.
+Withdrawal or format/producer changes can refuse planning or old output; existing
+Job attestation must reject a conflicting retry rather than replace execution.
+This slice does not prove historical normalizer continuity after arbitrary registry
+changes. No actor-grant/baseline reauthorization is introduced during normalization.
+
+No new SQL writes, migration, permissions, snapshot, dependency, flag, API or
+deployment change is included. Existing acceptance and registered-artifact reads
+are required. Rollback retains evidence but restores ordinary normalization lookup,
+which generally cannot resolve synthetic child owners. Public identity admission,
+serving and full live rerun qualification remain outstanding; PR59 is not complete.

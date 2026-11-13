@@ -30,6 +30,10 @@ func NewApplicationRuntime(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	executionTrust, artifactTrust, err := composeRerunNormalization(config.Database.CaptureReportInputs, resources.Database, resources.Registry, artifactTrust)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
 	collectors, err := NewArtifactCollectors(
 		resources.ArtifactStorage,
 		artifactTrust,
@@ -40,7 +44,7 @@ func NewApplicationRuntime(
 		return nil, ErrInvalidConfiguration
 	}
 	executors, err := NewKubernetesExecutors(
-		resources.Registry,
+		executionTrust,
 		resources.Database, reportPlans,
 		controllers,
 		collectors,

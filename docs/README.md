@@ -19,6 +19,8 @@ Evidence schema selection across collectors is documented in [ADR-0043](decision
 
 Rerun raw provenance approval: [ADR-0044](decisions/0044-bind-rerun-raw-approval-to-sealed-execution.md), [source-owned sealed approval](rerun-persistence.md#source-owned-raw-approval-m05-pr59h).
 
+Rerun normalization planning and approval: [ADR-0045](decisions/0045-bind-rerun-normalization-to-registered-evidence.md), [registered evidence binding](rerun-persistence.md#source-owned-normalization-m05-pr59i).
+
 ## Route by task
 
 | Task or changed boundary | Read first | Verify or consult |
