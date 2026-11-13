@@ -92,7 +92,11 @@ func (verifier *JWTIdentityVerifier) VerifyIdentityCredential(ctx context.Contex
 }
 
 func freshIdentityKey(key IdentitySigningKey, now time.Time) bool {
-	return key.PublicKey != nil && key.PublicKey.N != nil && key.PublicKey.N.Sign() > 0 && key.PublicKey.N.Bit(0) == 1 && key.PublicKey.N.BitLen() >= 2048 && key.PublicKey.N.BitLen() <= 8192 && key.PublicKey.E >= 3 && key.PublicKey.E <= 2147483647 && key.PublicKey.E%2 == 1 && !key.FetchedAt.IsZero() && !key.FetchedAt.After(now) && now.Sub(key.FetchedAt) <= 5*time.Minute
+	return validIdentityRSAKey(key.PublicKey) && !key.FetchedAt.IsZero() && !key.FetchedAt.After(now) && now.Sub(key.FetchedAt) <= 5*time.Minute
+}
+
+func validIdentityRSAKey(key *rsa.PublicKey) bool {
+	return key != nil && key.N != nil && key.N.Sign() > 0 && key.N.Bit(0) == 1 && key.N.BitLen() >= 2048 && key.N.BitLen() <= 8192 && key.E >= 3 && key.E <= 2147483647 && key.E%2 == 1
 }
 
 func identityJWTEnvelope(token string) (string, map[string]time.Time, bool) {
