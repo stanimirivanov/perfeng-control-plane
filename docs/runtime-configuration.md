@@ -528,3 +528,13 @@ an existing seal after exact current registry and SQL eligibility checks, before
 fresh lease renewal and dispatch. Unclaimed provisioning remains unavailable;
 public rerun producers and live acceptance remain unqualified.
 See [PR59f](rerun-persistence.md#claimed-sealed-provisioning-m05-pr59f).
+
+### Retained evidence schema selection
+
+With report capture enabled, raw/normalized/report collectors all use the retained
+schema selector before their existing producer and byte/provenance checks. The
+configured uniform contracts version applies to retained pins as well as registry
+results; conflicting retained history refuses collection instead of being silently
+reinterpreted. Registry-version mode preserves supported per-Run pins. Known rerun
+evidence failures never authorize fallback to the registry. See [PR59g](rerun-persistence.md#retained-evidence-schema-selection-m05-pr59g)
+for the remaining producer/runtime and live qualification gates.

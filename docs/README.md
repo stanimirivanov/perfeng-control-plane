@@ -15,6 +15,8 @@ Current rerun validation eligibility is documented in [ADR-0041](decisions/0041-
 
 Claimed rerun provisioning is documented in [ADR-0042](decisions/0042-dispatch-reruns-from-claim-qualified-seals.md) and the [persistence guide](rerun-persistence.md#claimed-sealed-provisioning-m05-pr59f).
 
+Evidence schema selection across collectors is documented in [ADR-0043](decisions/0043-preserve-retained-schemas-across-evidence-collectors.md) and the [rerun persistence guide](rerun-persistence.md#retained-evidence-schema-selection-m05-pr59g).
+
 ## Route by task
 
 | Task or changed boundary | Read first | Verify or consult |
