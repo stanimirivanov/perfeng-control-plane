@@ -68,8 +68,7 @@ type IdentityAuthenticator struct {
 // NewIdentityAuthenticator owns a defensive configuration copy. Verifier,
 // policy and clock must support concurrent calls. Construction performs no I/O.
 func NewIdentityAuthenticator(profile IdentityProfile, verifier IdentityCredentialVerifier, policy IdentityPolicy, now func() time.Time) (*IdentityAuthenticator, error) {
-	issuer, err := url.Parse(profile.Issuer)
-	if err != nil || issuer.Scheme != "https" || issuer.Hostname() == "" || issuer.User != nil || strings.ContainsAny(profile.Issuer, "?#") || issuer.RawQuery != "" || issuer.Fragment != "" || len(profile.Issuer) > 512 || !identityText(profile.Audience, 512) || len(profile.Clients) == 0 || len(profile.Clients) > 100 || verifier == nil || policy == nil || now == nil {
+	if !validIdentityIssuer(profile.Issuer) || !identityText(profile.Audience, 512) || len(profile.Clients) == 0 || len(profile.Clients) > 100 || verifier == nil || policy == nil || now == nil {
 		return nil, run.ErrValidation
 	}
 	clients := make(map[string]string, len(profile.Clients))
@@ -145,4 +144,9 @@ func identityError(err error) error {
 		}
 	}
 	return run.ErrUnavailable
+}
+
+func validIdentityIssuer(value string) bool {
+	issuer, err := url.Parse(value)
+	return err == nil && issuer.Scheme == "https" && issuer.Hostname() != "" && issuer.User == nil && !strings.ContainsAny(value, "?#") && len(value) <= 512
 }

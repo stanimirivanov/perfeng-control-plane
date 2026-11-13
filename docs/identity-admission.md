@@ -5,7 +5,7 @@
 - Issue #356 / M05-PR58a implements post-signature identity admission under accepted ADR 0046.
 - Keep accountable actor and issuer-attested caller separate; return no legacy principal or permissions.
 - Recheck trusted subject/caller policy on every invocation and enforce five-minute credentials with thirty-second skew.
-- No JWT parser, key retrieval, policy storage, HTTP mode or Keycloak qualification is included. Legacy serving is unchanged.
+- PR58b adds [explicit-key JWT verification](identity-jwt-verification.md); network key retrieval, policy storage, HTTP mode and real Keycloak qualification remain separate. Legacy serving is unchanged.
 
 ## Boundary and ownership
 
@@ -60,11 +60,12 @@ legacy HTTP authenticator, and no legacy fallback is attempted.
 The TDD authentication tests use trusted verifier/policy functions to exercise
 admission, ownership of configuration, concurrent calls, fresh revocation, clock
 bounds, safe errors and cancellation. Existing Static tests run alongside them.
-These tests do not establish cryptographic verification, token-type correctness,
+PR58a tests alone do not establish cryptographic verification, token-type correctness,
 key freshness/rotation, real enrollment revocation or Keycloak compatibility.
 
-Next slices must admit JWT/library handling and fixed key origins/freshness,
-implement current enrollment/caller policy, qualify real pinned Keycloak tokens,
+PR58b adds a pinned signature adapter with explicit trusted key snapshots.
+Next slices must implement fixed key origins/transport/refresh and current
+enrollment/caller policy, qualify real pinned Keycloak tokens,
 and only then compose a feature-gated HTTP identity mode with safe error mapping.
 Full issue #356 acceptance also requires serving tests and real trust receipts;
 public service access/rerun serving remains disabled. No release/library/deployment

@@ -27,6 +27,8 @@ Accepted named identity and BFF delegation trust (issue #356; implementation fol
 
 Named identity admission and current proof limits (issue #356): [admission guide](identity-admission.md), [accepted ADR-0046](decisions/0046-select-issuer-and-bff-delegation-trust.md).
 
+Explicit-key JWT verification and dependency admission (issue #356): [JWT guide](identity-jwt-verification.md).
+
 ## Route by task
 
 | Task or changed boundary | Read first | Verify or consult |
