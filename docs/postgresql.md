@@ -570,3 +570,6 @@ worker SELECT/INSERT or enabling the default-off capture flag.
 Migration 0027 stages immutable actor/key intent, child service lineage and acceptance
 audit atomically. It does not expose a route or activate execution. See
 [rerun persistence](rerun-persistence.md) for locks, upgrade, namespace and rollback.
+
+Migration 0028 adds bounded immutable `rerun_templates` for prospective child Job
+capture before dispatch. No runtime consumer is enabled. See [template capture](rerun-persistence.md#sealed-dispatch-templates-m05-pr59c) for locks and rollback.

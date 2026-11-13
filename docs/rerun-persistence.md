@@ -172,3 +172,43 @@ PR59 is still incomplete. Dispatch/current-admission and raw/normalization trust
 must use the immutable child binding before a public rerun producer is enabled.
 This slice qualifies report planning/verification only; it does not prove full
 change-to-execution-to-report acceptance or admit service identity/public routes.
+
+## Sealed dispatch templates: M05-PR59c
+
+Migration 0028 adds `rerun_templates`, an immutable child/owner-scoped record of
+one independently reviewed reusable Kubernetes Job template. The existing
+execution table retains only cluster UID and spec hash; neither those fields nor
+current registry contents can reconstruct missing historical template bytes.
+This is prospective child-template capture, not backfill of a source Job.
+
+`RetainRerunTemplate` validates the existing reusable-Job policy, encodes a private
+version-1 document bounded to 1 MiB, verifies the accepted child association and
+serializes capture on the child Run row. First insertion requires actual state
+VALIDATING, target KUBERNETES and no execution binding. SQL guards enforce those
+conditions too. Equal replay precedes lifecycle checks, so later retry/cleanup
+can recover the same template; a different proposal conflicts without replacement.
+A caller-supplied stale state cannot authorize a first late capture.
+
+`GetRerunTemplate` rechecks immutable child/request relationships, document shape,
+size, digest and reusable-Job policy before returning an independently owned Job.
+The private envelope SHA-256 is not the dispatcher's runtime spec hash. UPDATE,
+DELETE and TRUNCATE are refused. Missing or corrupt data is not permission to
+regenerate a template after dispatch may have happened. Capture/read use bounded
+operation contexts and existing transaction/lock limits, with no Kubernetes or
+registry/object-store I/O inside transactions.
+
+These methods are trusted-worker storage capabilities, not an authorizer, lease
+proof or dispatch permit. The future consuming adapter must establish current
+selection eligibility, active lease ownership and reviewed template provenance,
+then preserve the seal through validation, creation/adoption and cancellation.
+No runtime caller or producer is added here. Native/benchmark execution needs its
+own qualified consumer path; this storage primitive does not qualify either path.
+
+Apply 0028 using the explicit trusted migration command before enabling a future
+consumer. It adds an empty table/index/constraints/guards, uses normal schema/FK
+locks, scans no old Runs and infers no history. Provision SELECT/INSERT only for
+qualified consumers, never schema ownership or update/delete/truncate rights.
+Rollback code while retaining schema, templates and acceptance; repair forward.
+No down migration, dependency/snapshot change, flag enablement or deployment is
+included. PR59 remains incomplete until dispatch/admission and raw/normalization
+integration qualify. Sealing a template alone proves no end-to-end rerun flow.
