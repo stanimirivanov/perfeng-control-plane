@@ -54,3 +54,25 @@ func (r *Repository) GetRerunExecution(ctx context.Context, principal string, cu
 	}
 	return value, nil
 }
+
+// LookupRerunExecution observes the durable child association independently of
+// requested metadata. A known child's failed lookup must never authorize ordinary
+// registry fallback. Atomic creation and immutable intent rows keep the two reads
+// stable without network calls or inferring identity from a principal prefix.
+func (r *Repository) LookupRerunExecution(ctx context.Context, principal string, current run.Run) (runrerun.Acceptance, bool, error) {
+	if principal == "" || !contract.ValidID(current.ID) || current.Request.Validate() != nil {
+		return runrerun.Acceptance{}, false, run.ErrValidation
+	}
+	ctx, cancel := context.WithTimeout(ctx, operationTimeout)
+	defer cancel()
+	var known bool
+	err := r.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM perfeng_control.rerun_intents WHERE child_owner=$1 AND child_run_id=$2)`, principal, current.ID).Scan(&known)
+	if err != nil {
+		return runrerun.Acceptance{}, false, storageError(err)
+	}
+	if !known {
+		return runrerun.Acceptance{}, false, nil
+	}
+	value, err := r.GetRerunExecution(ctx, principal, current)
+	return value, true, err
+}

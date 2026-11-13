@@ -516,3 +516,7 @@ See [ADR-0032](decisions/0032-enable-durable-reporting-publication.md).
 admissions only and shares retained report plans/schema pins with output
 attestation. Apply migration 0026 and worker privileges, then stop legacy workers
 before opt-in. See [retention and rollback](report-comparison-retention.md).
+
+Report capture also composes frozen rerun report planning. With capture enabled,
+apply existing migration 0027 and provision rerun intent read privileges before
+deploying; missing schema/access fails unavailable. See [PR59b rollout](rerun-persistence.md#frozen-report-planning-m05-pr59b).

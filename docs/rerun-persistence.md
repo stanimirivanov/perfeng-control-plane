@@ -3,7 +3,7 @@
 ## TL;DR
 
 - M05-PR50 stages atomic child, service lineage and immutable acceptance storage.
-- No HTTP route, application caller, public codec or execution activation is included.
+- No public route, rerun producer, public codec or execution activation is included.
 - Actor/key replay is independent of legacy CreateRun and caller credential rotation.
 - Current grants and exact baseline approval are fenced inside the write transaction.
 - PR58/45 identity/authorization, PR59 execution and PR51 serving must qualify before use.
@@ -131,3 +131,44 @@ prove that missing/corrupt associations cannot fall back to ordinary registry
 selection. The original request alone does not establish that all runtime trust
 adapters honor the accepted selection. No caller, flag, route or rerun execution
 is enabled here; public serving remains blocked on the existing prerequisites.
+
+## Frozen report planning: M05-PR59b
+
+With `PERFENG_REPORT_COMPARISON_CAPTURE_ENABLED=true`, application composition now
+wraps the ordinary retained planner with `RerunReportPlanResolver`. The same
+instance supplies report Job generation, report-manifest/verdict approval and the
+report collector's schema pin. The default-off configuration is unchanged. Custom
+capture stores must implement the explicit rerun association and artifact-read
+capability; otherwise composition fails rather than bypassing the new boundary.
+
+`LookupRerunExecution` observes the child/owner association independently of request
+metadata. Only an explicit ordinary result may use ordinary planning. A known
+child with missing, corrupt or mismatched acceptance remains a failure; storage
+outages and cancellation never become ordinary fallback. Association creation is
+atomic with the child and the accepted rows are immutable, so legitimate ordinary
+Runs cannot later acquire a rerun association between the classification and read.
+There is no inference from a principal prefix, source name or current registry.
+
+For a known rerun, the planner verifies its original acceptance/child request and
+reads the exact registered child normalized-result artifact. It rejects metadata
+substitution; it does not reuse the source candidate as the child result. Frozen
+policy bytes, workload, report producer, schema pin, baseline artifacts and approval
+snapshots are cloned from retained acceptance. Only the candidate is adapted to the
+verified child artifact. A SHA-256 of that exact input document supplies the report
+Job's existing capture annotation. Job generation and verdict attestation therefore
+use the same selection and deterministic retry identity, without selecting a newly
+approved baseline. Historical approval remains historical after retirement.
+
+**BEHAVIOR-ADJACENT rollout:** apply existing migration 0027 before deploying this
+binary with report capture enabled. Provision SELECT on `rerun_intents`; actual
+rerun reads also require the existing source/child service, Run, artifact and
+comparison-input read privileges. A missing table/privilege is unavailable, not
+legacy mode. No new migration or privilege mutation is performed by the binary.
+Roll back the application while retaining schema and acceptance, or keep report
+capture disabled until its complete prerequisites are provisioned. Stored inputs
+and older public contract pins remain unchanged.
+
+PR59 is still incomplete. Dispatch/current-admission and raw/normalization trust
+must use the immutable child binding before a public rerun producer is enabled.
+This slice qualifies report planning/verification only; it does not prove full
+change-to-execution-to-report acceptance or admit service identity/public routes.
