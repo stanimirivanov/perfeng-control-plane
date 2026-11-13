@@ -74,7 +74,7 @@ func TestRerunJobsSealValidationAndRecoverCleanupWithoutRegistry(t *testing.T) {
 		t.Fatal("cleanup depends on withdrawn registry", err)
 	}
 	f.current.State = run.StateProvisioning
-	if job, err = resolver.ResolveClaimJob(context.Background(), testRerunClaim(f.current)); !errors.Is(err, run.ErrUnavailable) || job != nil {
+	if job, err = resolver.ResolveJob(context.Background(), "child-owner", f.current); !errors.Is(err, run.ErrUnavailable) || job != nil {
 		t.Fatal("unqualified dispatch enabled", err)
 	}
 }
@@ -114,6 +114,9 @@ func TestRerunJobsDoNotFallbackOnBrokenKnownSelection(t *testing.T) {
 }
 
 func (s *rerunJobsFixture) RetainClaimedRerunTemplate(ctx context.Context, claim run.Claim, job *batchv1.Job) (*batchv1.Job, error) {
+	if claim.Run.State != run.StateValidating && s.sealed == nil {
+		return nil, run.ErrConflict
+	}
 	return s.RetainRerunTemplate(ctx, claim.Lease.Principal, claim.Run, job)
 }
 func testRerunClaim(current run.Run) run.Claim {

@@ -124,3 +124,4 @@ How will assumptions and consequences be verified?
 | [0039](0039-seal-rerun-dispatch-templates.md) | Seal reusable rerun dispatch templates before side effects | Proposed |
 | [0040](0040-consume-sealed-rerun-validation-and-cleanup.md) | Consume sealed rerun templates for validation and cleanup | Proposed |
 | [0041](0041-recheck-current-rerun-validation-eligibility.md) | Recheck current rerun validation eligibility | Proposed |
+| [0042](0042-dispatch-reruns-from-claim-qualified-seals.md) | Dispatch reruns from claim-qualified seals | Proposed |

@@ -3,7 +3,8 @@
 ## TL;DR
 
 - M05-PR50 stages atomic child, service lineage and immutable acceptance storage.
-- No public route, rerun producer, public codec or execution activation is included.
+- No public route, rerun producer, public codec or end-to-end acceptance is enabled.
+- PR59f permits private claimed provisioning only by replaying the reviewed validation seal.
 - Actor/key replay is independent of legacy CreateRun and caller credential rotation.
 - Current grants and exact baseline approval are fenced inside the write transaction.
 - PR58/45 identity/authorization, PR59 execution and PR51 serving must qualify before use.
@@ -242,12 +243,11 @@ Existing cancellation reconciliation still renews the lease, finds/attests the
 exact Job and binds/terminates it; this resolver creates no resource. Already-bound
 executions retain their existing leased monitoring/cleanup path.
 
-Known-rerun PROVISIONING explicitly returns unavailable: a template seal is not a
-dispatch permit. No ordinary-registry fallback is allowed on known-child failure.
-The next dispatch slice must retire this safety fence only after current admission,
-lease-qualified creation/adoption and withdrawal/retry behavior are proven. This
-is not a temporary success stub and must not be bypassed to get an acceptance run
-green. Public rerun producers remain disabled while PR59 is incomplete.
+This slice originally fenced known-rerun PROVISIONING as unavailable: a template
+seal alone is not a dispatch permit. PR59f below replaces this refusal with
+claim-qualified replay and current admission checks. No ordinary-registry fallback
+is allowed on known-child failure. Public rerun producers remain disabled while
+PR59 is incomplete.
 
 Before enabling a future producer, apply existing migration 0028 and provision
 SELECT/INSERT on `rerun_templates` for the qualified worker, plus existing accepted
@@ -274,11 +274,46 @@ remains outside SQL; no external calls enter the transaction.
 
 Historical template reads, cancellation recovery and trusted unclaimed tooling
 retain their existing behavior. Withdrawal neither rewrites nor destroys sealed
-evidence. Point-in-time validation is not a future dispatch permit: known-rerun
-PROVISIONING remains blocked. Dispatch, raw/normalization trust, public producer
+evidence. Point-in-time validation is not a future dispatch permit. PR59f below
+adds claimed provisioning replay; raw/normalization trust, public producer
 admission and full live acceptance remain outstanding PR59 gates.
 
 No migration, dependency, contract pin, deployment or flag change is required.
 Workers need current service-grant and baseline SELECT rights in addition to
 existing capture rights. Rollback retains all evidence and the dispatch fence;
 never enable a producer by reverting eligibility checks.
+
+## Claimed sealed provisioning: M05-PR59f
+
+Capture-enabled provisioning now calls the claim-aware resolver before the
+existing fresh lease/state renewal and deterministic Kubernetes create/adopt/bind
+sequence. Known accepted Kubernetes reruns require the original exact source-owner
+registry review in PROVISIONING as well as VALIDATING. The reviewed proposal must
+replay the identical existing seal through the claim-fenced SQL writer, which
+rechecks current original-actor service grants and exact approved baselines.
+Missing seals cannot be backfilled in PROVISIONING; changed proposals conflict.
+An unclaimed provisioning lookup remains unavailable. Ordinary selection keeps
+its existing fallback only for proven non-reruns.
+
+Current lease/revision failures, withdrawal, missing/corrupt evidence and changed
+selection return classified errors before dispatch, without ordinary fallback.
+Provisioning errors leave the Run pending for retry/operator cancellation; they
+do not fabricate a terminal outcome. The existing post-resolution renewal rejects
+cancellation, changed revision or lost ownership before a create. A committed
+binding routes to bound monitoring without recreation. An ambiguous create can
+be adopted on a qualified retry with the same deterministic identity; if approval
+is withdrawn, new provisioning is denied, while cancellation still finds/binds
+the exact Job using historical sealed evidence without reapproval or creation.
+
+SQL locks are released before Kubernetes I/O. Eligibility is a point-in-time
+observation, not atomic authorization across PostgreSQL and Kubernetes: withdrawal
+or cancellation racing after the final check cannot recall an in-flight create.
+The bounded existing attempt and identity/cleanup protocol still apply. This
+slice does not claim instant cross-system revocation or exactly-once execution;
+see [dispatch limits](kubernetes-dispatch.md#observe-and-stop).
+
+No migration, contract/dependency, flag or deployment change is included. Existing
+migration 0028 and the grant/baseline/acceptance/seal rights documented above are
+required. Rollback code restores private provisioning refusal while retaining
+seals and compatible cancellation workers. Public producers stay disabled until
+raw/normalization trust, identity admission and full live rerun acceptance qualify.

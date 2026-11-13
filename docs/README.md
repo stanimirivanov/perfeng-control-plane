@@ -13,6 +13,8 @@
 
 Current rerun validation eligibility is documented in [ADR-0041](decisions/0041-recheck-current-rerun-validation-eligibility.md) and the [persistence guide](rerun-persistence.md#current-validation-eligibility-m05-pr59e).
 
+Claimed rerun provisioning is documented in [ADR-0042](decisions/0042-dispatch-reruns-from-claim-qualified-seals.md) and the [persistence guide](rerun-persistence.md#claimed-sealed-provisioning-m05-pr59f).
+
 ## Route by task
 
 | Task or changed boundary | Read first | Verify or consult |

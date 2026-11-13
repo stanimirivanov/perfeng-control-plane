@@ -16,7 +16,7 @@ func (registry *ReportPolicyRegistry) ResolveRerunTemplate(ctx context.Context, 
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if registry == nil || current.State != run.StateValidating || current.Request.Validate() != nil || value.Child.ID != current.ID || value.Child.Request != current.Request || value.Inputs.Request != current.Request || value.Source.OwnerPrincipal == "" {
+	if registry == nil || (current.State != run.StateValidating && current.State != run.StateProvisioning) || current.Request.Validate() != nil || value.Child.ID != current.ID || value.Child.Request != current.Request || value.Inputs.Request != current.Request || value.Source.OwnerPrincipal == "" {
 		return nil, run.ErrValidation
 	}
 	entry, exists := registry.lookup(value.Source.OwnerPrincipal, current.Request)
