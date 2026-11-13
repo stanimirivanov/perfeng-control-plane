@@ -408,3 +408,14 @@ deployment change is included. Existing acceptance and registered-artifact reads
 are required. Rollback retains evidence but restores ordinary normalization lookup,
 which generally cannot resolve synthetic child owners. Public identity admission,
 serving and full live rerun qualification remain outstanding; PR59 is not complete.
+
+
+## Private adapter qualification: M05-PR59j
+
+The [qualification guide](rerun-qualification.md) joins the accepted-child,
+raw/normalized and retained-report paths against disposable PostgreSQL with real
+registry adapters and synthetic evidence. New handles between stages test durable
+selection; explicit byte/current-review failures test refusal. This is report
+planning qualification, not real execution, report evaluation, a process-crash
+receipt or public authorization. Public identity and full live acceptance gates
+remain outstanding; no production behavior or enablement changes.
