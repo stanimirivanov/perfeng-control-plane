@@ -5,7 +5,7 @@
 - Issue #356 / M05-PR58b adds strict RS256 signature verification before identity admission.
 - Use explicitly trusted, issuer-bound RSA key snapshots; token fields never choose a key endpoint.
 - Reject duplicate JSON, unsupported JOSE headers/profiles and stale trusted keys; return no partial identity.
-- PR58c adds [fixed-origin JWKS fetching](identity-jwks-fetch.md); refresh/cache policy, enrollment storage, real Keycloak receipts and HTTP activation remain unqualified.
+- PR58c adds [fixed-origin JWKS fetching](identity-jwks-fetch.md); [PR58d](identity-key-cache.md) adds bounded refresh/cache policy. Enrollment storage, real Keycloak receipts and HTTP activation remain unqualified.
 
 ## Dependency admission
 
@@ -56,7 +56,8 @@ not refresh this timestamp merely because it served a cached key.
 
 This enforces the age of supplied snapshots, not a five-minute network cache.
 PR58c adds explicit same-origin TLS fetching and strict JWKS decoding. Refresh
-limits, bounded/negative caching and real rotation remain later key-source work. The verifier honors cancellation and
+limits and snapshot absence/expiry are implemented in PR58d. Real issuer rotation
+and serving qualification remain separate. The verifier honors cancellation and
 sanitizes dependency/backend errors to existing safe sentinels.
 
 ## Composition and proof limits

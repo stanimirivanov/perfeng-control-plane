@@ -31,6 +31,8 @@ Explicit-key JWT verification and dependency admission (issue #356): [JWT guide]
 
 Fixed-origin JWKS fetching and key-set proof limits (issue #356): [JWKS guide](identity-jwks-fetch.md).
 
+Bounded identity key refresh/cache and proof limits (issue #356): [cache guide](identity-key-cache.md).
+
 ## Route by task
 
 | Task or changed boundary | Read first | Verify or consult |
