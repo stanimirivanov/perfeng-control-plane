@@ -18,8 +18,11 @@ type ReconciliationStore interface {
 // ReconciliationDependencies contains the already constructed persistence,
 // trust, Kubernetes and artifact boundaries used by lifecycle reconciliation.
 type ReconciliationDependencies struct {
-	Store       ReconciliationStore
-	Jobs        reconcile.JobResolver
+	Store ReconciliationStore
+	Jobs  reconcile.JobResolver
+	// RerunJobs optionally guards validation/provisioning/cleanup; Jobs retains
+	// original registry capabilities for benchmark discovery.
+	RerunJobs   reconcile.JobResolver
 	Controllers KubernetesControllers
 	Collectors  ArtifactCollectors
 	Executors   KubernetesExecutors
@@ -54,9 +57,13 @@ func NewReconciliationWorker(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	jobs := dependencies.Jobs
+	if dependencies.RerunJobs != nil {
+		jobs = dependencies.RerunJobs
+	}
 	validation, err := reconcile.NewValidationReconciler(
 		dependencies.Store,
-		dependencies.Jobs,
+		jobs,
 		dependencies.Controllers.Execution,
 		reconciliationConfig.ValidationAttemptTimeout,
 	)
@@ -65,7 +72,7 @@ func NewReconciliationWorker(
 	}
 	provisioning, err := reconcile.NewProvisioningReconciler(
 		dependencies.Store,
-		dependencies.Jobs,
+		jobs,
 		dependencies.Controllers.Execution,
 		bound,
 		reconciliationConfig.Provisioning,

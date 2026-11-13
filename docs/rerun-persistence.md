@@ -212,3 +212,47 @@ Rollback code while retaining schema, templates and acceptance; repair forward.
 No down migration, dependency/snapshot change, flag enablement or deployment is
 included. PR59 remains incomplete until dispatch/admission and raw/normalization
 integration qualify. Sealing a template alone proves no end-to-end rerun flow.
+
+## Sealed validation and cleanup: M05-PR59d
+
+Capture-enabled runtime composition now supplies `RerunJobResolver` to validation,
+provisioning and unbound cancellation recovery. The original registry still owns
+benchmark capability discovery; ordinary Runs delegate to its existing resolver.
+Capture-disabled behavior is unchanged. Enabled stores/reviewers must implement
+the accepted-association, template and current-registry review capabilities.
+
+For a known child in VALIDATING, the registry reviews its exact frozen request
+against the retained source owner's current approved entry. Candidate image,
+workload identity, policy bytes/mode, report producer and contracts version must
+match; native and benchmark entries are refused by this consumer. The reusable
+Job is cloned and sealed through a claim-aware template write. Validation carries
+the worker lease and expected Run revision into the capture transaction; existing
+`lockOwnedClaim` checks ownership/expiry after taking the Run lock, then the same
+transaction checks revision and stores the seal. A stale worker cannot win first
+capture, even though ordinary reusable-template resolution is normally read-only.
+The older unfenced capture primitive remains for trusted non-runtime tooling, not
+this production path. A changed proposal
+conflicts without replacing the original seal. This is structural/current-registry
+validation, not proof of current baseline eligibility, actor authority or lease
+ownership. Those admission checks remain mandatory before new dispatch qualifies.
+
+For CANCELLING, only the stored seal may recover the Job identity; the resolver
+neither rereviews a withdrawn source entry nor reconstructs a missing template.
+Existing cancellation reconciliation still renews the lease, finds/attests the
+exact Job and binds/terminates it; this resolver creates no resource. Already-bound
+executions retain their existing leased monitoring/cleanup path.
+
+Known-rerun PROVISIONING explicitly returns unavailable: a template seal is not a
+dispatch permit. No ordinary-registry fallback is allowed on known-child failure.
+The next dispatch slice must retire this safety fence only after current admission,
+lease-qualified creation/adoption and withdrawal/retry behavior are proven. This
+is not a temporary success stub and must not be bypassed to get an acceptance run
+green. Public rerun producers remain disabled while PR59 is incomplete.
+
+Before enabling a future producer, apply existing migration 0028 and provision
+SELECT/INSERT on `rerun_templates` for the qualified worker, plus existing accepted
+Run/service/input read rights. No new migration, dependency, public route, flag
+mutation or deployment is included here. Ordinary capture-enabled validation adds
+an association observation; errors fail closed. Roll back code while retaining
+seals/accepted evidence; cancellation requiring the seal needs a compatible worker.
+Raw/normalization trust and full live rerun acceptance remain separate gates.

@@ -25,6 +25,11 @@ type JobValidator interface {
 	ValidateJob(string, *batchv1.Job) error
 }
 
+// ClaimJobResolver carries current lease authority for resolvers that persist plans.
+type ClaimJobResolver interface {
+	ResolveClaimJob(context.Context, run.Claim) (*batchv1.Job, error)
+}
+
 // ValidationReconciler resolves and validates a trusted execution plan before
 // allowing a Run to enter PROVISIONING.
 type ValidationReconciler struct {
@@ -76,7 +81,13 @@ func (reconciler *ValidationReconciler) Reconcile(
 	ctx, cancel := context.WithTimeout(ctx, reconciler.attemptTimeout)
 	defer cancel()
 
-	template, err := reconciler.resolver.ResolveJob(ctx, claim.Lease.Principal, claim.Run.Clone())
+	var template *batchv1.Job
+	var err error
+	if guarded, ok := reconciler.resolver.(ClaimJobResolver); ok {
+		template, err = guarded.ResolveClaimJob(ctx, claim)
+	} else {
+		template, err = reconciler.resolver.ResolveJob(ctx, claim.Lease.Principal, claim.Run.Clone())
+	}
 	if err != nil {
 		return reconciler.resolutionError(ctx, claim, err)
 	}

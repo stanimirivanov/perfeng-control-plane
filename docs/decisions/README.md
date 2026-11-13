@@ -122,3 +122,4 @@ How will assumptions and consequences be verified?
 | [0037](0037-scope-worker-rerun-selection-to-child.md) | Scope worker rerun selection to immutable child identity | Proposed |
 | [0038](0038-plan-rerun-reports-from-retained-selection.md) | Plan rerun reports from the retained source selection | Proposed |
 | [0039](0039-seal-rerun-dispatch-templates.md) | Seal reusable rerun dispatch templates before side effects | Proposed |
+| [0040](0040-consume-sealed-rerun-validation-and-cleanup.md) | Consume sealed rerun templates for validation and cleanup | Proposed |
