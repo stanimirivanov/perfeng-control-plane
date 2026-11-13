@@ -25,6 +25,8 @@ Private rerun adapter qualification and its proof limits: [qualification guide](
 
 Accepted named identity and BFF delegation trust (issue #356; implementation follows documentation PR review and merge): [ADR-0046](decisions/0046-select-issuer-and-bff-delegation-trust.md).
 
+Named identity admission and current proof limits (issue #356): [admission guide](identity-admission.md), [accepted ADR-0046](decisions/0046-select-issuer-and-bff-delegation-trust.md).
+
 ## Route by task
 
 | Task or changed boundary | Read first | Verify or consult |
