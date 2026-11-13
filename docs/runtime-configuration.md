@@ -520,3 +520,8 @@ before opt-in. See [retention and rollback](report-comparison-retention.md).
 Report capture also composes frozen rerun report planning. With capture enabled,
 apply existing migration 0027 and provision rerun intent read privileges before
 deploying; missing schema/access fails unavailable. See [PR59b rollout](rerun-persistence.md#frozen-report-planning-m05-pr59b).
+
+Capture-enabled reconciliation also guards known-rerun validation and cleanup
+using sealed templates. Migration 0028 and qualified worker template read/write
+privileges are required for those paths; new rerun dispatch remains unavailable.
+See [PR59d](rerun-persistence.md#sealed-validation-and-cleanup-m05-pr59d).

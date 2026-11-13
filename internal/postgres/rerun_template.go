@@ -52,6 +52,17 @@ func (r *Repository) GetRerunTemplate(ctx context.Context, principal string, cur
 // registry admission and is deliberately not wired into runtime dispatch yet.
 // Equal replay precedes lifecycle checks; different bytes cannot replace a seal.
 func (r *Repository) RetainRerunTemplate(ctx context.Context, principal string, current run.Run, template *batchv1.Job) (*batchv1.Job, error) {
+	return r.retainRerunTemplate(ctx, principal, current, template, nil)
+}
+
+// RetainClaimedRerunTemplate fences runtime capture with current lease and revision.
+func (r *Repository) RetainClaimedRerunTemplate(ctx context.Context, claim run.Claim, template *batchv1.Job) (*batchv1.Job, error) {
+	if !claim.Lease.Valid() || claim.Lease.RunID != claim.Run.ID {
+		return nil, run.ErrValidation
+	}
+	return r.retainRerunTemplate(ctx, claim.Lease.Principal, claim.Run, template, &claim)
+}
+func (r *Repository) retainRerunTemplate(ctx context.Context, principal string, current run.Run, template *batchv1.Job, claim *run.Claim) (*batchv1.Job, error) {
 	ctx, cancel := context.WithTimeout(ctx, operationTimeout)
 	defer cancel()
 	payload, err := json.Marshal(rerunTemplateDocument{SchemaVersion: 1, Template: template})
@@ -72,11 +83,16 @@ func (r *Repository) RetainRerunTemplate(ctx context.Context, principal string, 
 		return nil, err
 	}
 	defer tx.Rollback()
-	stored, err := lockedRun(ctx, tx, principal, current.ID)
+	var stored run.Run
+	if claim != nil {
+		stored, _, err = lockOwnedClaim(ctx, tx, claim.Lease)
+	} else {
+		stored, err = lockedRun(ctx, tx, principal, current.ID)
+	}
 	if err != nil {
 		return nil, err
 	}
-	if stored.Request != current.Request {
+	if stored.Request != current.Request || (claim != nil && stored.Revision != current.Revision) {
 		return nil, run.ErrConflict
 	}
 	var previous []byte

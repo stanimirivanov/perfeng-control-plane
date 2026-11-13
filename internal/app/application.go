@@ -80,10 +80,15 @@ func NewApplicationRuntime(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	rerunJobs, err := composeRerunJobs(config.Database.CaptureReportInputs, resources.Database, resources.Registry)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
 	reconciliationWorker, err := NewReconciliationWorker(
 		ReconciliationDependencies{
 			Store:       resources.Database,
 			Jobs:        resources.Registry,
+			RerunJobs:   rerunJobs,
 			Controllers: controllers,
 			Collectors:  collectors,
 			Executors:   executors,
