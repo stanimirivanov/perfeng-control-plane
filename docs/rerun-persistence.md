@@ -231,10 +231,10 @@ the worker lease and expected Run revision into the capture transaction; existin
 transaction checks revision and stores the seal. A stale worker cannot win first
 capture, even though ordinary reusable-template resolution is normally read-only.
 The older unfenced capture primitive remains for trusted non-runtime tooling, not
-this production path. A changed proposal
-conflicts without replacing the original seal. This is structural/current-registry
-validation, not proof of current baseline eligibility, actor authority or lease
-ownership. Those admission checks remain mandatory before new dispatch qualifies.
+this production path. A changed proposal conflicts without replacing the original
+seal. This slice supplies structural/current-registry validation and
+lease-qualified capture. PR59e below adds current actor/baseline checks at sealing; admission
+checks remain mandatory before new dispatch qualifies.
 
 For CANCELLING, only the stored seal may recover the Job identity; the resolver
 neither rereviews a withdrawn source entry nor reconstructs a missing template.
@@ -256,3 +256,29 @@ mutation or deployment is included here. Ordinary capture-enabled validation add
 an association observation; errors fail closed. Roll back code while retaining
 seals/accepted evidence; cancellation requiring the seal needs a compatible worker.
 Raw/normalization trust and full live rerun acceptance remain separate gates.
+
+## Current validation eligibility: M05-PR59e
+
+Claimed runtime capture and replay now check the originating actor's current
+source-service `run:read` and `run:rerun` grants and the exact retained baseline
+snapshots. Each baseline must still equal its report-time snapshot and be
+APPROVED. Checks precede existing-seal replay, so an old seal cannot bypass
+withdrawal. Missing/withdrawn grants or approvals return forbidden; existing
+validation reconciliation classifies this as INVALID / VALIDATION_FAILED.
+
+The capture transaction locks the owned child and lease first, then grants in
+read/rerun order, then baseline rows sorted by ID/version. Shared eligibility
+locks last through seal commit/rollback, serializing withdrawal with capture.
+Existing operation/lock timeouts bound the transaction. Current registry review
+remains outside SQL; no external calls enter the transaction.
+
+Historical template reads, cancellation recovery and trusted unclaimed tooling
+retain their existing behavior. Withdrawal neither rewrites nor destroys sealed
+evidence. Point-in-time validation is not a future dispatch permit: known-rerun
+PROVISIONING remains blocked. Dispatch, raw/normalization trust, public producer
+admission and full live acceptance remain outstanding PR59 gates.
+
+No migration, dependency, contract pin, deployment or flag change is required.
+Workers need current service-grant and baseline SELECT rights in addition to
+existing capture rights. Rollback retains all evidence and the dispatch fence;
+never enable a producer by reverting eligibility checks.
