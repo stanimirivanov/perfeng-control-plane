@@ -21,6 +21,8 @@ Rerun raw provenance approval: [ADR-0044](decisions/0044-bind-rerun-raw-approval
 
 Rerun normalization planning and approval: [ADR-0045](decisions/0045-bind-rerun-normalization-to-registered-evidence.md), [registered evidence binding](rerun-persistence.md#source-owned-normalization-m05-pr59i).
 
+Private rerun adapter qualification and its proof limits: [qualification guide](rerun-qualification.md), `make db-validate`.
+
 ## Route by task
 
 | Task or changed boundary | Read first | Verify or consult |
