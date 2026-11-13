@@ -345,3 +345,35 @@ acceptance. No public producer is enabled.
 No migration, permissions, dependency, schema snapshot, flag or deployment change
 is included. Rollback retains evidence but restores the earlier collector-selection
 gap and report uniform-version bypass; keep public rerun serving disabled.
+
+
+## Source-owned raw approval: M05-PR59h
+
+Capture-enabled runtime now composes a raw-manifest approver that classifies the
+immutable child association before registry approval. Known children require valid
+acceptance, exact child owner/ID/request and the retained reusable Job. Missing or
+corrupt evidence is unavailable, never ordinary fallback. Proven ordinary Runs
+and capture-disabled composition retain their existing raw approval path.
+
+For accepted Kubernetes children in COLLECTING, use the retained source-owner
+registry context. Require the frozen workload and contracts version, and require
+the raw producer's pinned OCI image to be present in the sealed execution Job
+under the existing template image policy. Raw v1 image and v2 OCI-artifact claims
+are supported; native/benchmark paths remain unqualified. Current source-entry
+producer name/version and artifact approval remain mandatory. Never look up a
+new entry under the synthetic child owner or silently substitute execution bytes.
+
+Producer metadata was not historically sealed, so a withdrawn/changed current
+entry may reject already-produced evidence via existing invalid-artifact/collection
+failure handling. This slice does not invent a historical approval or freeze that
+metadata retroactively. Current actor grants/baselines are not rechecked during
+historical collection; reconciliation still owns claim-fenced lifecycle writes.
+All existing manifest, checksum, source and provenance checks remain mandatory.
+Approval reads no objects and registers no artifacts.
+
+No migration, new permissions, dependency, snapshot, flag or deployment change is
+included. Existing acceptance/service/Run/seal reads are required. Rollback retains
+all evidence and restores the old raw approval path, which generally cannot approve
+synthetic child owners. Normalization runtime/producer binding, public admission
+and full live rerun acceptance remain separate PR59 gates; no public producer is
+enabled here.

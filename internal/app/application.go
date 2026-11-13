@@ -26,9 +26,13 @@ func NewApplicationRuntime(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	artifactTrust, err := composeRerunArtifactTrust(config.Database.CaptureReportInputs, resources.Database, resources.Registry)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
 	collectors, err := NewArtifactCollectors(
 		resources.ArtifactStorage,
-		resources.Registry,
+		artifactTrust,
 		resources.Database, reportPlans,
 		config.ArtifactVerification,
 	)

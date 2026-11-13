@@ -17,6 +17,8 @@ Claimed rerun provisioning is documented in [ADR-0042](decisions/0042-dispatch-r
 
 Evidence schema selection across collectors is documented in [ADR-0043](decisions/0043-preserve-retained-schemas-across-evidence-collectors.md) and the [rerun persistence guide](rerun-persistence.md#retained-evidence-schema-selection-m05-pr59g).
 
+Rerun raw provenance approval: [ADR-0044](decisions/0044-bind-rerun-raw-approval-to-sealed-execution.md), [source-owned sealed approval](rerun-persistence.md#source-owned-raw-approval-m05-pr59h).
+
 ## Route by task
 
 | Task or changed boundary | Read first | Verify or consult |
@@ -94,4 +96,4 @@ Frozen rerun report planning and report-capture rollout: [PR59b](rerun-persisten
 
 Immutable rerun dispatch template capture: [PR59c](rerun-persistence.md#sealed-dispatch-templates-m05-pr59c), [ADR-0039](decisions/0039-seal-rerun-dispatch-templates.md).
 
-Sealed rerun validation and cleanup, with new dispatch still fenced: [PR59d](rerun-persistence.md#sealed-validation-and-cleanup-m05-pr59d), [ADR-0040](decisions/0040-consume-sealed-rerun-validation-and-cleanup.md).
+Sealed rerun validation and cleanup (historical PR59d slice): [PR59d](rerun-persistence.md#sealed-validation-and-cleanup-m05-pr59d), [ADR-0040](decisions/0040-consume-sealed-rerun-validation-and-cleanup.md).
