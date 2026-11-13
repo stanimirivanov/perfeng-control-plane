@@ -81,3 +81,5 @@ canonical document or creates a recurring task without a clear route.
 policy; semantic accuracy remains a review responsibility.
 
 Attributable rerun persistence and activation limits: [rerun storage](rerun-persistence.md), [ADR-0036](decisions/0036-retain-atomic-rerun-acceptance.md).
+
+Trusted child-bound rerun recovery (PR59a): [worker lookup](rerun-persistence.md#worker-selection-lookup-m05-pr59a), [ADR-0037](decisions/0037-scope-worker-rerun-selection-to-child.md).

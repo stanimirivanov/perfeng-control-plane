@@ -107,3 +107,27 @@ SQL immutability, actual rollback after a receipt constraint failure, reopen and
 separate process exit after commit without a response. Domain tests cover bounded
 intent and the exact 24-hour replay deadline. Race checks supplement real database
 serialization; they do not qualify future identity verification or dispatch behavior.
+
+## Worker selection lookup: M05-PR59a
+
+`GetRerunExecution` recovers the immutable acceptance by the server-owned child
+native principal, child ID and exact request. It checks the child/source service
+lineage and original actor against retained rows, then reuses receipt/input digest
+and relationship validation. Returned inputs are separately decoded copies. It
+cannot select by source ID, actor alone, a principal prefix or the newest intent.
+An ordinary/unmapped Run returns not-found; no registry fallback is performed.
+
+This private operation is for trusted workers holding an independently verified
+claim. Its selectors are not credentials or lease proof, and it must never back a
+browser/API read. Interactive recovery continues to use `GetRerun` and current
+actor grants. Grant revocation and baseline retirement do not rewrite historical
+policy/approval evidence; a recovered APPROVED snapshot does **not** authorize a
+new dispatch. Current admission and lease fencing are still required at execution.
+
+This is the first foundation slice, **not completion of M05-PR59**. Subsequent
+work must connect dispatch and reporting resolvers to this exact child lookup,
+preserve the accepted selection through normalization/reporting/collection and
+prove that missing/corrupt associations cannot fall back to ordinary registry
+selection. The original request alone does not establish that all runtime trust
+adapters honor the accepted selection. No caller, flag, route or rerun execution
+is enabled here; public serving remains blocked on the existing prerequisites.
