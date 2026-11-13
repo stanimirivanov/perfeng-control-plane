@@ -523,5 +523,8 @@ deploying; missing schema/access fails unavailable. See [PR59b rollout](rerun-pe
 
 Capture-enabled reconciliation also guards known-rerun validation and cleanup
 using sealed templates. Migration 0028 and qualified worker template read/write
-privileges are required for those paths; new rerun dispatch remains unavailable.
-See [PR59d](rerun-persistence.md#sealed-validation-and-cleanup-m05-pr59d).
+privileges are required for those paths. Claimed rerun provisioning now replays
+an existing seal after exact current registry and SQL eligibility checks, before
+fresh lease renewal and dispatch. Unclaimed provisioning remains unavailable;
+public rerun producers and live acceptance remain unqualified.
+See [PR59f](rerun-persistence.md#claimed-sealed-provisioning-m05-pr59f).

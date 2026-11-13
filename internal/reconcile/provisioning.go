@@ -178,7 +178,13 @@ func (reconciler *ProvisioningReconciler) recoverCancellation(
 }
 
 func (reconciler *ProvisioningReconciler) dispatchAndBind(ctx context.Context, claim run.Claim) error {
-	template, err := reconciler.resolver.ResolveJob(ctx, claim.Lease.Principal, claim.Run.Clone())
+	var template *batchv1.Job
+	var err error
+	if guarded, ok := reconciler.resolver.(ClaimJobResolver); ok {
+		template, err = guarded.ResolveClaimJob(ctx, claim)
+	} else {
+		template, err = reconciler.resolver.ResolveJob(ctx, claim.Lease.Principal, claim.Run.Clone())
+	}
 	if err != nil {
 		return err
 	}

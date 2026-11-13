@@ -13,6 +13,9 @@ import (
 type RerunJobStore interface {
 	LookupRerunExecution(context.Context, string, run.Run) (runrerun.Acceptance, bool, error)
 	GetRerunTemplate(context.Context, string, run.Run) (*batchv1.Job, error)
+	// RetainClaimedRerunTemplate checks current lease/revision, original actor
+	// grants and exact approved baseline snapshots in the seal transaction.
+	// PROVISIONING may only replay an identical existing validation seal.
 	RetainClaimedRerunTemplate(context.Context, run.Claim, *batchv1.Job) (*batchv1.Job, error)
 }
 
@@ -24,7 +27,7 @@ type RerunJobReview interface {
 }
 
 // RerunJobResolver seals reviewed validation and recovers cleanup from its seal.
-// New rerun creation remains fenced until the dispatch-admission slice qualifies.
+// Provisioning requires claimed replay of the exact reviewed validation seal.
 type RerunJobResolver struct {
 	store  RerunJobStore
 	review RerunJobReview
@@ -43,7 +46,9 @@ func (resolver *RerunJobResolver) ResolveJob(ctx context.Context, principal stri
 	return resolver.resolveJob(ctx, principal, current, nil)
 }
 
-// ResolveClaimJob carries lease authority into validation's template write.
+// ResolveClaimJob carries lease authority into validation capture or provisioning
+// replay. Provisioning cannot backfill a missing seal; SQL replay rechecks current
+// actor/baseline eligibility, and the caller must renew before Kubernetes I/O.
 func (resolver *RerunJobResolver) ResolveClaimJob(ctx context.Context, claim run.Claim) (*batchv1.Job, error) {
 	if !claim.Lease.Valid() || claim.Lease.RunID != claim.Run.ID {
 		return nil, run.ErrValidation
@@ -68,8 +73,11 @@ func (resolver *RerunJobResolver) resolveJob(ctx context.Context, principal stri
 		return nil, run.ErrUnavailable
 	}
 	switch current.State {
-	case run.StateValidating:
+	case run.StateValidating, run.StateProvisioning:
 		if claim == nil {
+			if current.State == run.StateProvisioning {
+				return nil, run.ErrUnavailable
+			}
 			return nil, run.ErrValidation
 		}
 		template, err := resolver.review.ResolveRerunTemplate(ctx, value, current.Clone())
@@ -83,9 +91,6 @@ func (resolver *RerunJobResolver) resolveJob(ctx context.Context, principal stri
 			err = run.ErrUnavailable
 		}
 		return template, err
-	case run.StateProvisioning:
-		// A seal is evidence, not permission to issue a new Kubernetes create.
-		return nil, run.ErrUnavailable
 	default:
 		return nil, run.ErrValidation
 	}

@@ -55,7 +55,9 @@ func (r *Repository) RetainRerunTemplate(ctx context.Context, principal string, 
 	return r.retainRerunTemplate(ctx, principal, current, template, nil)
 }
 
-// RetainClaimedRerunTemplate fences runtime capture with current lease and revision.
+// RetainClaimedRerunTemplate fences runtime capture/replay with current lease,
+// revision, actor grants and exact baseline approval. Only VALIDATING can create
+// a seal; PROVISIONING can replay identical evidence but cannot backfill it.
 func (r *Repository) RetainClaimedRerunTemplate(ctx context.Context, claim run.Claim, template *batchv1.Job) (*batchv1.Job, error) {
 	if !claim.Lease.Valid() || claim.Lease.RunID != claim.Run.ID {
 		return nil, run.ErrValidation
