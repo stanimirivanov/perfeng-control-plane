@@ -25,7 +25,11 @@ func composeReportInputs(enabled bool, database Database, trust ExecutionTrust) 
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
-	return retained, nil
+	reruns, capable := database.(reconcile.RerunReportStore)
+	if !capable {
+		return nil, ErrInvalidConfiguration
+	}
+	return reconcile.NewRerunReportPlanResolver(reruns, retained)
 }
 
 type comparisonContracts struct {

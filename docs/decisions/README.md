@@ -120,3 +120,4 @@ How will assumptions and consequences be verified?
 | [0035](0035-retain-report-time-comparison-inputs.md) | Retain report-time comparison inputs before dispatch | Proposed |
 | [0036](0036-retain-atomic-rerun-acceptance.md) | Retain atomic rerun intent and acceptance before serving | Proposed |
 | [0037](0037-scope-worker-rerun-selection-to-child.md) | Scope worker rerun selection to immutable child identity | Proposed |
+| [0038](0038-plan-rerun-reports-from-retained-selection.md) | Plan rerun reports from the retained source selection | Proposed |
