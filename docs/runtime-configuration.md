@@ -549,3 +549,14 @@ OCI execution bytes remain required; current producer metadata withdrawal can
 refuse collection. Normalized/report/schema trust capabilities are preserved.
 See [PR59h](rerun-persistence.md#source-owned-raw-approval-m05-pr59h) for limitations
 and remaining qualification gates. No new configuration or public producer is added.
+
+
+### Source-owned rerun normalization
+
+Report-capture mode shares a known-child normalization guard between analysis Job
+planning and normalized output approval. Exact registered raw references and frozen
+workload/schema compatibility precede current source-owner normalizer review.
+Raw/report/schema capabilities and existing Job/provenance checks remain intact.
+Current producer/profile changes may refuse progress; no historical normalizer
+snapshot or full live acceptance is implied. See [PR59i](rerun-persistence.md#source-owned-normalization-m05-pr59i).
+No new configuration or public producer is introduced.
