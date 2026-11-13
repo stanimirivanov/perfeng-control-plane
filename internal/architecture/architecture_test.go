@@ -41,6 +41,7 @@ var packageLayers = map[string]layer{
 	modulePath + "/internal/rawresult":           coreLayer,
 	modulePath + "/internal/run":                 coreLayer,
 	modulePath + "/internal/runcomparison":       coreLayer,
+	modulePath + "/internal/runrerun":            coreLayer,
 	modulePath + "/internal/serviceaccess":       coreLayer,
 
 	modulePath + "/internal/worker": applicationLayer,
