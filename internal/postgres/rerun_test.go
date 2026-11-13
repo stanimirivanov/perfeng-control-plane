@@ -245,6 +245,10 @@ func TestRerunRecoversAfterProcessExitWithoutResponse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	recovered, workerErr := r.GetRerunExecution(testContext, got.ChildPrincipal, got.Child)
+	if workerErr != nil || !reflect.DeepEqual(recovered, got) {
+		t.Fatal("worker recovery changed process-retained selection", workerErr)
+	}
 	replayed, err := r.AcceptRerun(testContext, intent)
 	if err != nil || !reflect.DeepEqual(got, replayed) {
 		t.Fatal("uncertain acceptance duplicated", err)
