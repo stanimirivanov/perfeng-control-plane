@@ -538,3 +538,14 @@ results; conflicting retained history refuses collection instead of being silent
 reinterpreted. Registry-version mode preserves supported per-Run pins. Known rerun
 evidence failures never authorize fallback to the registry. See [PR59g](rerun-persistence.md#retained-evidence-schema-selection-m05-pr59g)
 for the remaining producer/runtime and live qualification gates.
+
+
+### Source-owned rerun raw approval
+
+Report-capture mode also wraps raw-manifest approval with retained child/seal
+lookup and current source-owner producer review. Known missing evidence never
+falls back to a child-owner registry lookup. Frozen workload/schema and sealed
+OCI execution bytes remain required; current producer metadata withdrawal can
+refuse collection. Normalized/report/schema trust capabilities are preserved.
+See [PR59h](rerun-persistence.md#source-owned-raw-approval-m05-pr59h) for limitations
+and remaining qualification gates. No new configuration or public producer is added.

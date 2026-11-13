@@ -126,3 +126,4 @@ How will assumptions and consequences be verified?
 | [0041](0041-recheck-current-rerun-validation-eligibility.md) | Recheck current rerun validation eligibility | Proposed |
 | [0042](0042-dispatch-reruns-from-claim-qualified-seals.md) | Dispatch reruns from claim-qualified seals | Proposed |
 | [0043](0043-preserve-retained-schemas-across-evidence-collectors.md) | Preserve retained schemas across evidence collectors | Proposed |
+| [0044](0044-bind-rerun-raw-approval-to-sealed-execution.md) | Bind rerun raw approval to sealed execution | Proposed |
