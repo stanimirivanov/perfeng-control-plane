@@ -261,7 +261,11 @@ func TestNamedIdentityAgainstRealKeycloak(t *testing.T) {
 		execPolicy("UPDATE perfeng_control."+table+" SET enabled=true WHERE actor_id=$1", human)
 		check(batch.Delegated, nil)
 	}
-	if _, err := io.WriteString(stdin, "VERIFIED\n"); err != nil {
+	qualifyKeycloakServiceGrants(t, ctx, runtime, repository, writer, batch.Issuer, human, ci, batch.Delegated, batch.CI)
+	if t.Failed() {
+		t.Fatal("identity or grant assertions failed; acknowledgement refused")
+	}
+	if _, err := io.WriteString(stdin, "IDENTITY_AND_GRANTS_VERIFIED\n"); err != nil {
 		t.Fatal("cannot acknowledge verifier result")
 	}
 	qualifyKeycloakRotation(t, ctx, scanner, stdin, runtime, &clock, batch.CI)
@@ -287,7 +291,7 @@ func TestNamedIdentityAgainstRealKeycloak(t *testing.T) {
 		Admission                    string
 		PassedChecks, RemainingGates []string
 	}
-	if json.Unmarshal(redacted, &receipt) != nil || receipt.Admission != "NOT_ADMITTED" || !slices.Contains(receipt.PassedChecks, "control-plane-real-token-conformance") || slices.Contains(receipt.RemainingGates, "control-plane-real-token-conformance") || !slices.Contains(receipt.PassedChecks, "control-plane-real-key-rotation") || slices.Contains(receipt.RemainingGates, "control-plane-real-key-rotation") || !slices.Contains(receipt.PassedChecks, "control-plane-unavailable-key-freshness") || !slices.Contains(receipt.PassedChecks, "control-plane-named-http-boundary") {
+	if json.Unmarshal(redacted, &receipt) != nil || receipt.Admission != "NOT_ADMITTED" || !slices.Contains(receipt.PassedChecks, "control-plane-real-token-conformance") || slices.Contains(receipt.RemainingGates, "control-plane-real-token-conformance") || !slices.Contains(receipt.PassedChecks, "control-plane-real-key-rotation") || slices.Contains(receipt.RemainingGates, "control-plane-real-key-rotation") || !slices.Contains(receipt.PassedChecks, "control-plane-unavailable-key-freshness") || !slices.Contains(receipt.PassedChecks, "control-plane-named-http-boundary") || !slices.Contains(receipt.PassedChecks, "control-plane-current-service-grants") {
 		t.Fatal("invalid qualification receipt")
 	}
 	if scanner.Scan() || scanner.Err() != nil {
@@ -297,6 +301,9 @@ func TestNamedIdentityAgainstRealKeycloak(t *testing.T) {
 	waited = true
 	if err != nil {
 		t.Fatal("fixture failed or cleanup was incomplete")
+	}
+	if t.Failed() {
+		t.Fatal("qualification assertions failed; receipt output refused")
 	}
 	t.Log(string(redacted))
 }
