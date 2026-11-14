@@ -44,7 +44,7 @@ def observe_verified(token, jwks, issuer, **profile):
         state["oldKid"] = key_id(tokens["ci"])
         sys.stdout.write(json.dumps({"issuer": issuer, "rootPEM": state["rootPEM"], **tokens}) + "\n")
         sys.stdout.flush()
-        if sys.stdin.readline() != "VERIFIED\n":
+        if sys.stdin.readline() != "IDENTITY_AND_GRANTS_VERIFIED\n":
             raise ValueError("Control-plane qualification refused")
         state["conformance"] = True
     elif state.get("conformance") and client == fixture.CI_CLIENT:
@@ -82,7 +82,7 @@ def qualify_receipt(checks):
     if original_docker("inspect", "--format", "{{.State.Running}}", container) != "false":
         raise ValueError("Issuer outage was not confirmed")
     checkpoint("stopped", "OUTAGE_VERIFIED")
-    result["passedChecks"].extend(["control-plane-real-token-conformance", "control-plane-real-key-rotation", "control-plane-unavailable-key-freshness", "control-plane-named-http-boundary"])
+    result["passedChecks"].extend(["control-plane-real-token-conformance", "control-plane-real-key-rotation", "control-plane-unavailable-key-freshness", "control-plane-named-http-boundary", "control-plane-current-service-grants"])
     result["remainingGates"].remove("control-plane-real-token-conformance")
     result["remainingGates"].remove("control-plane-real-key-rotation")
     return result

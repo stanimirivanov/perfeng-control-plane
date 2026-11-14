@@ -105,3 +105,42 @@ These are handler-level checks, not browser or ingress/deployment qualification.
 No application route/configuration enables this adapter. See
 [ADR 0048](decisions/0048-isolate-named-http-authentication.md); the receipt stays
 NOT_ADMITTED with BFF/browser/shared-pilot pending.
+
+## Current service-grant qualification (M05-PR58j)
+
+Before acknowledging identity conformance, the same live target now qualifies
+current service rights through the private named-identity HTTP boundary and the
+real PostgreSQL repository. It admits one isolated fixture Run and records a
+reviewed binding to the actual CI subject, retaining its separate legacy owner.
+This is test setup, not a receipt for public CI creation or workload execution.
+
+The actual delegated HUMAN and CI tokens start without service rights. The
+schema-owner session uses the reviewed `set_service_grant` function to provision
+and revoke exact grants. A foreign service with the same ID, an enrolled caller
+and the original CI creator cannot transfer their grants to the human reader.
+An explicit CI read preserves the retained creator. Explicit human read also
+preserves that creator, service and legacy owner. Forged request actor/service
+metadata and the consumed bearer never supply authority to the callback.
+
+The same handler and unchanged tokens observe committed human read revocation
+on the next request, then explicit restoration. Revoked read hides the binding
+even while its legacy owner can still read the Run. Independent rerun permission
+survives read revocation; revoking rerun does not revoke read. Neither permission
+confers baseline approval. Only its own explicit grant enables the approval
+permission probe; its subsequent revocation denies again, and approval never
+restores rerun. The ordered human grant/revoke audit must match the
+expected operations, rights, accountable database administrator and review ref.
+No grant lookup is cached by the probe.
+
+Only after these checks complete does the bridge accept the
+`IDENTITY_AND_GRANTS_VERIFIED` acknowledgement. After the remaining rotation,
+outage and cleanup checks, its redacted receipt includes
+`control-plane-current-service-grants`. The admission remains `NOT_ADMITTED`;
+BFF/browser/shared-pilot qualification is still outstanding.
+
+These are private permission/read probes using existing provider and storage
+implementations. They do not implement or qualify the public PR45/48/51 routes,
+a rerun mutation transaction, baseline approval, BFF sessions, IdP disablement or
+network-presenter binding. No production code, route, startup switch, schema,
+dependency or deployment changes. Rollback removes the added qualification and
+receipt requirement; persisted production grants and legacy serving are unchanged.
