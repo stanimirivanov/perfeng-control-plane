@@ -57,6 +57,7 @@ help:
 	@echo "  make fuzz  Run the bounded JSON parser fuzz target"
 	@echo "  make supply-chain  Run vulnerability and license checks"
 	@echo "  make validate  Run the complete non-live acceptance suite"
+	@echo "  make identity-qualification  Qualify real pinned Keycloak tokens (explicit inputs)"
 	@echo "  make db-validate  Run PostgreSQL integration tests (URL required)"
 	@echo "  make kubernetes-validate  Run live Kubernetes API tests (kubeconfig required)"
 	@echo "  make image  Build and verify IMAGE (default: perfeng-control-plane:local-check)"
@@ -164,3 +165,9 @@ contracts-update-check:
 contracts-restore-check:
 	@test -n "$(CONTRACTS_STAGING_TARGET)" && test -n "$(CONTRACTS_ROLLBACK_SNAPSHOT)"
 	@go run ./tools/contract-distribution --assets="$(CONTRACTS_SHADOW_ASSETS)" --bootstrap="$(CONTRACTS_BOOTSTRAP)" --verifier="$(CONTRACTS_VERIFIER)" --target="$(CONTRACTS_STAGING_TARGET)" --rollback="$(CONTRACTS_ROLLBACK_SNAPSHOT)"
+
+.PHONY: identity-qualification
+identity-qualification:
+	$(if $(PERFENG_TEST_DATABASE_URL),,$(error PERFENG_TEST_DATABASE_URL must name a disposable loopback PostgreSQL database))
+	$(if $(PERFENG_ENVIRONMENT_SOURCE),,$(error PERFENG_ENVIRONMENT_SOURCE must contain the pinned fixture Git objects))
+	PERFENG_TEST_KEYCLOAK=1 go test -vet=off -race -count=1 -timeout=5m -run '^TestNamedIdentityAgainstRealKeycloak$$' -v ./internal/postgres

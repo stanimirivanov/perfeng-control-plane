@@ -37,6 +37,8 @@ Current subject enrollment and caller delegation (issue #356): [ADR-0047](decisi
 
 Managed private identity adapter composition and synthetic full-chain evidence (issue #356): [composition guide](identity-composition.md).
 
+Real pinned Keycloak token/managed verifier conformance (issue #356): [qualification guide](identity-keycloak-qualification.md), `make identity-qualification`.
+
 ## Route by task
 
 | Task or changed boundary | Read first | Verify or consult |

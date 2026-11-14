@@ -1,0 +1,11 @@
+{
+  "commit": "cadb065017750596270fd0a4a46226c7f819f2c1",
+  "files": {
+    ".python-version": "7b55f8e67b5623c4bef3fa691288da9437d79d3aba156de48d481db32ac7d16d",
+    "pyproject.toml": "688bb250e572f9e49d56c637c560fa102af1b9e9337f21fd6f66d37be5525d4f",
+    "uv.lock": "e073baefd0ab3d11d8c9a093fc98f7e387177ea987a4dcab72db8fed20d1765c",
+    "scripts/keycloak_qualification.py": "31630b15d91d3f5ca33236dd7d339b396061d8005f4d4e8eaf2ca096c49a5aa6",
+    "scripts/keycloak_human.py": "075ff9b963b5c04e11b4f5ecc47fa5918856cea0f15f5edf0b11a15adbac0e12",
+    "tests/qualification/keycloak/fixture.lock.json": "07bd49ea9cf7ebf881da4f913b827c885e7139878d2b1bffc9ae5d9d21b71ec9"
+  }
+}
