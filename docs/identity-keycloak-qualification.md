@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-- Issue #356 / M05-PR58g feeds real provider tokens into the actual managed Go verifier.
+- Issue #356 / M05-PR58g/h qualifies real tokens, rotation and unavailable-key trust through Go.
 - The fixture is pinned by commit plus per-file SHA-256, not the sibling working tree.
 - Tokens move only over a private process pipe; retain only a redacted receipt.
 - Current PostgreSQL policy is rechecked; public identity serving remains disabled.
@@ -28,8 +28,8 @@ launch Keycloak; only this explicit target selects the separate live test.
 Missing required inputs are errors, not successful skipped qualification.
 
 The [fixture pin](../internal/postgres/testdata/keycloak-fixture.json) selects
-[environment commit cadb065](https://github.com/stanimirivanov/perfeng-environment/commit/cadb065017750596270fd0a4a46226c7f819f2c1).
-Only six checksum-verified Git blobs are staged into a private temporary directory.
+[environment commit dbf12dc](https://github.com/stanimirivanov/perfeng-environment/commit/dbf12dcdfda9d2a42497aeba9aeae8d34a779ee8).
+Only seven checksum-verified Git blobs are staged into a private temporary directory.
 If the Python cache is cold, explicitly bootstrap that pinned dependency graph
 first: extract `.python-version`, `pyproject.toml` and `uv.lock` from that commit
 to a private temporary directory, run `uv sync --locked --project` against it,
@@ -51,8 +51,28 @@ admission and current PostgreSQL policy. It tests positive identities, rejected
 initial audience/ID token/tampering, enrollment and delegation disable/restore,
 kind mismatch, no inherited baseline authority and stopped-verifier refusal.
 Instances are retired before a different profile is constructed for the same issuer.
-Only after those checks succeed does Go acknowledge the bridge. The original
-fixture then completes its negative checks and cleanup before emitting its receipt.
+The bridge preserves every original provider/protocol check. Private checkpoints
+pause the real provider after overlap and after retirement. Go keeps the same
+managed cache across those checkpoints: the new kid is refused within the
+cooldown, admitted after a permitted refresh, and the old key is retained only
+until a later qualified refresh observes its retirement. A deliberately invalid
+unknown-kid probe triggers that refresh; no signed payload or expected identity
+is rewritten. Invalid phase ordering and missing checkpoint tokens refuse the gate.
+
+After retirement, stop that instance before constructing an independently fresh
+outage verifier. It obtains actual current keys and verifies a fresh surviving CI
+token. Only then does the bridge stop the exact owned issuer after checking its
+label. Fresh known keys continue within the approved window. An unknown-key
+refresh fails unavailable without evicting fresh known keys; trust older than
+five minutes fails unavailable. The source fixture still performs final cleanup
+before the redacted receipt is emitted.
+
+The Go clock is controlled for the existing ten-second attempt interval and
+five-minute freshness bound. It is not a five-minute wall-clock endurance test.
+All token/key material and provider mutations remain real. Before interpreting
+retirement/stale-trust refusal, assert the real token is still inside the
+unchanged five-minute age/lifetime plus thirty-second tolerance. No production
+limits are raised, timers slept through or token claims adjusted.
 
 The child receives cancellation, and the parent has a fallback that removes only
 the recorded random-name/label container and a strictly validated owned private
@@ -62,8 +82,8 @@ no raw child diagnostics or token envelope are printed. A failed bridge may mean
 missing offline dependencies, provider refusal, timeout or Go conformance failure;
 fix prerequisites rather than weakening checks or logging credentials.
 
-The receipt remains `NOT_ADMITTED`. It retires only real-token conformance;
-real key rotation and BFF/browser/shared-pilot gates remain. This is not HTTP
+The receipt remains `NOT_ADMITTED`. Real-token conformance, real-key rotation
+and unavailable-key freshness checks pass; BFF/browser/shared-pilot gates remain. This is not HTTP
 serving authorization, an IdP account-revocation guarantee or transaction fencing
 for a later service operation. Legacy credentials and public routes are unchanged.
 Rollback removes this opt-in test/pin/bridge; no dependency, schema or production

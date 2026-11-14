@@ -51,5 +51,7 @@ composition while retaining existing enrollment, grants and audit records.
 
 [Real Keycloak conformance](identity-keycloak-qualification.md) now qualifies the
 managed chain with pinned provider-issued tokens and current PostgreSQL policy.
-Public serving, actual key rotation and BFF/browser/shared-pilot acceptance remain
-separate gates; the synthetic receipts above alone do not establish them.
+The same explicit gate now qualifies the managed cache through real provider
+rotation/retirement and issuer outage, with controlled Go timing and real tokens.
+Public serving and BFF/browser/shared-pilot acceptance remain separate; the
+synthetic receipts above alone do not establish these live-provider results.
