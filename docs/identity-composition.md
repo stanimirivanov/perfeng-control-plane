@@ -48,3 +48,8 @@ rotation or public HTTP failure mapping. Those ADR 0046 gates still block servin
 activation; #356 stays open. Legacy Static serving is unchanged. There is no new
 dependency, migration or deployment. Rollback removes this unused-by-serving
 composition while retaining existing enrollment, grants and audit records.
+
+[Real Keycloak conformance](identity-keycloak-qualification.md) now qualifies the
+managed chain with pinned provider-issued tokens and current PostgreSQL policy.
+Public serving, actual key rotation and BFF/browser/shared-pilot acceptance remain
+separate gates; the synthetic receipts above alone do not establish them.
