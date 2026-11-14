@@ -18,6 +18,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -190,11 +191,6 @@ func TestNamedIdentityAgainstRealKeycloak(t *testing.T) {
 	}
 	clients := map[string]string{"perfeng-ci": "CI", "perfeng-console-delegate": "HUMAN"}
 	config := app.NamedIdentityConfig{Profile: authentication.IdentityProfile{Issuer: batch.Issuer, Audience: "perfeng-control-plane", Clients: clients}, JWKSEndpoint: batch.Issuer + "/protocol/openid-connect/certs", Roots: roots}
-	runtime, err := app.NewNamedIdentityAuthentication(config, repository, time.Now)
-	if err != nil {
-		t.Fatal("cannot compose real identity verifier")
-	}
-	defer runtime.Stop()
 	human := "e3295d37-a188-4753-b89c-1ca188d85102"
 	ci := "e3295d37-a188-4753-b89c-1ca188d85101"
 	execPolicy := func(query string, args ...any) {
@@ -207,6 +203,24 @@ func TestNamedIdentityAgainstRealKeycloak(t *testing.T) {
 		execPolicy(`INSERT INTO perfeng_control.identity_enrollments VALUES ($1,$2,$3,true,'qualification/356')`, batch.Issuer, binding.id, binding.kind)
 		execPolicy(`INSERT INTO perfeng_control.identity_delegations VALUES ($1,$2,$3,true,'qualification/356')`, batch.Issuer, binding.id, "client:"+binding.client)
 	}
+	wrong := config
+	wrong.Profile.Clients = map[string]string{"perfeng-console-delegate": "CI"}
+	wrongRuntime, err := app.NewNamedIdentityAuthentication(wrong, repository, time.Now)
+	if err != nil {
+		t.Fatal("cannot compose kind-mismatch test")
+	}
+	_, wrongErr := wrongRuntime.AuthenticateIdentity(ctx, batch.Delegated)
+	wrongRuntime.Stop()
+	if !errors.Is(wrongErr, authentication.ErrUnauthenticated) {
+		t.Fatal("kind mismatch admitted")
+	}
+	var clock atomic.Int64
+	clock.Store(time.Now().UnixNano())
+	runtime, err := app.NewNamedIdentityAuthentication(config, repository, func() time.Time { return time.Unix(0, clock.Load()) })
+	if err != nil {
+		t.Fatal("cannot compose real identity verifier")
+	}
+	defer runtime.Stop()
 	check := func(token string, want error) authentication.VerifiedIdentity {
 		t.Helper()
 		got, err := runtime.AuthenticateIdentity(ctx, token)
@@ -243,28 +257,19 @@ func TestNamedIdentityAgainstRealKeycloak(t *testing.T) {
 		execPolicy("UPDATE perfeng_control."+table+" SET enabled=true WHERE actor_id=$1", human)
 		check(batch.Delegated, nil)
 	}
+	if _, err := io.WriteString(stdin, "VERIFIED\n"); err != nil {
+		t.Fatal("cannot acknowledge verifier result")
+	}
+	qualifyKeycloakRotation(t, ctx, scanner, stdin, runtime, &clock, batch.CI)
 	runtime.Stop()
 	if _, err := runtime.AuthenticateIdentity(ctx, batch.Delegated); !errors.Is(err, run.ErrUnavailable) {
 		t.Fatal("stopped real verifier admitted identity")
-	}
-	wrong := config
-	wrong.Profile.Clients = map[string]string{"perfeng-console-delegate": "CI"}
-	wrongRuntime, err := app.NewNamedIdentityAuthentication(wrong, repository, time.Now)
-	if err != nil {
-		t.Fatal("cannot compose kind-mismatch test")
-	}
-	_, wrongErr := wrongRuntime.AuthenticateIdentity(ctx, batch.Delegated)
-	wrongRuntime.Stop()
-	if !errors.Is(wrongErr, authentication.ErrUnauthenticated) {
-		t.Fatal("kind mismatch admitted")
 	}
 	allowed, err := repository.HasServicePermission(ctx, serviceaccess.Identity{Issuer: "urn:fixture", ID: "service"}, serviceaccess.Identity{Issuer: batch.Issuer, ID: human}, serviceaccess.ApproveBaseline)
 	if err != nil || allowed {
 		t.Fatal("identity inherited baseline authority")
 	}
-	if _, err := io.WriteString(stdin, "VERIFIED\n"); err != nil {
-		t.Fatal("cannot acknowledge verifier result")
-	}
+	qualifyKeycloakOutage(t, ctx, scanner, stdin, config, repository)
 	_ = stdin.Close()
 	if !scanner.Scan() {
 		t.Fatal("fixture did not complete cleanup and redacted receipt")
@@ -277,7 +282,7 @@ func TestNamedIdentityAgainstRealKeycloak(t *testing.T) {
 		Admission                    string
 		PassedChecks, RemainingGates []string
 	}
-	if json.Unmarshal(redacted, &receipt) != nil || receipt.Admission != "NOT_ADMITTED" || !slices.Contains(receipt.PassedChecks, "control-plane-real-token-conformance") || slices.Contains(receipt.RemainingGates, "control-plane-real-token-conformance") {
+	if json.Unmarshal(redacted, &receipt) != nil || receipt.Admission != "NOT_ADMITTED" || !slices.Contains(receipt.PassedChecks, "control-plane-real-token-conformance") || slices.Contains(receipt.RemainingGates, "control-plane-real-token-conformance") || !slices.Contains(receipt.PassedChecks, "control-plane-real-key-rotation") || slices.Contains(receipt.RemainingGates, "control-plane-real-key-rotation") || !slices.Contains(receipt.PassedChecks, "control-plane-unavailable-key-freshness") {
 		t.Fatal("invalid qualification receipt")
 	}
 	if scanner.Scan() || scanner.Err() != nil {
