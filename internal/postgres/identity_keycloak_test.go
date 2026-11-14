@@ -237,9 +237,12 @@ func TestNamedIdentityAgainstRealKeycloak(t *testing.T) {
 		if got.Actor != (serviceaccess.Identity{Issuer: batch.Issuer, ID: tc.id}) || got.ActorKind != tc.kind || got.Caller != (serviceaccess.Identity{Issuer: batch.Issuer, ID: "client:" + tc.client}) {
 			t.Fatal("real actor/caller/kind mismatch")
 		}
+		requireKeycloakHTTP(t, ctx, runtime, tc.token, 204, got)
 	}
 	check(batch.Initial, authentication.ErrUnauthenticated)
 	check(batch.HumanID, authentication.ErrUnauthenticated)
+	requireKeycloakHTTP(t, ctx, runtime, batch.Initial, 401, authentication.VerifiedIdentity{})
+	requireKeycloakHTTP(t, ctx, runtime, batch.HumanID, 401, authentication.VerifiedIdentity{})
 	// Change an actual signature byte without rewriting identity expectations.
 	parts := strings.Split(batch.Delegated, ".")
 	if len(parts) != 3 || len(parts[2]) < 2 {
@@ -254,6 +257,7 @@ func TestNamedIdentityAgainstRealKeycloak(t *testing.T) {
 	for _, table := range []string{"identity_enrollments", "identity_delegations"} {
 		execPolicy("UPDATE perfeng_control."+table+" SET enabled=false WHERE actor_id=$1", human)
 		check(batch.Delegated, authentication.ErrUnauthenticated)
+		requireKeycloakHTTP(t, ctx, runtime, batch.Delegated, 401, authentication.VerifiedIdentity{})
 		execPolicy("UPDATE perfeng_control."+table+" SET enabled=true WHERE actor_id=$1", human)
 		check(batch.Delegated, nil)
 	}
@@ -265,6 +269,7 @@ func TestNamedIdentityAgainstRealKeycloak(t *testing.T) {
 	if _, err := runtime.AuthenticateIdentity(ctx, batch.Delegated); !errors.Is(err, run.ErrUnavailable) {
 		t.Fatal("stopped real verifier admitted identity")
 	}
+	requireKeycloakHTTP(t, ctx, runtime, batch.Delegated, 503, authentication.VerifiedIdentity{})
 	allowed, err := repository.HasServicePermission(ctx, serviceaccess.Identity{Issuer: "urn:fixture", ID: "service"}, serviceaccess.Identity{Issuer: batch.Issuer, ID: human}, serviceaccess.ApproveBaseline)
 	if err != nil || allowed {
 		t.Fatal("identity inherited baseline authority")
@@ -282,7 +287,7 @@ func TestNamedIdentityAgainstRealKeycloak(t *testing.T) {
 		Admission                    string
 		PassedChecks, RemainingGates []string
 	}
-	if json.Unmarshal(redacted, &receipt) != nil || receipt.Admission != "NOT_ADMITTED" || !slices.Contains(receipt.PassedChecks, "control-plane-real-token-conformance") || slices.Contains(receipt.RemainingGates, "control-plane-real-token-conformance") || !slices.Contains(receipt.PassedChecks, "control-plane-real-key-rotation") || slices.Contains(receipt.RemainingGates, "control-plane-real-key-rotation") || !slices.Contains(receipt.PassedChecks, "control-plane-unavailable-key-freshness") {
+	if json.Unmarshal(redacted, &receipt) != nil || receipt.Admission != "NOT_ADMITTED" || !slices.Contains(receipt.PassedChecks, "control-plane-real-token-conformance") || slices.Contains(receipt.RemainingGates, "control-plane-real-token-conformance") || !slices.Contains(receipt.PassedChecks, "control-plane-real-key-rotation") || slices.Contains(receipt.RemainingGates, "control-plane-real-key-rotation") || !slices.Contains(receipt.PassedChecks, "control-plane-unavailable-key-freshness") || !slices.Contains(receipt.PassedChecks, "control-plane-named-http-boundary") {
 		t.Fatal("invalid qualification receipt")
 	}
 	if scanner.Scan() || scanner.Err() != nil {

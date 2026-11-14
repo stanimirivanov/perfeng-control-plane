@@ -82,7 +82,7 @@ def qualify_receipt(checks):
     if original_docker("inspect", "--format", "{{.State.Running}}", container) != "false":
         raise ValueError("Issuer outage was not confirmed")
     checkpoint("stopped", "OUTAGE_VERIFIED")
-    result["passedChecks"].extend(["control-plane-real-token-conformance", "control-plane-real-key-rotation", "control-plane-unavailable-key-freshness"])
+    result["passedChecks"].extend(["control-plane-real-token-conformance", "control-plane-real-key-rotation", "control-plane-unavailable-key-freshness", "control-plane-named-http-boundary"])
     result["remainingGates"].remove("control-plane-real-token-conformance")
     result["remainingGates"].remove("control-plane-real-key-rotation")
     return result

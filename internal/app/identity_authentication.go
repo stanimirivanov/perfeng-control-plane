@@ -3,10 +3,13 @@ package app
 import (
 	"context"
 	"crypto/x509"
+	"errors"
+	"net/http"
 	"sync/atomic"
 	"time"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/authentication"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/httpapi"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 )
 
@@ -92,4 +95,26 @@ func (runtime *NamedIdentityAuthentication) Stop() {
 	}
 	runtime.cache.Stop()
 	runtime.fetcher.CloseIdleConnections()
+}
+
+// NewNamedIdentityBoundary binds the qualified verifier to the separate HTTP
+// identity representation. It registers no route and never invokes legacy auth.
+// Disabled mode needs no verifier/operation and performs no authentication work.
+func NewNamedIdentityBoundary(enabled bool, runtime *NamedIdentityAuthentication, operation httpapi.NamedOperation) (http.Handler, error) {
+	if !enabled {
+		return httpapi.NewNamedIdentityBoundary(false, nil, nil)
+	}
+	if runtime == nil || runtime.authenticator == nil || operation == nil {
+		return nil, ErrInvalidConfiguration
+	}
+	return httpapi.NewNamedIdentityBoundary(true, func(ctx context.Context, token string) (httpapi.NamedIdentity, error) {
+		value, err := runtime.AuthenticateIdentity(ctx, token)
+		if errors.Is(err, authentication.ErrUnauthenticated) {
+			return httpapi.NamedIdentity{}, httpapi.ErrNamedCredentialRejected
+		}
+		if err != nil {
+			return httpapi.NamedIdentity{}, err
+		}
+		return httpapi.NamedIdentity{Actor: value.Actor, Caller: value.Caller, ActorKind: value.ActorKind}, nil
+	}, operation)
 }
