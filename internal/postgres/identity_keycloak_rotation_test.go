@@ -153,6 +153,7 @@ func qualifyKeycloakOutage(t *testing.T, ctx context.Context, scanner *bufio.Sca
 	clock.Add(int64(291 * time.Second))
 	requireKeycloakTokenStillInWindow(t, ready.CI, now())
 	requireKeycloakOutcome(t, ctx, runtime, ready.CI, run.ErrUnavailable)
+	requireKeycloakHTTP(t, ctx, runtime, ready.CI, 503, authentication.VerifiedIdentity{})
 	if _, err := io.WriteString(stdin, "OUTAGE_VERIFIED\n"); err != nil {
 		t.Fatal("cannot acknowledge stale trust refusal")
 	}

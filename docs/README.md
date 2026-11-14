@@ -39,6 +39,8 @@ Managed private identity adapter composition and synthetic full-chain evidence (
 
 Real pinned Keycloak token/managed verifier conformance (issue #356): [qualification guide](identity-keycloak-qualification.md), `make identity-qualification`.
 
+Gated unmounted named HTTP authentication and authority isolation (issue #356): [ADR-0048](decisions/0048-isolate-named-http-authentication.md).
+
 ## Route by task
 
 | Task or changed boundary | Read first | Verify or consult |

@@ -88,3 +88,20 @@ serving authorization, an IdP account-revocation guarantee or transaction fencin
 for a later service operation. Legacy credentials and public routes are unchanged.
 Rollback removes this opt-in test/pin/bridge; no dependency, schema or production
 runtime change is made. See accepted [ADR 0046](decisions/0046-select-issuer-and-bff-delegation-trust.md).
+
+## Private HTTP-boundary qualification
+
+The same live target now binds the qualified verifier to an enabled private
+`httptest` callback through `app.NewNamedIdentityBoundary`. Actual HUMAN/CI tokens
+retain their verified actor/caller/kind despite forged actor/service headers and
+body fields. Initial-login/ID credentials and revoked identity policy return 401;
+stopped verification and stale unavailable trust return 503 without operation work.
+The callback is not a service API, and it grants no service permission or data.
+
+The boundary's disabled mode, credential limits, cancellation, invalid trusted
+output and error redaction also run in ordinary unit/race tests. The consumed
+Authorization header is removed from a request clone before operation dispatch.
+These are handler-level checks, not browser or ingress/deployment qualification.
+No application route/configuration enables this adapter. See
+[ADR 0048](decisions/0048-isolate-named-http-authentication.md); the receipt stays
+NOT_ADMITTED with BFF/browser/shared-pilot pending.
