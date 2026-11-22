@@ -53,7 +53,7 @@ reader must hold its approval lock through the later admission transaction;
 an ordinary standalone resolution provides no such lock or persistence guarantee.
 Use the same result for atomic retention and publication construction, never a
 later current-registry lookup. See
-[ADR-0017](decisions/0017-return-owned-native-admission-resolution.md).
+[ADR-0017](adr/0017-return-owned-native-admission-resolution.md).
 
 This callable boundary is shared by later native binding retention and publication
 construction; it changes no admission response, HTTP route, database or worker.
@@ -76,7 +76,7 @@ decision evidence follows separately. No temporary runtime stubs are installed.
 Revert this codec before its consumers merge without changing persisted state.
 Run focused contract/integrationcontract and architecture tests, formatting/lint,
 `make docs-check` and `make validate`. Heavy race/full/live suites remain CI work
-on a constrained contributor host. See [ADR-0016](decisions/0016-pin-analysis-publication-contract.md).
+on a constrained contributor host. See [ADR-0016](adr/0016-pin-analysis-publication-contract.md).
 
 ## Atomic native capture
 
@@ -92,7 +92,7 @@ Guards reject binding/parent mutation, augmentation, bound deletion and truncati
 Deploy the migration before the binary; retain it on rollback. CHECK validation
 scans the request table under ACCESS EXCLUSIVE without a heap rewrite or backfill.
 No new grants/routes are added. See
-[ADR-0018](decisions/0018-retain-native-bindings-with-integration-admission.md).
+[ADR-0018](adr/0018-retain-native-bindings-with-integration-admission.md).
 
 ## Runtime composition
 
@@ -110,7 +110,7 @@ requests still receive the retained unsupported_revision rejection.
 Apply 0020 before deployment. Old requests remain unbound; rollback preserves
 retained bindings while old writers create unbound requests. No publication/fetch
 or Argus consumption is enabled. See
-[ADR-0019](decisions/0019-compose-native-capture-for-authenticated-admission.md).
+[ADR-0019](adr/0019-compose-native-capture-for-authenticated-admission.md).
 
 ## Offline publication builder
 
@@ -137,7 +137,7 @@ Caller-provided event ID/time must be stored with the eventual publication and
 reused on retry. Future storage/runtime must retain trusted policy/provenance
 evidence rather than reconstructing it from a mutable registry or report claims.
 Persistence, dispatch/delivery and Argus consumption remain
-separate work. See [ADR-0020](decisions/0020-build-publications-from-retained-analysis-evidence.md).
+separate work. See [ADR-0020](adr/0020-build-publications-from-retained-analysis-evidence.md).
 
 ## Immutable publication retention
 
@@ -163,7 +163,7 @@ no backfill or existing-row rewrite. Payloads add up to 64 KiB plus indexes/WAL 
 published request. Roll back application code while retaining the additive schema;
 do not rewrite migration history or delete published evidence. Runtime activation,
 and authenticated delivery remain separate; historical verification retention is below.
-See [ADR-0021](decisions/0021-retain-analysis-publications-atomically.md).
+See [ADR-0021](adr/0021-retain-analysis-publications-atomically.md).
 
 ## Reviewed analysis verification inputs
 
@@ -188,7 +188,7 @@ the atomic capture below supplies historical storage. Publication runtime remain
 disabled. Resolution adds no runtime configuration or wire/HTTP contract changes.
 Run focused integration/registry and architecture tests plus formatting/lint and
 `make docs-check`; heavy full/race/live gates remain on CI. See
-[ADR-0022](decisions/0022-return-reviewed-analysis-verification-inputs.md).
+[ADR-0022](adr/0022-return-reviewed-analysis-verification-inputs.md).
 
 ## Atomic verification retention
 
@@ -215,7 +215,7 @@ old writers remain valid with NULL evidence. Do not reconstruct historical appro
 The callable materializer below consumes this evidence. Reporting activation is
 [explicitly configured](runtime-configuration.md#integration-analysis-publication);
 external delivery remains separate.
-See [ADR-0023](decisions/0023-retain-reviewed-analysis-verification.md).
+See [ADR-0023](adr/0023-retain-reviewed-analysis-verification.md).
 
 ## Callable historical materialization
 
@@ -244,7 +244,7 @@ No migration, runtime configuration, endpoint, scheduler or delivery is activate
 Runtime orchestration must select stable event identity/time and prepare evidence
 before calling; fetch and delivery transport remain separate work. Revert callable
 composition while retaining historical records. See
-[ADR-0024](decisions/0024-materialize-historical-analysis-publications.md).
+[ADR-0024](adr/0024-materialize-historical-analysis-publications.md).
 
 ## Scoped publication evidence preparation
 
@@ -275,7 +275,7 @@ on that path. Reporting supplies durable event selection through the
 [opt-in runtime](runtime-configuration.md#integration-analysis-publication);
 external delivery remains separate. This preparation layer adds no configuration;
 revert this callable boundary without changing stored evidence. See
-[ADR-0025](decisions/0025-prepare-scoped-publication-evidence.md).
+[ADR-0025](adr/0025-prepare-scoped-publication-evidence.md).
 
 ## Replay-first publication workflow
 
@@ -302,7 +302,7 @@ with identical stable identities; do not select new event/time on each attempt.
 This coordinator is callable composition; the reporting adapter/runtime below
 supplies registered evidence and durable identity selection. It adds no migration
 or deployment setting; revert the coordinator without altering retained data.
-See [ADR-0026](decisions/0026-compose-replay-first-publication-workflow.md).
+See [ADR-0026](adr/0026-compose-replay-first-publication-workflow.md).
 
 ## Authenticated HTTP reads
 
@@ -334,7 +334,7 @@ is added. The API component pin advances to 1.1.0 at contracts commit
 This exposes retained evidence only. Reporting materialization is separately opted
 in; Argus polling/persistence remains separate. A 404 is not a terminal or performance
 verdict. Roll back read consumption/binary while preserving retained publications.
-See [ADR-0027](decisions/0027-expose-scoped-analysis-publication-reads.md).
+See [ADR-0027](adr/0027-expose-scoped-analysis-publication-reads.md).
 
 ## Native Run admission lookup
 
@@ -350,7 +350,7 @@ disposition/native/verification snapshots. Missing legacy or custom-review evide
 stays nil; no registry lookup or backfill occurs. This capability grants no
 publication authority and activates no worker. The reporting composition below
 consumes it with durable event selection and retained replay. No migration is needed.
-See [ADR-0028](decisions/0028-resolve-scoped-admission-by-native-run.md).
+See [ADR-0028](adr/0028-resolve-scoped-admission-by-native-run.md).
 
 ## Scoped reporting publisher
 
@@ -373,7 +373,7 @@ is provided. Nil verified reader supports replay only. This adapter does not act
 runtime composition or implement durable identity allocation itself; use the
 [opt-in durable composition](runtime-configuration.md#integration-analysis-publication).
 No migration or protocol change is required for this callable adapter.
-See [ADR-0030](decisions/0030-compose-scoped-reporting-publication.md).
+See [ADR-0030](adr/0030-compose-scoped-reporting-publication.md).
 
 ## Durable event reservations
 
@@ -395,4 +395,4 @@ it adds an empty immutable table without rewriting/backfilling historical data.
 `NewDurableReportingPublisher` adapts this store for the
 [opt-in runtime](runtime-configuration.md#integration-analysis-publication).
 Preserve reservations/publications on rollback; repair forward rather than reassign identity.
-See [ADR-0031](decisions/0031-retain-publication-event-reservations.md).
+See [ADR-0031](adr/0031-retain-publication-event-reservations.md).

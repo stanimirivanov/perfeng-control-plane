@@ -278,7 +278,7 @@ and refresh policy remain deployment responsibilities.
 
 Deploy `registry` only with a corrected image that supports it; older images
 reject the setting. Rollback must restore compatible image, configuration and
-bundle selections together. See [ADR-0008](decisions/0008-resolve-evidence-contracts-per-registry-entry.md).
+bundle selections together. See [ADR-0008](adr/0008-resolve-evidence-contracts-per-registry-entry.md).
 
 A v2 Playwright source-checkout entry includes a `nativeBaseline` template:
 
@@ -508,7 +508,7 @@ attempt timeout; cancellation and lease/revision checks retain priority. Native-
 and unsupported historical admissions remain nonparticipating. This switch adds no
 terminal-history scan/backfill or external delivery loop. Disable it or roll back the
 binary to revert; preserve artifacts, reservations and publications for later recovery.
-See [ADR-0032](decisions/0032-enable-durable-reporting-publication.md).
+See [ADR-0032](adr/0032-enable-durable-reporting-publication.md).
 
 ## Report comparison capture
 

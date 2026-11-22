@@ -147,7 +147,7 @@ worker occupancy query apply across versions. V2 issuance remains disabled by
 the v2 presence authorization constraint. Adding generated stored columns
 rewrites the lease table under an `ACCESS EXCLUSIVE` lock: inspect its size,
 disk/WAL headroom and maintenance window before production migration. See
-[ADR-0003](decisions/0003-version-native-lease-authority.md) for compatibility
+[ADR-0003](adr/0003-version-native-lease-authority.md) for compatibility
 and rollback constraints.
 Migration 0015 versions the shared terminal-report table. Existing rows and
 old-style v1 writes default to protocol 1; generated worker columns retain
@@ -178,7 +178,7 @@ nullable column additions, but that does not make lock acquisition instantaneous
 Keep the schema/audit rows and repair forward. Do not downgrade to pre-cleanup
 workers with active holds or enabled benchmark dispatch. See the
 [benchmark lifecycle guide](kubernetes-benchmarks.md#owned-cleanup-and-restart-recovery)
-and [ADR-0007](decisions/0007-fence-and-verify-benchmark-cleanup.md).
+and [ADR-0007](adr/0007-fence-and-verify-benchmark-cleanup.md).
 
 Provision that role/login through infrastructure; the migration does not create
 credentials or grant permissions to PUBLIC. Do not use the schema owner as the
@@ -280,7 +280,7 @@ commit must be retried only with the same identity.
 ## Native execution leases
 
 The ownership and capability model is proposed in
-[ADR-0001](decisions/0001-use-expiring-native-lease-capabilities.md).
+[ADR-0001](adr/0001-use-expiring-native-lease-capabilities.md).
 Native scheduling first reads one fresh, AVAILABLE, qualified and authorized
 presence observation, then resolves compatible reviewed plans outside database
 transactions. Final acquisition locks the worker's existing v1 and v2 presence
@@ -499,7 +499,7 @@ presence exists. Discovery reads a fresh single-statement snapshot and server
 clock after acquiring that boundary. Multiple current slots fail closed, and
 expired/released slots are excluded. No domain record is changed and no new
 migration or privilege is required. See the [discovery guide](native-worker-discovery.md)
-and [ADR-0005](decisions/0005-serialize-native-worker-discovery.md) for withdrawal,
+and [ADR-0005](adr/0005-serialize-native-worker-discovery.md) for withdrawal,
 mixed-version rollout and manual recovery prerequisites.
 
 ## Isolated integration tests

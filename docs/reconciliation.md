@@ -399,7 +399,7 @@ revision checks, so concurrent cancellation/revision changes retain priority.
 No transaction spans publication. Enabling the later composition can delay
 completion during publication outages; use an appropriate reporting timeout.
 No migration, protocol or permission changes accompany this callable gate.
-See [ADR-0029](decisions/0029-gate-reporting-completion-on-publication.md).
+See [ADR-0029](adr/0029-gate-reporting-completion-on-publication.md).
 
 ## Provisioning reconciliation
 

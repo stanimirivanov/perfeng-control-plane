@@ -148,7 +148,7 @@ tiers and complete local checks.
 The [repository working agreement](AGENTS.md),
 [engineering standards](docs/development/engineering-standards.md),
 [SQL migration policy](docs/development/sql-migrations.md),
-[architecture decisions](docs/decisions/README.md), [security policy](SECURITY.md)
+[architecture decisions](docs/adr/README.md), [security policy](SECURITY.md)
 and [code of conduct](CODE_OF_CONDUCT.md) define the rest of the contributor
 harness. Cross-repository sequencing remains in the centralized
 [perfeng roadmap](https://github.com/stanimirivanov/perfeng-environment/blob/main/docs/roadmap/milestones.md).

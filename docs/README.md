@@ -5,27 +5,27 @@
 - Read [CONTRIBUTING.md](../CONTRIBUTING.md) for workflow policy, then use this
   map to load only the guidance relevant to the task.
 - The root [README](../README.md) defines current product behavior and package
-  ownership; accepted [ADRs](decisions/README.md) record durable decisions.
+  ownership; accepted [ADRs](adr/README.md) record durable decisions.
 - Development guides explain implementation and verification practice without
   overriding product behavior or accepted decisions.
 - Update this map when a canonical guide moves or a recurring task gains a new
   source of truth.
 
-Current rerun validation eligibility is documented in [ADR-0041](decisions/0041-recheck-current-rerun-validation-eligibility.md) and the [persistence guide](rerun-persistence.md#current-validation-eligibility-m05-pr59e).
+Current rerun validation eligibility is documented in [ADR-0041](adr/0041-recheck-current-rerun-validation-eligibility.md) and the [persistence guide](rerun-persistence.md#current-validation-eligibility-m05-pr59e).
 
-Claimed rerun provisioning is documented in [ADR-0042](decisions/0042-dispatch-reruns-from-claim-qualified-seals.md) and the [persistence guide](rerun-persistence.md#claimed-sealed-provisioning-m05-pr59f).
+Claimed rerun provisioning is documented in [ADR-0042](adr/0042-dispatch-reruns-from-claim-qualified-seals.md) and the [persistence guide](rerun-persistence.md#claimed-sealed-provisioning-m05-pr59f).
 
-Evidence schema selection across collectors is documented in [ADR-0043](decisions/0043-preserve-retained-schemas-across-evidence-collectors.md) and the [rerun persistence guide](rerun-persistence.md#retained-evidence-schema-selection-m05-pr59g).
+Evidence schema selection across collectors is documented in [ADR-0043](adr/0043-preserve-retained-schemas-across-evidence-collectors.md) and the [rerun persistence guide](rerun-persistence.md#retained-evidence-schema-selection-m05-pr59g).
 
-Rerun raw provenance approval: [ADR-0044](decisions/0044-bind-rerun-raw-approval-to-sealed-execution.md), [source-owned sealed approval](rerun-persistence.md#source-owned-raw-approval-m05-pr59h).
+Rerun raw provenance approval: [ADR-0044](adr/0044-bind-rerun-raw-approval-to-sealed-execution.md), [source-owned sealed approval](rerun-persistence.md#source-owned-raw-approval-m05-pr59h).
 
-Rerun normalization planning and approval: [ADR-0045](decisions/0045-bind-rerun-normalization-to-registered-evidence.md), [registered evidence binding](rerun-persistence.md#source-owned-normalization-m05-pr59i).
+Rerun normalization planning and approval: [ADR-0045](adr/0045-bind-rerun-normalization-to-registered-evidence.md), [registered evidence binding](rerun-persistence.md#source-owned-normalization-m05-pr59i).
 
 Private rerun adapter qualification and its proof limits: [qualification guide](rerun-qualification.md), `make db-validate`.
 
-Accepted named identity and BFF delegation trust (issue #356; implementation follows documentation PR review and merge): [ADR-0046](decisions/0046-select-issuer-and-bff-delegation-trust.md).
+Accepted named identity and BFF delegation trust (issue #356; implementation follows documentation PR review and merge): [ADR-0046](adr/0046-select-issuer-and-bff-delegation-trust.md).
 
-Named identity admission and current proof limits (issue #356): [admission guide](identity-admission.md), [accepted ADR-0046](decisions/0046-select-issuer-and-bff-delegation-trust.md).
+Named identity admission and current proof limits (issue #356): [admission guide](identity-admission.md), [accepted ADR-0046](adr/0046-select-issuer-and-bff-delegation-trust.md).
 
 Explicit-key JWT verification and dependency admission (issue #356): [JWT guide](identity-jwt-verification.md).
 
@@ -33,13 +33,17 @@ Fixed-origin JWKS fetching and key-set proof limits (issue #356): [JWKS guide](i
 
 Bounded identity key refresh/cache and proof limits (issue #356): [cache guide](identity-key-cache.md).
 
-Current subject enrollment and caller delegation (issue #356): [ADR-0047](decisions/0047-retain-current-identity-policy.md), `make db-validate`.
+Current subject enrollment and caller delegation (issue #356): [ADR-0047](adr/0047-retain-current-identity-policy.md), `make db-validate`.
 
 Managed private identity adapter composition and synthetic full-chain evidence (issue #356): [composition guide](identity-composition.md).
 
 Real pinned Keycloak token/managed verifier conformance (issue #356): [qualification guide](identity-keycloak-qualification.md), `make identity-qualification`.
 
-Gated unmounted named HTTP authentication and authority isolation (issue #356): [ADR-0048](decisions/0048-isolate-named-http-authentication.md).
+Gated unmounted named HTTP authentication and authority isolation (issue #356): [ADR-0048](adr/0048-isolate-named-http-authentication.md).
+
+Read the [repository glossary](../GLOSSARY.md) for domain terminology.
+
+Policy applicability and the current Analysis compatibility gap: [ADR-0049](adr/0049-bind-policy-applicability-by-reviewed-test-selection.md).
 
 ## Route by task
 
@@ -51,42 +55,42 @@ Gated unmounted named HTTP authentication and authority isolation (issue #356): 
 | Dependencies, licenses, or vulnerability response | [Dependency policy](development/dependency-policy.md) | `make supply-chain` |
 | PostgreSQL schema, migrations, or durable state | [SQL migration policy](development/sql-migrations.md), [PostgreSQL guide](postgresql.md) | `make db-validate` |
 | Reconciliation or Kubernetes execution | [Reconciliation guide](reconciliation.md), [Kubernetes dispatch](kubernetes-dispatch.md) | `make kubernetes-validate` when the live API boundary changes |
-| Contained Kubernetes benchmarks | [Benchmark admission, reservations and cleanup](kubernetes-benchmarks.md), [ADR-0006](decisions/0006-reserve-benchmark-targets-before-dispatch.md), [ADR-0007](decisions/0007-fence-and-verify-benchmark-cleanup.md) | `make db-validate`, `make kubernetes-validate` |
+| Contained Kubernetes benchmarks | [Benchmark admission, reservations and cleanup](kubernetes-benchmarks.md), [ADR-0006](adr/0006-reserve-benchmark-targets-before-dispatch.md), [ADR-0007](adr/0007-fence-and-verify-benchmark-cleanup.md) | `make db-validate`, `make kubernetes-validate` |
 | Artifact storage or result validation | [Artifact storage](artifact-storage.md), the relevant raw/normalized/analysis validation guide | Focused adapter tests and `make verify` |
 | Registry or performance-policy behavior | [Registry guide](report-policy-registry.md), [policy validation](performance-policy-validation.md) | Registry and policy tests |
-| Performance catalog contract adapters | [Pinned catalog conformance](performance-catalog-contract.md), [ADR-0009](decisions/0009-pin-performance-catalog-contracts.md) | Pinned schema, provenance and cross-language digest tests |
-| Authorized performance catalog publication | [Publication guide](performance-catalog.md), [ADR-0010](decisions/0010-publish-authorized-performance-catalog.md) | Registry, HTTP, authentication and composition tests; `make validate` |
-| Performance integration wire boundary and delivery sequence | [Integration guide](performance-integration.md), [ADR-0011](decisions/0011-pin-performance-integration-contracts.md) | Pinned exchange, offline schema and architecture tests; `make validate` |
-| Request-linked analysis publication codec | [Publication boundary](performance-analysis-publication.md), [ADR-0016](decisions/0016-pin-analysis-publication-contract.md) | Pinned example/provenance, owned round trips, malformed claims and offline resolution tests |
-| Reviewed native admission resolution | [Owned native evidence](performance-analysis-publication.md#remaining-provider-and-consumer-work), [ADR-0017](decisions/0017-return-owned-native-admission-resolution.md) | Exact reviewed request/target/workload/baseline, ownership and zero-output rejection tests |
-| Durable native integration bindings | [Atomic capture](performance-analysis-publication.md#atomic-native-capture), [ADR-0018](decisions/0018-retain-native-bindings-with-integration-admission.md) | Offline shape, live upgrade/replay/scope/rollback and immutability tests; `make db-validate` |
-| Authenticated native admission runtime | [Runtime composition](performance-analysis-publication.md#runtime-composition), [ADR-0019](decisions/0019-compose-native-capture-for-authenticated-admission.md) | Capability/auth/scope routing tests and live HTTP/PostgreSQL native retention; `make db-validate` |
-| Analysis publication construction | [Offline builder](performance-analysis-publication.md#offline-publication-builder), [ADR-0020](decisions/0020-build-publications-from-retained-analysis-evidence.md) | Exact bytes/provenance, policy/candidate/baseline associations, late outcomes, ownership and cancellation tests |
-| Durable analysis publications | [Retention](performance-analysis-publication.md#immutable-publication-retention), [ADR-0021](decisions/0021-retain-analysis-publications-atomically.md) | Offline association tests; live upgrade, replay, scope, rollback and SQL guards via `make db-validate` |
-| Reviewed analysis verification inputs | [Review snapshot](performance-analysis-publication.md#reviewed-analysis-verification-inputs), [ADR-0022](decisions/0022-return-reviewed-analysis-verification-inputs.md) | Exact policy/producer/version, clone ownership, scoped selection, baseline-read count and failure tests |
-| Historical analysis verification | [Atomic retention](performance-analysis-publication.md#atomic-verification-retention), [ADR-0023](decisions/0023-retain-reviewed-analysis-verification.md) | Offline restore and live upgrade/replay/scope/rollback/guard tests; `make db-validate` |
-| Historical publication materialization | [Callable composition](performance-analysis-publication.md#callable-historical-materialization), [ADR-0024](decisions/0024-materialize-historical-analysis-publications.md) | Retained authority, transaction recheck, owned replay, conflict/redaction and uncertain-commit recovery tests |
-| Scoped publication evidence preparation | [Preparation](performance-analysis-publication.md#scoped-publication-evidence-preparation), [artifact storage](artifact-storage.md), [ADR-0025](decisions/0025-prepare-scoped-publication-evidence.md) | Scoped IDs, pre-I/O rejection, real bounded reader, metadata/hash/close failures and cancellation tests |
-| Replay-first publication workflow | [Callable workflow](performance-analysis-publication.md#replay-first-publication-workflow), [ADR-0026](decisions/0026-compose-replay-first-publication-workflow.md) | Full semantic first-write flow, object-free replay, conflict, transaction rejection and uncertain-commit recovery tests |
-| Authenticated analysis HTTP reads | [Read endpoint](performance-analysis-publication.md#authenticated-http-reads), [ADR-0027](decisions/0027-expose-scoped-analysis-publication-reads.md) | Auth/permission, encoded identity, original bytes, uniform absence, redaction and runtime routing/capability tests |
-| Native Run admission lookup | [Scoped lookup](performance-analysis-publication.md#native-run-admission-lookup), [ADR-0028](decisions/0028-resolve-scoped-admission-by-native-run.md) | Offline scope/recheck tests; live ownership, absence, reopen and lifecycle tests via `make db-validate` |
-| Reporting publication completion gate | [Opt-in gate](reconciliation.md#report-publication-completion-gate), [ADR-0029](decisions/0029-gate-reporting-completion-on-publication.md) | Registration/publication/completion ordering, recovery, cancellation and existing fencing tests |
-| Scoped reporting publisher | [Application adapter](performance-analysis-publication.md#scoped-reporting-publisher), [ADR-0030](decisions/0030-compose-scoped-reporting-publication.md) | Native scope, historical absence, semantic materialization, uncertain commit/restart replay and safe error tests |
-| Durable publication event allocation | [Reservations](performance-analysis-publication.md#durable-event-reservations), [ADR-0031](decisions/0031-retain-publication-event-reservations.md) | Offline validation; live concurrency, reopen, populated upgrade, scope, rollback and SQL guards via `make db-validate` |
-| Reporting publication activation | [Runtime switch](runtime-configuration.md#integration-analysis-publication), [ADR-0032](decisions/0032-enable-durable-reporting-publication.md) | Durable scope translation, uncertain allocation, stage ordering/replay, default-off and startup capability/configuration tests |
-| Reviewed integration admission bindings | [Integration guide](performance-integration.md#reviewed-admission-bindings), [ADR-0012](decisions/0012-bind-integration-admission-to-reviewed-registry.md) | Registry resolution, baseline and configuration tests; `make validate` |
-| Durable integration admission and scoped reads | [ADR-0013](decisions/0013-retain-integration-admission-atomically.md), [PostgreSQL guide](postgresql.md) | Live integration request/approval-lock tests; `make db-validate` |
-| Authenticated integration HTTP and runtime wiring | [Integration guide](performance-integration.md#authenticated-http), [ADR-0014](decisions/0014-expose-authenticated-integration-http.md) | HTTP, composition and live HTTP/PostgreSQL tests; `make validate`, `make db-validate` |
-| Integration cancellation and deadline recovery | [Integration guide](performance-integration.md#cancellation-and-recovery), [ADR-0015](decisions/0015-recover-integration-cancellation.md) | Authenticated cancellation, supervised recovery and live concurrency/restart tests; `make validate`, `make db-validate` |
+| Performance catalog contract adapters | [Pinned catalog conformance](performance-catalog-contract.md), [ADR-0009](adr/0009-pin-performance-catalog-contracts.md) | Pinned schema, provenance and cross-language digest tests |
+| Authorized performance catalog publication | [Publication guide](performance-catalog.md), [ADR-0010](adr/0010-publish-authorized-performance-catalog.md) | Registry, HTTP, authentication and composition tests; `make validate` |
+| Performance integration wire boundary and delivery sequence | [Integration guide](performance-integration.md), [ADR-0011](adr/0011-pin-performance-integration-contracts.md) | Pinned exchange, offline schema and architecture tests; `make validate` |
+| Request-linked analysis publication codec | [Publication boundary](performance-analysis-publication.md), [ADR-0016](adr/0016-pin-analysis-publication-contract.md) | Pinned example/provenance, owned round trips, malformed claims and offline resolution tests |
+| Reviewed native admission resolution | [Owned native evidence](performance-analysis-publication.md#remaining-provider-and-consumer-work), [ADR-0017](adr/0017-return-owned-native-admission-resolution.md) | Exact reviewed request/target/workload/baseline, ownership and zero-output rejection tests |
+| Durable native integration bindings | [Atomic capture](performance-analysis-publication.md#atomic-native-capture), [ADR-0018](adr/0018-retain-native-bindings-with-integration-admission.md) | Offline shape, live upgrade/replay/scope/rollback and immutability tests; `make db-validate` |
+| Authenticated native admission runtime | [Runtime composition](performance-analysis-publication.md#runtime-composition), [ADR-0019](adr/0019-compose-native-capture-for-authenticated-admission.md) | Capability/auth/scope routing tests and live HTTP/PostgreSQL native retention; `make db-validate` |
+| Analysis publication construction | [Offline builder](performance-analysis-publication.md#offline-publication-builder), [ADR-0020](adr/0020-build-publications-from-retained-analysis-evidence.md) | Exact bytes/provenance, policy/candidate/baseline associations, late outcomes, ownership and cancellation tests |
+| Durable analysis publications | [Retention](performance-analysis-publication.md#immutable-publication-retention), [ADR-0021](adr/0021-retain-analysis-publications-atomically.md) | Offline association tests; live upgrade, replay, scope, rollback and SQL guards via `make db-validate` |
+| Reviewed analysis verification inputs | [Review snapshot](performance-analysis-publication.md#reviewed-analysis-verification-inputs), [ADR-0022](adr/0022-return-reviewed-analysis-verification-inputs.md) | Exact policy/producer/version, clone ownership, scoped selection, baseline-read count and failure tests |
+| Historical analysis verification | [Atomic retention](performance-analysis-publication.md#atomic-verification-retention), [ADR-0023](adr/0023-retain-reviewed-analysis-verification.md) | Offline restore and live upgrade/replay/scope/rollback/guard tests; `make db-validate` |
+| Historical publication materialization | [Callable composition](performance-analysis-publication.md#callable-historical-materialization), [ADR-0024](adr/0024-materialize-historical-analysis-publications.md) | Retained authority, transaction recheck, owned replay, conflict/redaction and uncertain-commit recovery tests |
+| Scoped publication evidence preparation | [Preparation](performance-analysis-publication.md#scoped-publication-evidence-preparation), [artifact storage](artifact-storage.md), [ADR-0025](adr/0025-prepare-scoped-publication-evidence.md) | Scoped IDs, pre-I/O rejection, real bounded reader, metadata/hash/close failures and cancellation tests |
+| Replay-first publication workflow | [Callable workflow](performance-analysis-publication.md#replay-first-publication-workflow), [ADR-0026](adr/0026-compose-replay-first-publication-workflow.md) | Full semantic first-write flow, object-free replay, conflict, transaction rejection and uncertain-commit recovery tests |
+| Authenticated analysis HTTP reads | [Read endpoint](performance-analysis-publication.md#authenticated-http-reads), [ADR-0027](adr/0027-expose-scoped-analysis-publication-reads.md) | Auth/permission, encoded identity, original bytes, uniform absence, redaction and runtime routing/capability tests |
+| Native Run admission lookup | [Scoped lookup](performance-analysis-publication.md#native-run-admission-lookup), [ADR-0028](adr/0028-resolve-scoped-admission-by-native-run.md) | Offline scope/recheck tests; live ownership, absence, reopen and lifecycle tests via `make db-validate` |
+| Reporting publication completion gate | [Opt-in gate](reconciliation.md#report-publication-completion-gate), [ADR-0029](adr/0029-gate-reporting-completion-on-publication.md) | Registration/publication/completion ordering, recovery, cancellation and existing fencing tests |
+| Scoped reporting publisher | [Application adapter](performance-analysis-publication.md#scoped-reporting-publisher), [ADR-0030](adr/0030-compose-scoped-reporting-publication.md) | Native scope, historical absence, semantic materialization, uncertain commit/restart replay and safe error tests |
+| Durable publication event allocation | [Reservations](performance-analysis-publication.md#durable-event-reservations), [ADR-0031](adr/0031-retain-publication-event-reservations.md) | Offline validation; live concurrency, reopen, populated upgrade, scope, rollback and SQL guards via `make db-validate` |
+| Reporting publication activation | [Runtime switch](runtime-configuration.md#integration-analysis-publication), [ADR-0032](adr/0032-enable-durable-reporting-publication.md) | Durable scope translation, uncertain allocation, stage ordering/replay, default-off and startup capability/configuration tests |
+| Reviewed integration admission bindings | [Integration guide](performance-integration.md#reviewed-admission-bindings), [ADR-0012](adr/0012-bind-integration-admission-to-reviewed-registry.md) | Registry resolution, baseline and configuration tests; `make validate` |
+| Durable integration admission and scoped reads | [ADR-0013](adr/0013-retain-integration-admission-atomically.md), [PostgreSQL guide](postgresql.md) | Live integration request/approval-lock tests; `make db-validate` |
+| Authenticated integration HTTP and runtime wiring | [Integration guide](performance-integration.md#authenticated-http), [ADR-0014](adr/0014-expose-authenticated-integration-http.md) | HTTP, composition and live HTTP/PostgreSQL tests; `make validate`, `make db-validate` |
+| Integration cancellation and deadline recovery | [Integration guide](performance-integration.md#cancellation-and-recovery), [ADR-0015](adr/0015-recover-integration-cancellation.md) | Authenticated cancellation, supervised recovery and live concurrency/restart tests; `make validate`, `make db-validate` |
 | Baseline behavior or administration | [Baseline lifecycle](baseline-lifecycle.md), [baseline administration](baseline-administration.md) | Domain, HTTP, and PostgreSQL tests as applicable |
-| Durable technical decision | [ADR index](decisions/README.md) | ADR template and supersession rules |
-| Native Worker discovery or manual recovery | [Discovery guide](native-worker-discovery.md), [ADR-0005](decisions/0005-serialize-native-worker-discovery.md) | HTTP/application tests and `make db-validate` |
+| Durable technical decision | [ADR index](adr/README.md) | ADR template and supersession rules |
+| Native Worker discovery or manual recovery | [Discovery guide](native-worker-discovery.md), [ADR-0005](adr/0005-serialize-native-worker-discovery.md) | HTTP/application tests and `make db-validate` |
 | Image build or publication | [README development section](../README.md#development), publish workflow | `make image` |
 | Vulnerability reporting | [SECURITY.md](../SECURITY.md) | Repository owner |
 
-Service ownership and revocable grants: [storage and administration](service-access.md), [ADR-0034](decisions/0034-retain-service-ownership-and-grants.md).
+Service ownership and revocable grants: [storage and administration](service-access.md), [ADR-0034](adr/0034-retain-service-ownership-and-grants.md).
 
-Report-time comparison selection: [retention and activation](report-comparison-retention.md), [ADR-0035](decisions/0035-retain-report-time-comparison-inputs.md).
+Report-time comparison selection: [retention and activation](report-comparison-retention.md), [ADR-0035](adr/0035-retain-report-time-comparison-inputs.md).
 
 ## Authority
 
@@ -110,12 +114,12 @@ canonical document or creates a recurring task without a clear route.
 `make docs-check` validates repository-local links and mechanical documentation
 policy; semantic accuracy remains a review responsibility.
 
-Attributable rerun persistence and activation limits: [rerun storage](rerun-persistence.md), [ADR-0036](decisions/0036-retain-atomic-rerun-acceptance.md).
+Attributable rerun persistence and activation limits: [rerun storage](rerun-persistence.md), [ADR-0036](adr/0036-retain-atomic-rerun-acceptance.md).
 
-Trusted child-bound rerun recovery (PR59a): [worker lookup](rerun-persistence.md#worker-selection-lookup-m05-pr59a), [ADR-0037](decisions/0037-scope-worker-rerun-selection-to-child.md).
+Trusted child-bound rerun recovery (PR59a): [worker lookup](rerun-persistence.md#worker-selection-lookup-m05-pr59a), [ADR-0037](adr/0037-scope-worker-rerun-selection-to-child.md).
 
-Frozen rerun report planning and report-capture rollout: [PR59b](rerun-persistence.md#frozen-report-planning-m05-pr59b), [ADR-0038](decisions/0038-plan-rerun-reports-from-retained-selection.md).
+Frozen rerun report planning and report-capture rollout: [PR59b](rerun-persistence.md#frozen-report-planning-m05-pr59b), [ADR-0038](adr/0038-plan-rerun-reports-from-retained-selection.md).
 
-Immutable rerun dispatch template capture: [PR59c](rerun-persistence.md#sealed-dispatch-templates-m05-pr59c), [ADR-0039](decisions/0039-seal-rerun-dispatch-templates.md).
+Immutable rerun dispatch template capture: [PR59c](rerun-persistence.md#sealed-dispatch-templates-m05-pr59c), [ADR-0039](adr/0039-seal-rerun-dispatch-templates.md).
 
-Sealed rerun validation and cleanup (historical PR59d slice): [PR59d](rerun-persistence.md#sealed-validation-and-cleanup-m05-pr59d), [ADR-0040](decisions/0040-consume-sealed-rerun-validation-and-cleanup.md).
+Sealed rerun validation and cleanup (historical PR59d slice): [PR59d](rerun-persistence.md#sealed-validation-and-cleanup-m05-pr59d), [ADR-0040](adr/0040-consume-sealed-rerun-validation-and-cleanup.md).

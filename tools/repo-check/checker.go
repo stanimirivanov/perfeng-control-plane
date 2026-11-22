@@ -17,7 +17,7 @@ import (
 
 const (
 	documentationPolicy = "CONTRIBUTING.md#documentation"
-	decisionPolicy      = "docs/decisions/README.md#naming-and-lifecycle"
+	decisionPolicy      = "docs/adr/README.md#naming-and-lifecycle"
 	issuePolicy         = "CONTRIBUTING.md#milestones-and-required-issue"
 	pullRequestPolicy   = "CONTRIBUTING.md#pull-request-description"
 	actionPolicy        = "docs/development/dependency-policy.md#automation-policy"
@@ -481,7 +481,7 @@ func (r *repository) checkADRs() []violation {
 	records := map[string]adr{}
 	var violations []violation
 	for path, doc := range r.docs {
-		if filepath.ToSlash(filepath.Dir(path)) != "docs/decisions" || filepath.Base(path) == "README.md" {
+		if filepath.ToSlash(filepath.Dir(path)) != "docs/adr" || filepath.Base(path) == "README.md" {
 			continue
 		}
 		match := adrFilePattern.FindStringSubmatch(filepath.Base(path))
@@ -521,10 +521,10 @@ func (r *repository) checkADRs() []violation {
 	for index := 1; index <= len(records); index++ {
 		number := fmt.Sprintf("%04d", index)
 		if _, found := records[number]; !found {
-			violations = append(violations, docViolation("docs/decisions/README.md", 1, "adr.sequence", "ADR sequence has a gap at "+number, "renumber an unpublished collision or restore the indexed record", decisionPolicy))
+			violations = append(violations, docViolation("docs/adr/README.md", 1, "adr.sequence", "ADR sequence has a gap at "+number, "renumber an unpublished collision or restore the indexed record", decisionPolicy))
 		}
 	}
-	index := r.docs["docs/decisions/README.md"]
+	index := r.docs["docs/adr/README.md"]
 	entries := map[string]adr{}
 	if index != nil {
 		for _, lineText := range index.lines {
@@ -541,12 +541,12 @@ func (r *repository) checkADRs() []violation {
 			continue
 		}
 		if filepath.Base(entry.file) != filepath.Base(record.file) || entry.title != record.title || entry.status != record.status {
-			violations = append(violations, docViolation("docs/decisions/README.md", 1, "adr.index", "ADR index entry disagrees with the record", "synchronize its link, title and status", decisionPolicy))
+			violations = append(violations, docViolation("docs/adr/README.md", 1, "adr.index", "ADR index entry disagrees with the record", "synchronize its link, title and status", decisionPolicy))
 		}
 	}
 	for number := range entries {
 		if _, found := records[number]; !found {
-			violations = append(violations, docViolation("docs/decisions/README.md", 1, "adr.index", "ADR index references missing ADR "+number, "restore the file or remove an unpublished stale row", decisionPolicy))
+			violations = append(violations, docViolation("docs/adr/README.md", 1, "adr.index", "ADR index references missing ADR "+number, "restore the file or remove an unpublished stale row", decisionPolicy))
 		}
 	}
 	return violations

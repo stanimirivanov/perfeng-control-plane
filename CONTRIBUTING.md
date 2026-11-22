@@ -33,7 +33,7 @@ silently create another normative level.
 | Architecture and Go engineering | [docs/development/engineering-standards.md](docs/development/engineering-standards.md) and repository-specific rules below |
 | Dependency admission and supply-chain policy | [docs/development/dependency-policy.md](docs/development/dependency-policy.md) |
 | PostgreSQL schema evolution | [docs/development/sql-migrations.md](docs/development/sql-migrations.md) |
-| Architecture decisions | [docs/decisions](docs/decisions/README.md) |
+| Architecture decisions | [docs/adr](docs/adr/README.md) |
 | Cross-repository milestones | [perfeng-environment roadmap](https://github.com/stanimirivanov/perfeng-environment/blob/main/docs/roadmap/milestones.md) |
 | Current capabilities and exact commands | [README.md](README.md) and checked-in tool configuration |
 

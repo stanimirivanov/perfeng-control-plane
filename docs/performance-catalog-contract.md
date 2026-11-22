@@ -44,4 +44,4 @@ retains the prepared endpoint, registry/baseline projection, permission and
 snapshot-cache work. M09-PR6 also consumes the shared identity/schema foundation.
 No runtime behavior is enabled here. Reverting this additive adapter before
 adoption requires no data migration. See proposed
-[ADR-0009](decisions/0009-pin-performance-catalog-contracts.md).
+[ADR-0009](adr/0009-pin-performance-catalog-contracts.md).

@@ -106,4 +106,4 @@ Public service-authorized comparison serving, object/policy byte transfer,
 projection-size enforcement and live Console acceptance belong to PR48 and its
 prerequisites. Capturing selections is not proof of a deployed comparison API,
 normalized-byte integrity or a verdict. See
-[ADR-0035](decisions/0035-retain-report-time-comparison-inputs.md).
+[ADR-0035](adr/0035-retain-report-time-comparison-inputs.md).

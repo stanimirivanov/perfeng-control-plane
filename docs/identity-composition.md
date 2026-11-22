@@ -21,8 +21,8 @@ The owner retains one instance per configured issuer per process, calls its sepa
 `AuthenticateIdentity` operation, and calls `Stop` when retiring it. Composition
 connects fixed-origin fetching → shared bounded refresh/cache → strict RS256 JWT
 verification → exact profile/time admission → current enrollment and caller policy.
-See [ADR 0046](decisions/0046-select-issuer-and-bff-delegation-trust.md) and
-[current policy storage](decisions/0047-retain-current-identity-policy.md).
+See [ADR 0046](adr/0046-select-issuer-and-bff-delegation-trust.md) and
+[current policy storage](adr/0047-retain-current-identity-policy.md).
 
 `Stop` is concurrent-safe and idempotent: prevent new authentication, stop shared
 key refresh and close idle transport connections. A successful authentication

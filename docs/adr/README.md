@@ -131,3 +131,4 @@ How will assumptions and consequences be verified?
 | [0046](0046-select-issuer-and-bff-delegation-trust.md) | Select issuer and BFF delegation trust | Accepted |
 | [0047](0047-retain-current-identity-policy.md) | Retain current identity enrollment and delegation | Proposed |
 | [0048](0048-isolate-named-http-authentication.md) | Isolate named HTTP authentication from legacy authority | Proposed |
+| [0049](0049-bind-policy-applicability-by-reviewed-test-selection.md) | Bind policy applicability by reviewed test selection | Accepted |
