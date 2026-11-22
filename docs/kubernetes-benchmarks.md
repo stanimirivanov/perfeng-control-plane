@@ -137,7 +137,7 @@ resources fail closed rather than being patched or deleted.
 The reservation remains after worker expiry, cancellation, failed dispatch and
 terminal lifecycle updates until verified cleanup commits. There is no public
 release API, expiry sweep or force-delete recipe. Do not manually delete a hold
-to unblock another Run. See [ADR-0007](decisions/0007-fence-and-verify-benchmark-cleanup.md)
+to unblock another Run. See [ADR-0007](adr/0007-fence-and-verify-benchmark-cleanup.md)
 for the safety trade-off and its supported local-cluster assumptions.
 
 ## Owned cleanup and restart recovery

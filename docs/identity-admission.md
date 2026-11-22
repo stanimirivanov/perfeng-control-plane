@@ -22,7 +22,7 @@ enrollment/kind and caller delegation. The requested HUMAN/CI kind comes from th
 trusted client profile; it is not proof that the subject is enrolled in that kind.
 The policy implementation must verify that match and deny missing, disabled or
 incompatible enrollment. No identity-policy decision is cached here.
-[Durable policy storage](decisions/0047-retain-current-identity-policy.md) now
+[Durable policy storage](adr/0047-retain-current-identity-policy.md) now
 implements that check; no-op policies and test doubles do not qualify production trust.
 
 Successful output preserves exact issuer/subject as actor, issuer plus namespaced

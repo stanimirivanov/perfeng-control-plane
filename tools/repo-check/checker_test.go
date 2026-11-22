@@ -82,7 +82,7 @@ func fixtureRepository(t *testing.T) string {
 	root := t.TempDir()
 	writeFixture(t, root, "README.md", "# Example\n\n## TL;DR\n\n- Example.\n")
 	writeFixture(t, root, "CONTRIBUTING.md", "# Contributing\n\n## TL;DR\n\n- Policy.\n")
-	writeFixture(t, root, "docs/decisions/README.md", "# Architecture decision records\n\n## TL;DR\n\n- Decisions.\n\n## Index\n\n| ADR | Decision | Status |\n|:--|:--|:--|\n")
+	writeFixture(t, root, "docs/adr/README.md", "# Architecture decision records\n\n## TL;DR\n\n- Decisions.\n\n## Index\n\n| ADR | Decision | Status |\n|:--|:--|:--|\n")
 	writeFixture(t, root, ".github/ISSUE_TEMPLATE/work-item.md", "**Repository:** perfeng-control-plane\n**Milestone:** MNN — Outcome\n\n## Goal\n\n## Scope\n\n## Design decisions\n\n## Security and operations\n\n## Acceptance criteria\n\n## Verification\n\n## Out of scope\n")
 	writeFixture(t, root, ".github/PULL_REQUEST_TEMPLATE.md", "## Linked work\n\n## Outcome and scope\n\n## Design, compatibility and operations\n\n## Verification\n\nChecks not run, blocking reason and residual risk:\n\n## Limitations and review\n")
 	return root

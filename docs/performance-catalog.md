@@ -98,4 +98,4 @@ For binary rollback, first remove the top-level `performanceCatalog`, every
 entry's `catalogOwnerRoute`, and all `catalog:read` grants, then revert the
 additive binary with that compatible configuration. Registry and credential
 changes take effect at process startup. No deployed workload, database state or existing run API changes.
-See proposed [ADR-0010](decisions/0010-publish-authorized-performance-catalog.md).
+See proposed [ADR-0010](adr/0010-publish-authorized-performance-catalog.md).

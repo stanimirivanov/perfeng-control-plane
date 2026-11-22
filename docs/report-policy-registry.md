@@ -53,7 +53,7 @@ uses the same exact principal/resource-context lookup as provenance approval,
 not an artifact claim, mutable global version or candidate readmission. Invalid
 context returns `run.ErrValidation`, an unmatched binding returns
 `run.ErrForbidden`, and cancellation retains its identity. Concurrent lookups
-perform no writes or external I/O. See [ADR-0008](decisions/0008-resolve-evidence-contracts-per-registry-entry.md).
+perform no writes or external I/O. See [ADR-0008](adr/0008-resolve-evidence-contracts-per-registry-entry.md).
 
 V1 and v2 OCI producers require a reusable Job template that passes the
 restricted Kubernetes policy and contains the configured producer image. V2

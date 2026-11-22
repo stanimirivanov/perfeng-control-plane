@@ -87,7 +87,7 @@ and unavailable-key freshness checks pass; BFF/browser/shared-pilot gates remain
 serving authorization, an IdP account-revocation guarantee or transaction fencing
 for a later service operation. Legacy credentials and public routes are unchanged.
 Rollback removes this opt-in test/pin/bridge; no dependency, schema or production
-runtime change is made. See accepted [ADR 0046](decisions/0046-select-issuer-and-bff-delegation-trust.md).
+runtime change is made. See accepted [ADR 0046](adr/0046-select-issuer-and-bff-delegation-trust.md).
 
 ## Private HTTP-boundary qualification
 
@@ -103,7 +103,7 @@ output and error redaction also run in ordinary unit/race tests. The consumed
 Authorization header is removed from a request clone before operation dispatch.
 These are handler-level checks, not browser or ingress/deployment qualification.
 No application route/configuration enables this adapter. See
-[ADR 0048](decisions/0048-isolate-named-http-authentication.md); the receipt stays
+[ADR 0048](adr/0048-isolate-named-http-authentication.md); the receipt stays
 NOT_ADMITTED with BFF/browser/shared-pilot pending.
 
 ## Current service-grant qualification (M05-PR58j)

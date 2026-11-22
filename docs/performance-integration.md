@@ -62,7 +62,7 @@ implementation exceeds the agreed review size.
    and preserves replay beyond the native create-key lifetime. The dependent
    PR6c2 transport/composition slice exposes authenticated create/read operations.
    Keep external calls outside transactions. The storage contract and rollout
-   are specified in [ADR-0013](decisions/0013-retain-integration-admission-atomically.md).
+   are specified in [ADR-0013](adr/0013-retain-integration-admission-atomically.md).
 4. **PR6d: request lifecycle and recovery** — project monotonic native revisions,
    handle scoped cancellation and deadline recovery, and retain correlation or
    tombstones so expiration cannot silently create duplicate runs.
@@ -190,4 +190,4 @@ Correlation, original dispositions and delivery digests are retained indefinitel
 including terminal and rejected requests. Retention replaces retirement tombstones
 in this implementation; there is no retirement operation and no 410 response is
 currently needed. Do not delete ledger rows to retry or enable another execution.
-See [ADR-0015](decisions/0015-recover-integration-cancellation.md).
+See [ADR-0015](adr/0015-recover-integration-cancellation.md).

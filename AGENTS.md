@@ -17,7 +17,7 @@ Use the default Matt Pocock label mapping. See [triage labels](docs/agents/triag
 
 ### Domain docs
 
-Single context with a root glossary and ADRs in `docs/decisions/`. See [domain docs](docs/agents/domain.md).
+Single context with a root glossary and ADRs in `docs/adr/`. See [domain docs](docs/agents/domain.md).
 
 ## Repository responsibility
 
