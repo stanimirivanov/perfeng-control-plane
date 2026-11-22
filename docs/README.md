@@ -90,7 +90,7 @@ Report-time comparison selection: [retention and activation](report-comparison-r
 
 ## Authority
 
-[CONTRIBUTING.md](../CONTRIBUTING.md) is the canonical workflow policy.
+Use [AGENTS.md](../AGENTS.md) for the agent workflow and [CONTRIBUTING.md](../CONTRIBUTING.md) for repository requirements.
 [AGENTS.md](../AGENTS.md) is the concise tool-facing entry point. The root
 [README](../README.md) describes supported behavior and current ownership.
 Accepted ADRs govern their decisions until superseded. Narrow operational

@@ -1,31 +1,23 @@
-# Repository working agreement
+# Repository agent guide
 
-## TL;DR
+## Agent skills
 
-- Read `CONTRIBUTING.md`; it is the canonical workflow policy.
-- Preserve API, persistence, lifecycle, lease and concurrency contracts.
-- Keep lint findings informational and never add suppression comments merely to
-  make a report quiet.
-- Run the exact Go checks and report their results honestly.
+Use `mattpocock/skills` as the primary workflow for planning, ticketing,
+implementation, TDD, review, and pull requests. The skills take precedence where
+contributor guidance covers the same steps. Follow the repository's technical
+requirements, CI gates, and authorization boundaries.
 
-This file is the concise, tool-facing entry point for contributors and coding
-agents. [CONTRIBUTING.md](CONTRIBUTING.md) is the canonical workflow policy.
-Normative terms such as MUST, SHOULD and MAY have the meanings defined there.
+### Issue tracker
 
-## Before changing anything
+Use GitHub Issues in `stanimirivanov/perfeng-control-plane`. See [issue tracker configuration](docs/agents/issue-tracker.md).
 
-1. You MUST read [CONTRIBUTING.md](CONTRIBUTING.md), especially its ambiguity,
-   issue-timing, verification and external-side-effect rules.
-2. You MUST inspect the branch and working tree and preserve pre-existing work.
-3. You MUST use the [documentation map](docs/README.md) to read the relevant
-   engineering standard, operational guide and accepted ADR. Do not bulk-read
-   unrelated guides or decisions.
-4. You MUST use repository-local checks and MUST NOT claim that an unavailable
-   or unexecuted check passed.
+### Triage labels
 
-If code, contracts, documentation and an accepted decision disagree, you MUST
-NOT silently pick one. Correct an obvious local defect or propose a superseding
-ADR. Ordinary ambiguity follows CONTRIBUTING.
+Use the default Matt Pocock label mapping. See [triage labels](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single context with a root glossary and ADRs in `docs/decisions/`. See [domain docs](docs/agents/domain.md).
 
 ## Repository responsibility
 
@@ -41,16 +33,6 @@ definitions or environment deployment composition.
   in `perfeng-environment`.
 - Transport, database and Kubernetes representations MUST remain outside the
   domain contracts they implement.
-
-## Shape of work
-
-- Each task and pull request MUST deliver one coherent, independently
-  reviewable outcome.
-- Prefer a thin end-to-end behavior over unused layers or speculative ports.
-- Behavioral changes, migrations, dependency updates and broad cleanup MUST
-  stay separate unless inseparable for correctness.
-- Scope, assumptions, API/contract effects, migration, concurrency, rollout,
-  rollback and verification evidence MUST be explicit.
 
 ## Architecture and implementation
 
@@ -78,8 +60,7 @@ map.
 
 ## Quality and documentation
 
-- Test observable behavior at the lowest boundary that proves it. Defect fixes
-  SHOULD begin with a failing regression test.
+- Test observable behavior at the lowest boundary that proves it.
 - Tests MUST be deterministic and use synchronization rather than sleeps.
 - Run race tests for concurrency-sensitive behavior and real disposable
   PostgreSQL/Kubernetes tests where mocks cannot prove semantics.
@@ -88,7 +69,9 @@ map.
   or suppress a linter without an independently justified exception.
 - Long documents MUST include the TL;DR required by CONTRIBUTING.
 
-## Completion
+## Verification
 
-The canonical required checks and completion-report format are defined in
-[CONTRIBUTING.md](CONTRIBUTING.md). Follow them after every work item.
+Run `make verify` and the applicable additional checks documented in
+[CONTRIBUTING.md](CONTRIBUTING.md#verification-and-constrained-environments).
+Use the [documentation map](docs/README.md) to find affected standards, operational
+guides and decisions. Report checks as passed, failed or unavailable.

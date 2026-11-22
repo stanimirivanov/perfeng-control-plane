@@ -122,7 +122,6 @@ artifact bytes, PostgreSQL records and Kubernetes resources are untrusted input.
 - Test at the lowest boundary that proves behavior: domain tests, application
   tests with fakes, adapter integration tests, contract tests and bounded
   end-to-end acceptance.
-- Defect fixes SHOULD begin with a failing regression test.
 - Cover success, rejection, duplicate, stale revision, authorization, timeout,
   cancellation, lease loss, partial failure and recovery as applicable.
 - Use disposable PostgreSQL or Kubernetes when mocks cannot reproduce
