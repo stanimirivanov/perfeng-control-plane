@@ -28,7 +28,7 @@ type reportDatabase struct {
 	registration run.Artifact
 }
 
-func (db reportDatabase) GetArtifact(_ context.Context, principal, runID, artifactID string) (run.Artifact, error) {
+func (db reportDatabase) GetLegacyReportArtifact(_ context.Context, principal, runID, artifactID string) (run.Artifact, error) {
 	if principal == "owner" && db.registration.ID == artifactID && db.registration.RunID == runID {
 		return db.registration, nil
 	}

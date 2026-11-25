@@ -231,6 +231,9 @@ An operator with `runs:read` can download the original report with
 `GET /v1/runs/{runId}/artifacts/{artifactId}/report-content`. Take both IDs
 from the owning Run and its artifact registrations. The static bearer path
 checks the current credential's principal against the Run owner on every read.
+A retained service binding disables static report access, including for that owner.
+The runtime database role needs SELECT on `perfeng_control.run_services` as
+described in the [service access guide](service-access.md).
 A trusted composition with a qualified named-identity verifier can select
 service mode for this operation. It checks current client delegation, the
 actor's current service read grant and the original creator's issuer, ID and

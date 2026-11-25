@@ -15,6 +15,9 @@ type Database interface {
 	httpapi.Repository
 	NativeWorkerStore
 	run.ArtifactRepository
+	// GetLegacyReportArtifact returns a directly registered artifact only for
+	// a principal-owned Run without a current service binding.
+	GetLegacyReportArtifact(ctx context.Context, principal, runID, artifactID string) (run.Artifact, error)
 	run.ReconciliationStore
 	kubernetes.ExecutionStore
 	Close() error

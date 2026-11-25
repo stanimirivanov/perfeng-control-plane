@@ -98,6 +98,32 @@ func TestServiceAccessUpgradeAndImmutableOwnership(t *testing.T) {
 	}
 }
 
+func TestLegacyReportLookupRequiresAnUnboundRun(t *testing.T) {
+	db := openTest(t, testDatabase(t))
+	if err := db.Migrate(testContext); err != nil {
+		t.Fatal(err)
+	}
+	current := accepted(t, db, "owner", "report-read-key01").Run
+	ref := artifactFor(current.ID)
+	ref.Kind, ref.Format = "normalized", "analysis-result/v1"
+	if err := db.RegisterArtifact(testContext, "owner", ref); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := db.GetLegacyReportArtifact(testContext, "owner", current.ID, ref.ID); err != nil || got != ref {
+		t.Fatalf("unbound report = %v, %v", got, err)
+	}
+	if _, err := db.GetLegacyReportArtifact(testContext, "peer", current.ID, ref.ID); !errors.Is(err, run.ErrNotFound) {
+		t.Fatalf("foreign report = %v", err)
+	}
+	bindReviewedRun(t, db, current.ID)
+	if _, err := db.GetLegacyReportArtifact(testContext, "owner", current.ID, ref.ID); !errors.Is(err, run.ErrNotFound) {
+		t.Fatalf("legacy owner of service Run = %v", err)
+	}
+	if got, err := db.GetArtifact(testContext, "owner", current.ID, ref.ID); err != nil || got != ref {
+		t.Fatalf("retained registration = %v, %v", got, err)
+	}
+}
+
 func TestServiceGrantsAreScopedAuditedAndRevocable(t *testing.T) {
 	dsn := testDatabase(t)
 	owner := openTest(t, dsn)
