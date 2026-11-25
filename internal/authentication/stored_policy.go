@@ -16,6 +16,8 @@ var ErrDelegationDenied = fmt.Errorf("caller delegation denied: %w", ErrUnauthen
 // delegation together. False means absent or disabled; errors never authorize.
 // Implementations must be concurrent-safe, uncached and cancellation-aware.
 type IdentityPolicyStore interface {
+	// IdentityAdmission reports whether the actor is enrolled with the given
+	// kind and whether its caller currently holds delegation.
 	IdentityAdmission(context.Context, serviceaccess.Identity, serviceaccess.Identity, string) (enrolled, delegated bool, err error)
 }
 

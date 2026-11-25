@@ -40,10 +40,15 @@ type reportBucket struct {
 	bytes []byte
 	key   string
 	calls int
+	block bool
 }
 
 func (bucket *reportBucket) GetObject(ctx context.Context, in *s3.GetObjectInput, _ ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
 	bucket.calls++
+	if bucket.block {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
 	if _, ok := ctx.Deadline(); !ok || aws.ToString(in.Key) != bucket.key || aws.ToString(in.Bucket) != "perfeng-example" {
 		return nil, run.ErrValidation
 	}
@@ -69,6 +74,7 @@ func TestApplicationServesPinnedReportContent(t *testing.T) {
 		t.Fatal(err)
 	}
 	config := validApplicationConfig(t)
+	config.HTTPServer.WriteTimeout = 500 * time.Millisecond
 	resources := validRuntimeResourcesForTest(t, config)
 	resources.Database = reportDatabase{registration: registration}
 	bucket := &reportBucket{bytes: bytes.Clone(original), key: "runs/" + registration.RunID + "/analysis/result.json"}
@@ -115,6 +121,28 @@ func TestApplicationServesPinnedReportContent(t *testing.T) {
 			t.Fatal("report leaked on failure")
 		}
 	}
+
+	t.Run("blocked storage returns an HTTP error before the write deadline", func(t *testing.T) {
+		bucket.block = true
+		server := httptest.NewUnstartedServer(nil)
+		server.Config = runtime.server.(*http.Server)
+		server.Start()
+		defer server.Close()
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer active")
+		res, err := server.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		body, err := io.ReadAll(res.Body)
+		if err != nil || res.StatusCode != http.StatusServiceUnavailable || !bytes.Contains(body, []byte(`"UNAVAILABLE"`)) || res.Header.Get("Content-Digest") != "" {
+			t.Fatalf("status %d, body %q, read error %v", res.StatusCode, body, err)
+		}
+	})
 }
 
 type reportVerifier struct{ claims authentication.SignedIdentity }
