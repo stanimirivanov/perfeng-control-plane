@@ -108,6 +108,12 @@ func (auth *IdentityAuthenticator) AuthenticateIdentity(ctx context.Context, tok
 	}
 	value := VerifiedIdentity{Actor: actor, Caller: caller, ActorKind: kind}
 	if err = auth.policy.AuthorizeIdentity(ctx, value); err != nil {
+		if ctx.Err() != nil {
+			return VerifiedIdentity{}, ctx.Err()
+		}
+		if errors.Is(err, ErrDelegationDenied) && validIdentityTimes(claims, auth.now()) {
+			return VerifiedIdentity{}, ErrDelegationDenied
+		}
 		return VerifiedIdentity{}, identityError(err)
 	}
 	if err = ctx.Err(); err != nil {

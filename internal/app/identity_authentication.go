@@ -107,8 +107,15 @@ func NewNamedIdentityBoundary(enabled bool, runtime *NamedIdentityAuthentication
 	if runtime == nil || runtime.authenticator == nil || operation == nil {
 		return nil, ErrInvalidConfiguration
 	}
-	return httpapi.NewNamedIdentityBoundary(true, func(ctx context.Context, token string) (httpapi.NamedIdentity, error) {
+	return httpapi.NewNamedIdentityBoundary(true, runtime.httpAuthenticate(false), operation)
+}
+
+func (runtime *NamedIdentityAuthentication) httpAuthenticate(reportContent bool) httpapi.NamedAuthenticate {
+	return func(ctx context.Context, token string) (httpapi.NamedIdentity, error) {
 		value, err := runtime.AuthenticateIdentity(ctx, token)
+		if reportContent && errors.Is(err, authentication.ErrDelegationDenied) {
+			return httpapi.NamedIdentity{}, httpapi.ErrReportScopeNotFound
+		}
 		if errors.Is(err, authentication.ErrUnauthenticated) {
 			return httpapi.NamedIdentity{}, httpapi.ErrNamedCredentialRejected
 		}
@@ -116,5 +123,5 @@ func NewNamedIdentityBoundary(enabled bool, runtime *NamedIdentityAuthentication
 			return httpapi.NamedIdentity{}, err
 		}
 		return httpapi.NamedIdentity{Actor: value.Actor, Caller: value.Caller, ActorKind: value.ActorKind}, nil
-	}, operation)
+	}
 }

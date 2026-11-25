@@ -224,3 +224,28 @@ separate startup work.
 References: [AWS SDK for Go v2 GetObject usage](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/using.html),
 [client endpoint configuration](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/configure-endpoints.html),
 and [error handling](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/handle-errors.html).
+
+## Reading a retained Analysis Report
+
+An operator with `runs:read` can download the original report with
+`GET /v1/runs/{runId}/artifacts/{artifactId}/report-content`. Take both IDs
+from the owning Run and its artifact registrations. The static bearer path
+checks the current credential's principal against the Run owner on every read.
+A trusted composition with a qualified named-identity verifier can select
+service mode for this operation. It checks current client delegation, the
+actor's current service read grant and the original creator's issuer, ID and
+kind. The deployment's existing static bearer configuration selects legacy mode.
+
+The provider resolves the direct registration in the approved bucket, checks
+its byte length and SHA-256, validates the pinned Analysis Report schema, and
+checks both the report and candidate Run IDs. The configured HTTP write timeout
+bounds the read. Success returns the original bytes as `application/octet-stream`
+with `Content-Length`, `Content-Digest` and the registered evidence identity.
+Compare those headers to the independent Run artifact registration. The
+endpoint caps content at 1 MiB. An oversized registration returns 422, while
+unavailable or invalid stored bytes return 503. A Run or registration outside
+the caller's scope returns the same 404 as an absent report.
+
+The operation selects the [Run API and conformance cases from Contracts PR
+#123](https://github.com/stanimirivanov/perfeng-contracts/blob/253733ca16ea2b3a6f9c516e69ae0bf3f9cac5f1/docs/run-evidence-reads.md).
+Deployment selection requires a qualified immutable Control Plane image.

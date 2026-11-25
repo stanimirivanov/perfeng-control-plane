@@ -2,16 +2,21 @@ package authentication
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/serviceaccess"
 )
 
+// ErrDelegationDenied identifies an enrolled actor whose verified client lacks
+// current delegation. Generic identity boundaries treat it as unauthenticated.
+var ErrDelegationDenied = fmt.Errorf("caller delegation denied: %w", ErrUnauthenticated)
+
 // IdentityPolicyStore reads exact current subject enrollment/kind and caller
 // delegation together. False means absent or disabled; errors never authorize.
 // Implementations must be concurrent-safe, uncached and cancellation-aware.
 type IdentityPolicyStore interface {
-	IdentityAdmitted(context.Context, serviceaccess.Identity, serviceaccess.Identity, string) (bool, error)
+	IdentityAdmission(context.Context, serviceaccess.Identity, serviceaccess.Identity, string) (enrolled, delegated bool, err error)
 }
 
 // StoredIdentityPolicy translates current store observations to safe admission
@@ -32,15 +37,18 @@ func (p *StoredIdentityPolicy) AuthorizeIdentity(ctx context.Context, identity V
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	allowed, err := p.store.IdentityAdmitted(ctx, identity.Actor, identity.Caller, identity.ActorKind)
+	enrolled, delegated, err := p.store.IdentityAdmission(ctx, identity.Actor, identity.Caller, identity.ActorKind)
 	if err != nil {
 		return identityError(err)
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if !allowed {
+	if !enrolled {
 		return ErrUnauthenticated
+	}
+	if !delegated {
+		return ErrDelegationDenied
 	}
 	return nil
 }

@@ -11,8 +11,9 @@ import (
 
 type identityStoreFunc func(context.Context, serviceaccess.Identity, serviceaccess.Identity, string) (bool, error)
 
-func (f identityStoreFunc) IdentityAdmitted(ctx context.Context, a, c serviceaccess.Identity, k string) (bool, error) {
-	return f(ctx, a, c, k)
+func (f identityStoreFunc) IdentityAdmission(ctx context.Context, a, c serviceaccess.Identity, k string) (bool, bool, error) {
+	allowed, err := f(ctx, a, c, k)
+	return allowed, allowed, err
 }
 
 func TestStoredIdentityPolicyClassifiesFailuresAndCancellation(t *testing.T) {
