@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -122,6 +123,23 @@ func TestPinnedRegistrationCases(t *testing.T) {
 				t.Fatalf("got %d bytes and %v, want %v", len(got), err, wanted)
 			}
 		})
+	}
+}
+
+func TestRetainedReportPreservesLongDecimal(t *testing.T) {
+	t.Parallel()
+	f, body := retained(t)
+	for _, number := range []string{"140." + strings.Repeat("0", 130), "1" + strings.Repeat("0", 310)} {
+		data := bytes.Replace(body, []byte(`"value": 140`), []byte(`"value": `+number), 1)
+		ref := f.Run.Registrations[0]
+		ref.SizeBytes = int64(len(data))
+		digest := sha256.Sum256(data)
+		ref.SHA256 = hex.EncodeToString(digest[:])
+		reader := newReader(t, ref, func(context.Context, string, string) (objectstore.Object, error) { return original(data), nil })
+		got, err := reader.Read(t.Context(), "owner", f.RunID, f.ArtifactID)
+		if err != nil || !bytes.Equal(got, data) {
+			t.Fatalf("report with %d-byte decimal: got %d bytes, %v", len(number), len(got), err)
+		}
 	}
 }
 

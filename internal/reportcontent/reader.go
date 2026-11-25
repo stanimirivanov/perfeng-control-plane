@@ -106,7 +106,7 @@ func (r *Reader) Read(ctx context.Context, principal, runID, artifactID string) 
 }
 
 func (r *Reader) valid(raw []byte, runID string) bool {
-	if !jsondocument.Valid(raw, MaxBytes) || !jsondocument.SafeScalars(raw) {
+	if !jsondocument.ValidSchemaInput(raw, MaxBytes) {
 		return false
 	}
 	document, err := jsonschema.UnmarshalJSON(bytes.NewReader(raw))

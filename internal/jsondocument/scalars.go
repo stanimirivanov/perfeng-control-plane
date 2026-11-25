@@ -58,15 +58,18 @@ func scalarNumbers(raw []byte) bool {
 			return errors.Is(err, io.EOF)
 		}
 		if number, ok := token.(json.Number); ok {
-			if len(number) > 128 {
+			if len(number) > 128 || !boundedExponent(number) {
 				return false
-			}
-			if index := strings.IndexAny(string(number), "eE"); index >= 0 {
-				exponent, err := strconv.Atoi(string(number[index+1:]))
-				if err != nil || exponent < -999 || exponent > 999 {
-					return false
-				}
 			}
 		}
 	}
+}
+
+func boundedExponent(number json.Number) bool {
+	index := strings.IndexAny(string(number), "eE")
+	if index < 0 {
+		return true
+	}
+	exponent, err := strconv.Atoi(string(number[index+1:]))
+	return err == nil && exponent >= -999 && exponent <= 999
 }

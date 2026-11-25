@@ -13,11 +13,25 @@ const maximumDepth = 64
 // Valid reports whether data is one bounded UTF-8 JSON value with unique object
 // keys and no nesting beyond the shared parser limit.
 func Valid(data []byte, maximumBytes int) bool {
+	return validDocument(data, maximumBytes, false)
+}
+
+// ValidSchemaInput checks bounded, unique-key JSON and Unicode scalar values.
+// Numbers retain their decimal syntax up to the document size limit, with a
+// separate exponent bound before arbitrary-precision schema arithmetic.
+func ValidSchemaInput(data []byte, maximumBytes int) bool {
+	return validDocument(data, maximumBytes, true) && scalarUnicode(data)
+}
+
+func validDocument(data []byte, maximumBytes int, exactNumbers bool) bool {
 	if len(data) == 0 || maximumBytes < 1 || len(data) > maximumBytes || !utf8.Valid(data) {
 		return false
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(data))
+	if exactNumbers {
+		decoder.UseNumber()
+	}
 
 	return consumeUniqueValue(decoder, 0) == nil && atEnd(decoder)
 }
@@ -83,6 +97,9 @@ func consumeUniqueValue(decoder *json.Decoder, depth int) error {
 	token, err := decoder.Token()
 	if err != nil {
 		return err
+	}
+	if number, ok := token.(json.Number); ok && !boundedExponent(number) {
+		return io.ErrUnexpectedEOF
 	}
 	delimiter, composite := token.(json.Delim)
 	if !composite {
