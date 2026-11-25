@@ -11,6 +11,7 @@ import (
 	"github.com/stanimirivanov/perfeng-control-plane/internal/analysisresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/integration"
+	"github.com/stanimirivanov/perfeng-control-plane/internal/jsondocument"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/policy"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/rawresult"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/run"
@@ -60,7 +61,7 @@ func BuildAnalysisPublication(ctx context.Context, input PublicationInput) (cont
 		return contract.AnalysisPublication{}, contract.ErrAnalysisPublication
 	}
 	manifest, err := analysisresult.Parse(input.ReportBytes, native.RunID, input.ContractsVersion)
-	if err != nil || !publicationUnicode(input.ReportBytes) || !publicationNumbers(input.ReportBytes) ||
+	if err != nil || !jsondocument.SafeScalars(input.ReportBytes) ||
 		manifest.TestID != native.TestID || manifest.CandidateArtifact != input.Candidate ||
 		!manifest.Producer.Equal(input.Producer) || manifest.Policy.ID != native.Policy.ID || manifest.Policy.Version != native.Policy.Version || manifest.Policy.SHA256 != native.Policy.SHA256 {
 		return contract.AnalysisPublication{}, contract.ErrAnalysisPublication
