@@ -92,6 +92,9 @@ func TestSourceMappingKeepsFamilyOverridesAndRenames(t *testing.T) {
 		{"transitions.json", "primary", "api/run-management/v1/transitions.json"},
 		{"examples/create.json", "primary", "api/run-management/v1/examples/create.json"},
 		{"examples/policy/browser.json", "primary", "examples/policy/browser.json"},
+		{"schemas/analysis/v1/analysis-result.schema.json", "primary", "schemas/analysis/v1/analysis-result.schema.json"},
+		{"tests/fixtures/report-content/cases.json", "primary", "tests/fixtures/report-content/cases.json"},
+		{"examples/analysis/slo-pass-regression-fail.json", "primary", "examples/analysis/slo-pass-regression-fail.json"},
 		{"api/native-worker/v2/openapi.json", "native", "api/native-worker/v2/openapi.json"},
 		{"schemas/performance-analysis/v1/schema.json", "analysis", "schemas/performance-analysis/v1/schema.json"},
 	} {
@@ -100,7 +103,7 @@ func TestSourceMappingKeepsFamilyOverridesAndRenames(t *testing.T) {
 			t.Fatalf("incorrect source mapping for %s: %s %s %v", test.name, commit, path, err)
 		}
 	}
-	for _, name := range []string{"../outside.json", "api/performance-integration/v1/openapi.json", "schemas/unselected/file.json", "https://example.com/schema.json"} {
+	for _, name := range []string{"../outside.json", "api/performance-integration/v1/openapi.json", "schemas/unselected/file.json", "tests/fixtures/report-content/extra.json", "https://example.com/schema.json"} {
 		if _, _, err := fileSource(name, lock, nil); err == nil {
 			t.Fatal("undeclared source mapping accepted", name)
 		}

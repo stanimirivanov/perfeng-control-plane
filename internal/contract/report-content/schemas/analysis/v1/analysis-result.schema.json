@@ -1,0 +1,543 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://perfeng.dev/schemas/analysis/v1/analysis-result.schema.json",
+  "$defs": {
+    "version": {
+      "type": "string",
+      "description": "a string matching the pattern ^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "id": {
+      "type": "string",
+      "description": "a string matching the pattern ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "a string matching the pattern ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d{1,6})?(?:Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "sha256": {
+      "type": "string",
+      "description": "a string matching the pattern ^[a-f0-9]{64}$",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "metricSelector": {
+      "type": "object",
+      "required": [
+        "name",
+        "statistic",
+        "unit"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Metric name following naming convention",
+          "title": "minLength(1)",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_.]*$"
+        },
+        "statistic": {
+          "type": "string",
+          "enum": [
+            "mean",
+            "median",
+            "p90",
+            "p95",
+            "p99",
+            "min",
+            "max"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "description": "a string matching the pattern \\S",
+          "title": "minLength(1)",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "kind",
+    "contractsVersion",
+    "runId",
+    "testId",
+    "createdAt",
+    "producer",
+    "policy",
+    "candidateArtifact",
+    "referenceArtifacts",
+    "blocking",
+    "evaluations"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "enum": [
+        1
+      ]
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "AnalysisResult"
+      ]
+    },
+    "contractsVersion": {
+      "$ref": "#/$defs/version"
+    },
+    "runId": {
+      "type": "string",
+      "description": "Reference to the run metadata",
+      "pattern": "^perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$"
+    },
+    "testId": {
+      "$ref": "#/$defs/id"
+    },
+    "createdAt": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "producer": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "image"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/id"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "image": {
+          "type": "string",
+          "description": "a string matching the pattern ^[a-z0-9][a-z0-9._:/-]*@sha256:[a-f0-9]{64}$",
+          "pattern": "^[a-z0-9][a-z0-9._:/-]*@sha256:[a-f0-9]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "id",
+        "version",
+        "sha256",
+        "mode"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "observe",
+            "inform"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "candidateArtifact": {
+      "type": "object",
+      "required": [
+        "id",
+        "runId",
+        "kind",
+        "uri",
+        "sha256",
+        "sizeBytes",
+        "mediaType",
+        "format"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "runId": {
+          "type": "string",
+          "description": "Reference to the run metadata",
+          "pattern": "^perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "normalized"
+          ]
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri",
+          "description": "a string matching the pattern ^(s3|https):\\/\\/[^\\s?#]+$",
+          "pattern": "^(s3|https):\\/\\/[^\\s?#]+$"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "description": "a non-negative number",
+          "title": "greaterThanOrEqualTo(0)",
+          "minimum": 0
+        },
+        "mediaType": {
+          "type": "string",
+          "enum": [
+            "application/json"
+          ]
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "normalized-result/v1"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "referenceArtifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "runId",
+          "kind",
+          "uri",
+          "sha256",
+          "sizeBytes",
+          "mediaType",
+          "format"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "runId": {
+            "type": "string",
+            "description": "Reference to the run metadata",
+            "pattern": "^perf-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "normalized"
+            ]
+          },
+          "uri": {
+            "type": "string",
+            "format": "uri",
+            "description": "a string matching the pattern ^(s3|https):\\/\\/[^\\s?#]+$",
+            "pattern": "^(s3|https):\\/\\/[^\\s?#]+$"
+          },
+          "sha256": {
+            "$ref": "#/$defs/sha256"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "description": "a non-negative number",
+            "title": "greaterThanOrEqualTo(0)",
+            "minimum": 0
+          },
+          "mediaType": {
+            "type": "string",
+            "enum": [
+              "application/json"
+            ]
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "normalized-result/v1"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "uniqueItems": true
+    },
+    "blocking": {
+      "type": "boolean",
+      "enum": [
+        false
+      ]
+    },
+    "evaluations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "ruleId",
+          "metric",
+          "quality",
+          "slo",
+          "regression"
+        ],
+        "properties": {
+          "ruleId": {
+            "$ref": "#/$defs/id"
+          },
+          "metric": {
+            "$ref": "#/$defs/metricSelector"
+          },
+          "quality": {
+            "type": "object",
+            "required": [
+              "status",
+              "reasons"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "PASS",
+                  "INVALID",
+                  "UNSTABLE",
+                  "INCONCLUSIVE",
+                  "NOT_EVALUATED"
+                ]
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "a string matching the pattern \\S",
+                  "title": "minLength(1)",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "uniqueItems": true
+              },
+              "samples": {
+                "type": "integer",
+                "description": "a number greater than or equal to 1",
+                "title": "greaterThanOrEqualTo(1)",
+                "minimum": 1
+              },
+              "cv": {
+                "type": "number",
+                "description": "a non-negative number",
+                "title": "greaterThanOrEqualTo(0)",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          },
+          "slo": {
+            "type": "object",
+            "required": [
+              "status",
+              "reasons"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "INCONCLUSIVE",
+                  "NOT_EVALUATED"
+                ]
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "a string matching the pattern \\S",
+                  "title": "minLength(1)",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "uniqueItems": true
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "PASS",
+                        "FAIL"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "value"
+                  ],
+                  "properties": {
+                    "value": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "regression": {
+            "type": "object",
+            "required": [
+              "status",
+              "reasons"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "INCONCLUSIVE",
+                  "NOT_EVALUATED"
+                ]
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "a string matching the pattern \\S",
+                  "title": "minLength(1)",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "uniqueItems": true
+              },
+              "candidateValue": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "referenceValue": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "referenceArtifactId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "effect": {
+                "type": "object",
+                "required": [
+                  "kind",
+                  "value"
+                ],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "relative",
+                      "absolute"
+                    ]
+                  },
+                  "value": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "method": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "a string matching the pattern \\S",
+                    "title": "minLength(1)",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  },
+                  "version": {
+                    "$ref": "#/$defs/version"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "PASS",
+                        "FAIL"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "candidateValue",
+                    "referenceValue",
+                    "referenceArtifactId",
+                    "effect",
+                    "method"
+                  ],
+                  "properties": {
+                    "candidateValue": {
+                      "type": "number"
+                    },
+                    "referenceValue": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "uniqueItems": true,
+      "description": "an array of at least 1 item(s)",
+      "title": "minItems(1)",
+      "minItems": 1
+    }
+  },
+  "additionalProperties": false,
+  "title": "Independent quality, requirement, and regression outcomes"
+}

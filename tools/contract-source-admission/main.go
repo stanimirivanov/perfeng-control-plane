@@ -92,7 +92,10 @@ func fileSource(name string, lock ledger, overrides map[string]string) (string, 
 		return lock.Commit, "api/run-management/v1/" + name, nil
 	case strings.HasPrefix(name, "examples/") && strings.Count(name, "/") == 1:
 		return lock.Commit, "api/run-management/v1/" + name, nil
-	case strings.HasPrefix(name, "schemas/policy/"), strings.HasPrefix(name, "examples/policy/"):
+	case name == "schemas/analysis/v1/analysis-result.schema.json",
+		name == "tests/fixtures/report-content/cases.json",
+		name == "examples/analysis/slo-pass-regression-fail.json",
+		strings.HasPrefix(name, "schemas/policy/"), strings.HasPrefix(name, "examples/policy/"):
 		return lock.Commit, name, nil
 	default:
 		return "", "", fmt.Errorf("selected path has no reviewed source mapping: %s", name)

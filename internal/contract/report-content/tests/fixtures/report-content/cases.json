@@ -1,0 +1,179 @@
+{
+  "runId": "perf-20260902-130000-a1b2c3d5",
+  "artifactId": "88888888-8888-4888-8888-888888888888",
+  "run": {
+    "service": {
+      "issuer": "https://catalog.example/services",
+      "id": "search"
+    },
+    "createdBy": {
+      "issuer": "https://ci.example",
+      "id": "pipeline",
+      "kind": "CI"
+    },
+    "registrations": [
+      {
+        "id": "88888888-8888-4888-8888-888888888888",
+        "runId": "perf-20260902-130000-a1b2c3d5",
+        "kind": "normalized",
+        "uri": "s3://perfeng-example/runs/perf-20260902-130000-a1b2c3d5/analysis/result.json",
+        "sha256": "ddea48923c2eba4c9cf1ba90c067702946094c8cc99a04ebccf5640a49993029",
+        "sizeBytes": 2362,
+        "mediaType": "application/json",
+        "format": "analysis-result/v1"
+      }
+    ]
+  },
+  "authority": {
+    "operationAllowed": true,
+    "actor": {
+      "issuer": "https://ci.example",
+      "id": "pipeline",
+      "kind": "CI"
+    },
+    "grantService": {
+      "issuer": "https://catalog.example/services",
+      "id": "search"
+    },
+    "permissions": ["run:read"],
+    "callerAuthorizedForActor": true,
+    "mode": "service"
+  },
+  "body": "examples/analysis/slo-pass-regression-fail.json",
+  "headers": {
+    "Content-Type": "application/octet-stream",
+    "Content-Length": "2362",
+    "Content-Digest": "sha-256=:3epIkjwuukyc8bqQwGdwKUYJTIzJmgTrzPVkCkmZMCk=:",
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+    "X-Perfeng-Evidence-Media-Type": "application/json",
+    "X-Perfeng-Evidence-Format": "analysis-result/v1",
+    "X-Perfeng-Run-Id": "perf-20260902-130000-a1b2c3d5",
+    "X-Perfeng-Artifact-Id": "88888888-8888-4888-8888-888888888888",
+    "X-Perfeng-Artifact-Run-Id": "perf-20260902-130000-a1b2c3d5"
+  },
+  "authorityCases": [
+    {
+      "name": "different issuer",
+      "override": {
+        "actor": {
+          "issuer": "https://other.example",
+          "id": "pipeline",
+          "kind": "CI"
+        }
+      },
+      "status": 404
+    },
+    {
+      "name": "different actor",
+      "override": {
+        "actor": {
+          "issuer": "https://ci.example",
+          "id": "peer",
+          "kind": "CI"
+        }
+      },
+      "status": 404
+    },
+    {
+      "name": "different actor kind",
+      "override": {
+        "actor": {
+          "issuer": "https://ci.example",
+          "id": "pipeline",
+          "kind": "HUMAN"
+        }
+      },
+      "status": 404
+    },
+    {
+      "name": "cross-service grant",
+      "override": {
+        "grantService": {
+          "issuer": "https://catalog.example/services",
+          "id": "other"
+        }
+      },
+      "status": 404
+    },
+    {
+      "name": "revoked read",
+      "override": {
+        "permissions": []
+      },
+      "status": 404
+    },
+    {
+      "name": "revoked delegation",
+      "override": {
+        "callerAuthorizedForActor": false
+      },
+      "status": 404
+    }
+  ],
+  "registrationCases": [
+    {
+      "name": "foreign registration",
+      "override": {
+        "runId": "perf-20260901-130000-a1b2c3d5"
+      },
+      "status": 404
+    },
+    {
+      "name": "unknown artifact",
+      "override": {
+        "id": "44444444-4444-4444-8444-444444444444"
+      },
+      "status": 404
+    },
+    {
+      "name": "publication descriptor",
+      "override": {
+        "kind": "analysis"
+      },
+      "status": 404
+    },
+    {
+      "name": "raw artifact",
+      "override": {
+        "kind": "raw"
+      },
+      "status": 404
+    },
+    {
+      "name": "normalized result",
+      "override": {
+        "format": "normalized-result/v1"
+      },
+      "status": 404
+    },
+    {
+      "name": "wrong media type",
+      "override": {
+        "mediaType": "text/plain"
+      },
+      "status": 404
+    },
+    {
+      "name": "advertised overflow",
+      "override": {
+        "sizeBytes": 1048577
+      },
+      "status": 422
+    },
+    {
+      "name": "registered short length",
+      "override": {
+        "sizeBytes": 2361
+      },
+      "status": 503
+    },
+    {
+      "name": "registered wrong digest",
+      "override": {
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "status": 503
+    }
+  ]
+}
