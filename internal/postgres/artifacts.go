@@ -53,13 +53,27 @@ func (r *Repository) RegisterArtifact(ctx context.Context, principal string, art
 
 // GetArtifact joins through the owning Run so cross-principal references remain hidden.
 func (r *Repository) GetArtifact(ctx context.Context, principal, runID, id string) (run.Artifact, error) {
+	return r.getScopedArtifact(ctx, principal, runID, id, false)
+}
+
+// GetLegacyReportArtifact requires an owned Run without a service binding.
+// A binding can be added after registration, so check it in the same statement.
+func (r *Repository) GetLegacyReportArtifact(ctx context.Context, principal, runID, id string) (run.Artifact, error) {
+	return r.getScopedArtifact(ctx, principal, runID, id, true)
+}
+
+func (r *Repository) getScopedArtifact(ctx context.Context, principal, runID, id string, legacyOnly bool) (run.Artifact, error) {
 	ctx, cancel := context.WithTimeout(ctx, operationTimeout)
 	defer cancel()
+	query := `SELECT a.reference FROM perfeng_control.artifacts a
+        JOIN perfeng_control.runs r ON r.run_id=a.run_id
+        WHERE r.principal=$1 AND r.run_id=$2 AND a.artifact_id::text=$3`
+	if legacyOnly {
+		query += ` AND NOT EXISTS (
+            SELECT 1 FROM perfeng_control.run_services b WHERE b.run_id=r.run_id)`
+	}
 	var b []byte
-	err := r.db.QueryRowContext(ctx, `
-		SELECT a.reference FROM perfeng_control.artifacts a
-		JOIN perfeng_control.runs r ON r.run_id=a.run_id
-		WHERE r.principal=$1 AND r.run_id=$2 AND a.artifact_id::text=$3`, principal, runID, strings.ToLower(id)).Scan(&b)
+	err := r.db.QueryRowContext(ctx, query, principal, runID, strings.ToLower(id)).Scan(&b)
 	if err != nil {
 		return run.Artifact{}, storageError(err)
 	}

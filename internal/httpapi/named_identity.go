@@ -14,6 +14,10 @@ import (
 // Composition translates the verifier's rejection; unknown failures are unavailable.
 var ErrNamedCredentialRejected = errors.New("named credential rejected")
 
+// ErrReportScopeNotFound hides scoped delegation denial for an otherwise
+// verified report credential. Other named operations retain their admission policy.
+var ErrReportScopeNotFound = errors.New("report identity outside scope")
+
 // NamedIdentity is verified actor/caller input to a service operation, never a
 // request DTO, legacy principal or permission grant. The operation must check
 // current service rights and fence its own mutation authorization separately.
@@ -64,6 +68,10 @@ func (h *namedIdentityBoundary) ServeHTTP(w http.ResponseWriter, r *http.Request
 	identity, err := h.authenticate(r.Context(), token)
 	if r.Context().Err() != nil || errors.Is(err, run.ErrUnavailable) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		fail(w, 503, "UNAVAILABLE")
+		return
+	}
+	if errors.Is(err, ErrReportScopeNotFound) {
+		fail(w, 404, "NOT_FOUND")
 		return
 	}
 	if errors.Is(err, ErrNamedCredentialRejected) {

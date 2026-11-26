@@ -1,0 +1,13 @@
+{
+  "repository": "https://github.com/stanimirivanov/perfeng-contracts",
+  "commit": "253733ca16ea2b3a6f9c516e69ae0bf3f9cac5f1",
+  "bundleVersion": "0.32.0",
+  "runManagementApiVersion": "0.9.0",
+  "operationId": "getRunAnalysisReportContent",
+  "sha256": {
+    "openapi.json": "5f650e99f77f8b6a1b536588af8d11bac90132719a058f863e92160f8833eb1c",
+    "schemas/analysis/v1/analysis-result.schema.json": "04d281d709497c511d69fb145a8fe1d3a9f10e0ef914d50c9ee5da596548eb93",
+    "tests/fixtures/report-content/cases.json": "b10be82f7a89ddc21870678141d68da9d61e2d643419a72a93c070bdc623e827",
+    "examples/analysis/slo-pass-regression-fail.json": "ddea48923c2eba4c9cf1ba90c067702946094c8cc99a04ebccf5640a49993029"
+  }
+}

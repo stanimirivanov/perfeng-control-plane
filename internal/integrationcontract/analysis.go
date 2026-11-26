@@ -4,11 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
-	"strconv"
 	"strings"
-	"unicode/utf16"
-	"unicode/utf8"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/stanimirivanov/perfeng-control-plane/internal/contract"
@@ -50,7 +46,7 @@ func compileAnalysisPublicationSchema(raw []byte) (*jsonschema.Schema, error) {
 // Authentication, admission/native binding, artifact bytes, policy and replay
 // checks remain caller duties before any decision or publication authority.
 func DecodeAnalysisPublication(raw []byte) (contract.AnalysisPublication, error) {
-	if !jsondocument.Valid(raw, contract.AnalysisPublicationMaximumBytes) || !publicationUnicode(raw) || !publicationNumbers(raw) {
+	if !jsondocument.Valid(raw, contract.AnalysisPublicationMaximumBytes) || !jsondocument.SafeScalars(raw) {
 		return contract.AnalysisPublication{}, contract.ErrAnalysisPublication
 	}
 	document, err := jsonschema.UnmarshalJSON(bytes.NewReader(raw))
@@ -87,58 +83,4 @@ func EncodeAnalysisPublication(message contract.AnalysisPublication) ([]byte, er
 	}
 
 	return raw, nil
-}
-
-// Valid JSON is already established. Reject escaped unpaired surrogates that
-// Go would replace, preserving exact identity claims across implementations.
-func publicationUnicode(raw []byte) bool {
-	for index := 0; index < len(raw); index++ {
-		if raw[index] != '\\' {
-			continue
-		}
-		index++
-		if raw[index] != 'u' {
-			continue
-		}
-		code, err := strconv.ParseUint(string(raw[index+1:index+5]), 16, 16)
-		if err != nil {
-			return false
-		}
-		if utf16.IsSurrogate(rune(code)) {
-			if index+11 > len(raw) || string(raw[index+5:index+7]) != `\u` {
-				return false
-			}
-			low, err := strconv.ParseUint(string(raw[index+7:index+11]), 16, 16)
-			if err != nil || utf16.DecodeRune(rune(code), rune(low)) == utf8.RuneError {
-				return false
-			}
-			index += 6
-		}
-		index += 4
-	}
-
-	return true
-}
-
-// Bound rational expansion before the schema validator performs arithmetic.
-func publicationNumbers(raw []byte) bool {
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.UseNumber()
-	for {
-		token, err := decoder.Token()
-		if err != nil {
-			return errors.Is(err, io.EOF)
-		}
-		if number, ok := token.(json.Number); ok {
-			if len(number) > 128 {
-				return false
-			}
-			if index := strings.IndexAny(string(number), "eE"); index >= 0 {
-				exponent, err := strconv.Atoi(string(number[index+1:]))
-				if err != nil || exponent < -999 || exponent > 999 {
-					return false
-				}
-			}
-		}
-	}
 }

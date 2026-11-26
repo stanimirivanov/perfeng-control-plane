@@ -104,13 +104,13 @@ type identityCompositionStore struct {
 	entered, release chan struct{}
 }
 
-func (s *identityCompositionStore) IdentityAdmitted(ctx context.Context, a, c serviceaccess.Identity, k string) (bool, error) {
-	allowed, err := s.repository.IdentityAdmitted(ctx, a, c, k)
+func (s *identityCompositionStore) IdentityAdmission(ctx context.Context, a, c serviceaccess.Identity, k string) (bool, bool, error) {
+	enrolled, delegated, err := s.repository.IdentityAdmission(ctx, a, c, k)
 	if s.block.Load() {
 		close(s.entered)
 		<-s.release
 	}
-	return allowed, err
+	return enrolled, delegated, err
 }
 
 func TestNamedIdentityCompositionAgainstTLSAndPostgres(t *testing.T) {

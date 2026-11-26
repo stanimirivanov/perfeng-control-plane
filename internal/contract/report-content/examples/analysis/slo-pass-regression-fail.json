@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "kind": "AnalysisResult",
+  "contractsVersion": "0.4.0",
+  "runId": "perf-20260902-130000-a1b2c3d5",
+  "testId": "search-browser",
+  "createdAt": "2026-09-02T13:02:00Z",
+  "producer": {
+    "name": "perfeng-analysis",
+    "version": "0.1.0",
+    "image": "ghcr.io/example/perfeng-analysis@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "policy": {
+    "id": "search-browser",
+    "version": "1.0.0",
+    "sha256": "566a9d13e277db0b492c4a7b55294a2e479c9d449768317c072f0f4dda988646",
+    "mode": "inform"
+  },
+  "candidateArtifact": {
+    "id": "44444444-4444-4444-8444-444444444444",
+    "runId": "perf-20260902-130000-a1b2c3d5",
+    "kind": "normalized",
+    "uri": "s3://perfeng-example/runs/perf-20260902-130000-a1b2c3d5/normalized/playwright.json",
+    "sha256": "586619a56a91ea457bed32d19789e708ea40cea5cf89b8da2ccf44c956317075",
+    "sizeBytes": 1506,
+    "mediaType": "application/json",
+    "format": "normalized-result/v1"
+  },
+  "referenceArtifacts": [
+    {
+      "id": "66666666-6666-4666-8666-666666666666",
+      "runId": "perf-20260901-130000-a1b2c3d5",
+      "kind": "normalized",
+      "uri": "s3://perfeng-example/runs/perf-20260901-130000-a1b2c3d5/normalized/playwright.json",
+      "sha256": "9430060da3f66d21e555aab2d52c6b8ad45febbb72817193c657be0a82d19f41",
+      "sizeBytes": 1501,
+      "mediaType": "application/json",
+      "format": "normalized-result/v1"
+    }
+  ],
+  "blocking": false,
+  "evaluations": [
+    {
+      "ruleId": "search-latency",
+      "metric": {
+        "name": "ui.search.action_to_visible_ms",
+        "statistic": "mean",
+        "unit": "ms"
+      },
+      "quality": {
+        "status": "PASS",
+        "reasons": [],
+        "samples": 2
+      },
+      "slo": {
+        "status": "PASS",
+        "reasons": [],
+        "value": 140
+      },
+      "regression": {
+        "status": "FAIL",
+        "reasons": [
+          "Example comparison exceeds the provisional practical-difference threshold."
+        ],
+        "candidateValue": 140,
+        "referenceValue": 100,
+        "referenceArtifactId": "66666666-6666-4666-8666-666666666666",
+        "effect": {
+          "kind": "relative",
+          "value": 0.4
+        },
+        "method": {
+          "name": "synthetic-point-comparison",
+          "version": "1.0.0"
+        }
+      }
+    }
+  ]
+}

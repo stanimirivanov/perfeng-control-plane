@@ -13,8 +13,8 @@ import (
 
 type identityPolicyStoreStub struct{}
 
-func (identityPolicyStoreStub) IdentityAdmitted(context.Context, serviceaccess.Identity, serviceaccess.Identity, string) (bool, error) {
-	return false, nil
+func (identityPolicyStoreStub) IdentityAdmission(context.Context, serviceaccess.Identity, serviceaccess.Identity, string) (bool, bool, error) {
+	return false, false, nil
 }
 
 func TestNamedIdentityAuthenticationConstruction(t *testing.T) {

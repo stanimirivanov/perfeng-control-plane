@@ -61,6 +61,10 @@ func NewApplicationRuntime(
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
+	handler, err = composeReportContent(handler, resources, config.HTTPServer.WriteTimeout)
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
 	nativeWorkerHandler, err := NewNativeWorkerAPIHandler(
 		resources.Database,
 		resources.Authentication,

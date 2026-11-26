@@ -45,6 +45,21 @@ network transports are disabled. The provided object identity must resolve to a
 commit. The candidate root uses the confined filesystem documented in
 [candidate admission](contract-candidate-admission.md).
 
+## Principal-scoped Analysis Report reads
+
+The provider selects `getRunAnalysisReportContent` independently. Its
+[ledger](../../internal/contract/report-content/lock.json) pins the PR #123
+source commit, the complete Run API document, the Analysis Report schema,
+the portable cases and their original report bytes. Only that operation is
+selected from Run API 0.9.0. The existing signed distribution continues to
+supply the primary Run API and the other families in the mixed snapshot.
+
+Review the source binding for this operation with:
+
+```sh
+make contract-source-admission CONTRACT_SOURCE=/absolute/path/to/perfeng-contracts CONTRACT_SOURCE_ADMISSION_ARGS='--snapshot=internal/contract/report-content'
+```
+
 ## Trust and rollout limits
 
 This is the C6b source-binding prerequisite. It proves agreement with reviewed

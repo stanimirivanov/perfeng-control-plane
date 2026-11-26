@@ -18,13 +18,16 @@ var ErrResourceShutdown = errors.New("runtime resource shutdown failed")
 // StartupResources contains the external and file-backed dependencies needed
 // for inert service composition. It owns Database and must not be copied.
 type StartupResources struct {
-	Authentication     *authentication.Static
-	Database           Database
-	Registry           *registry.ReportPolicyRegistry
-	ArtifactStorage    *objectstore.S3ArtifactAccess
-	NativeUploadSigner nativeworker.UploadSigner
-	Kubernetes         KubernetesClients
-	ExecutorConfig     KubernetesExecutorConfig
+	Authentication *authentication.Static
+	// NamedReportIdentity selects named authentication exclusively for report
+	// reads when a trusted composition supplies a qualified runtime. Borrowed.
+	NamedReportIdentity *NamedIdentityAuthentication
+	Database            Database
+	Registry            *registry.ReportPolicyRegistry
+	ArtifactStorage     *objectstore.S3ArtifactAccess
+	NativeUploadSigner  nativeworker.UploadSigner
+	Kubernetes          KubernetesClients
+	ExecutorConfig      KubernetesExecutorConfig
 
 	closeOnce sync.Once
 	closeErr  error

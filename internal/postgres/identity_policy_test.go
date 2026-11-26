@@ -40,7 +40,7 @@ func TestIdentityPolicyUpgradeRevocationAndIsolation(t *testing.T) {
 	}
 	check(authentication.ErrUnauthenticated)
 	exec(`INSERT INTO perfeng_control.identity_enrollments VALUES ('https://identity.example/realm','maya','HUMAN',true,'review/356')`)
-	check(authentication.ErrUnauthenticated)
+	check(authentication.ErrDelegationDenied)
 	exec(`INSERT INTO perfeng_control.identity_delegations VALUES ('https://identity.example/realm','maya','client:delegate',true,'review/356')`)
 	check(nil)
 	identity.ActorKind = "CI"
